@@ -2,7 +2,7 @@
 
 from bridge.engine.context import BiddingContext
 from bridge.engine.registry import RuleRegistry
-from bridge.engine.rule import Category, RuleResult
+from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.engine.selector import BidSelector
 from bridge.model.auction import AuctionState, Seat
 from bridge.model.bid import Bid, Strain
@@ -12,7 +12,7 @@ from bridge.model.hand import Hand
 HAND = Hand.from_pbn("AKJ52.KQ3.84.A73")
 
 
-class MockRule:
+class MockRule(Rule):
     """Configurable mock rule for testing the selector."""
 
     def __init__(

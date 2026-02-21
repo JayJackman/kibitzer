@@ -4,11 +4,11 @@ import pytest
 
 from bridge.engine.context import BiddingContext
 from bridge.engine.registry import DuplicateRuleError, RuleRegistry
-from bridge.engine.rule import Category, RuleResult
+from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.model.bid import Bid
 
 
-class MockRule:
+class MockRule(Rule):
     """Configurable mock rule for testing the registry."""
 
     def __init__(

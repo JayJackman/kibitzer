@@ -40,6 +40,16 @@ cli --> service/advisor --> engine (rule-based, deterministic)
 
 Each layer only depends downward. The `service/advisor.py` is the stable API surface.
 
+## SAYC Rule Accuracy
+
+Every bidding rule must be accurate to the official SAYC (Standard American Yellow Card) system as published by the ACBL. The primary reference is the ACBL SAYC System Booklet (SP-3, revised January 2006).
+
+- **Before implementing any rule**, verify the HCP ranges, suit length requirements, shape constraints, and forcing status against the SAYC booklet and the research documents in `research/`.
+- **Do not invent or assume rules.** If the SAYC booklet is silent on a specific situation, note the gap rather than guessing. Common teaching aids (e.g., "open the suit below the singleton" for 4-4-4-1) should be marked as common practice, not official SAYC.
+- **Each rule's `explanation` field and test assertions must cite the specific SAYC guideline** (e.g., "15-17 HCP, balanced — SAYC 1NT opening").
+- **Conventions not in SAYC must not be implemented** unless explicitly noted as extensions. The following are NOT part of standard SAYC: Gambling 3NT, Roman Key Card Blackwood, New Minor Forcing, Drury, Lebensohl, Inverted Minors, Bergen Raises, Splinter Bids.
+- When in doubt, consult: `research/00-overview.md` (system summary), `research/01-opening-bids.md` through `research/06-slam.md` (detailed rules).
+
 ## Code Conventions
 
 - **Never use string-quoted type annotations** like `-> "Foo"`. When forward references are needed, add `from __future__ import annotations` to the file. Only include the import when it's actually necessary (e.g., forward references, self-referencing types).

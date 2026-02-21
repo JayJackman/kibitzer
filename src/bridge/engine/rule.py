@@ -1,10 +1,11 @@
-"""Rule protocol and result type for the bidding engine."""
+"""Rule base class and result type for the bidding engine."""
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import StrEnum, unique
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING
 
 from bridge.model.bid import Bid
 
@@ -37,7 +38,7 @@ class RuleResult:
     forcing: bool = False
 
 
-class Rule(Protocol):
+class Rule(ABC):
     """A rule is the fundamental building block of the bidding engine.
 
     Each rule encodes a single bidding decision: given the current state of the
@@ -67,22 +68,27 @@ class Rule(Protocol):
     """
 
     @property
+    @abstractmethod
     def name(self) -> str:
         """Unique dotted identifier, e.g. 'opening.1nt'."""
 
     @property
+    @abstractmethod
     def category(self) -> Category:
         """Auction phase this rule belongs to."""
 
     @property
+    @abstractmethod
     def priority(self) -> int:
         """Higher wins. Bands: 0-99 fallback, 100-199 general,
         200-299 specific, 300-399 convention, 400-499 strong, 500+ slam.
         Must be unique within a category.
         """
 
+    @abstractmethod
     def applies(self, ctx: BiddingContext) -> bool:
         """Fast boolean pre-filter. Should be cheap (HCP range, shape, etc.)."""
 
+    @abstractmethod
     def select(self, ctx: BiddingContext) -> RuleResult:
         """Produce the bid and metadata. Only called if applies() returned True."""
