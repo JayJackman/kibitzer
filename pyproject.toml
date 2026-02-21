@@ -1,0 +1,65 @@
+[project]
+name = "bridge-bidding-assistant"
+version = "0.1.0"
+description = "A bridge bidding assistant implementing the SAYC bidding system"
+authors = [
+    {name = "Jay Jackman", email = "sjjackman@g.ucla.edu"},
+]
+dependencies = [
+    "typer>=0.9",
+    "rich>=13.0",
+    "pydantic>=2.0",
+    "anthropic>=0.40",
+    "pyyaml>=6.0",
+]
+requires-python = ">=3.12"
+readme = "README.md"
+license = {text = "MIT"}
+
+[project.scripts]
+bridge = "bridge.cli.app:app"
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+[tool.pdm]
+distribution = true
+
+[tool.pdm.dev-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "hypothesis>=6.0",
+    "ruff>=0.8",
+    "mypy>=1.0",
+    "pre-commit>=3.0",
+]
+
+[tool.pdm.scripts]
+test = "pytest tests/"
+test-cov = "pytest tests/ --cov=src/bridge --cov-report=term-missing"
+lint = "ruff check src/ tests/"
+format = "ruff format src/ tests/"
+typecheck = "mypy src/"
+check = {composite = ["lint", "typecheck", "test"]}
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+mypy_path = "src"
+packages = ["bridge"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+strict_markers = true
