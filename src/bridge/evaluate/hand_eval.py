@@ -1,11 +1,15 @@
 """Hand evaluation functions for bridge bidding.
 
 Pure functions that compute standard bridge metrics from a Hand:
-HCP, distribution/length points, quick tricks, losing trick count, controls.
+HCP, distribution/length points, quick tricks, losing trick count, controls,
+suit quality, suit selection, and opening-bid qualification helpers.
 """
 
 from bridge.model.card import SUITS_SHDC, Rank, Suit
 from bridge.model.hand import Hand
+
+_TOP_HONORS = (Rank.ACE, Rank.KING, Rank.QUEEN)
+_TOP_5_HONORS = (Rank.ACE, Rank.KING, Rank.QUEEN, Rank.JACK, Rank.TEN)
 
 
 def hcp(hand: Hand) -> int:
@@ -112,3 +116,64 @@ def losing_trick_count(hand: Hand) -> int:
                 losers -= 1
             total += losers
     return total
+
+
+def quality_suit(hand: Hand, suit: Suit) -> bool:
+    """Whether a suit has reasonable quality for a weak two or preempt.
+
+    Requires 2 of {A, K, Q} or 3 of {A, K, Q, J, T}.
+    """
+    top_3 = sum(1 for r in _TOP_HONORS if hand.has_card(suit, r))
+    if top_3 >= 2:
+        return True
+    top_5 = sum(1 for r in _TOP_5_HONORS if hand.has_card(suit, r))
+    return top_5 >= 3
+
+
+def best_major(hand: Hand) -> Suit | None:
+    """Longest 5+ card major, or None. Spades wins ties."""
+    s_len = hand.suit_length(Suit.SPADES)
+    h_len = hand.suit_length(Suit.HEARTS)
+    if s_len < 5 and h_len < 5:
+        return None
+    if s_len >= h_len:
+        return Suit.SPADES
+    return Suit.HEARTS
+
+
+def best_minor(hand: Hand) -> Suit:
+    """Minor suit to open per SAYC rules.
+
+    - Longer minor wins.
+    - 4-4 in minors: open 1D.
+    - 3-3 in minors: open 1C.
+    """
+    d_len = hand.suit_length(Suit.DIAMONDS)
+    c_len = hand.suit_length(Suit.CLUBS)
+    if d_len > c_len:
+        return Suit.DIAMONDS
+    if c_len > d_len:
+        return Suit.CLUBS
+    # Equal length: 4-4 → 1D, 3-3 → 1C
+    if d_len >= 4:
+        return Suit.DIAMONDS
+    return Suit.CLUBS
+
+
+def has_outside_four_card_major(hand: Hand, exclude: Suit) -> bool:
+    """Whether the hand has a 4+ card major other than the excluded suit."""
+    for suit in (Suit.SPADES, Suit.HEARTS):
+        if suit != exclude and hand.suit_length(suit) >= 4:
+            return True
+    return False
+
+
+def rule_of_20(hand: Hand, hand_hcp: int) -> bool:
+    """Rule of 20: HCP + lengths of two longest suits >= 20."""
+    lengths = sorted(hand.shape, reverse=True)
+    return hand_hcp + lengths[0] + lengths[1] >= 20
+
+
+def rule_of_15(hand: Hand, hand_hcp: int) -> bool:
+    """Rule of 15 (4th seat): HCP + number of spades >= 15."""
+    return hand_hcp + hand.suit_length(Suit.SPADES) >= 15
