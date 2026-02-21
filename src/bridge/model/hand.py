@@ -38,6 +38,8 @@ class Hand:
 
     def suit_cards(self, suit: Suit) -> tuple[Card, ...]:
         """Cards in a suit, sorted high to low by rank."""
+        if suit == Suit.NOTRUMP:
+            raise ValueError("Cannot get cards for NOTRUMP")
         return tuple(
             sorted(
                 (c for c in self.cards if c.suit == suit),
@@ -48,6 +50,8 @@ class Hand:
 
     def suit_length(self, suit: Suit) -> int:
         """Number of cards in a suit."""
+        if suit == Suit.NOTRUMP:
+            raise ValueError("Cannot get length for NOTRUMP")
         return sum(1 for c in self.cards if c.suit == suit)
 
     @property

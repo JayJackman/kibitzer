@@ -2,7 +2,7 @@
 
 from bridge.engine.context import BiddingContext
 from bridge.model.auction import AuctionState, Seat, Vulnerability
-from bridge.model.bid import Bid, Strain
+from bridge.model.bid import Bid
 from bridge.model.board import Board
 from bridge.model.card import Suit
 from bridge.model.hand import Hand
@@ -82,7 +82,7 @@ class TestBiddingContextFromBoard:
 
     def test_after_partner_opens(self) -> None:
         auction = AuctionState(dealer=Seat.NORTH)
-        auction.add_bid(Bid.suit_bid(1, Strain.HEARTS))  # N opens 1H
+        auction.add_bid(Bid.suit_bid(1, Suit.HEARTS))  # N opens 1H
         auction.add_bid(Bid.make_pass())  # E passes
 
         board = Board(hand=BALANCED, seat=Seat.SOUTH, auction=auction)
@@ -98,8 +98,8 @@ class TestBiddingContextFromBoard:
 
     def test_after_rho_overcalls(self) -> None:
         auction = AuctionState(dealer=Seat.NORTH)
-        auction.add_bid(Bid.suit_bid(1, Strain.HEARTS))  # N opens 1H
-        auction.add_bid(Bid.suit_bid(1, Strain.SPADES))  # E overcalls 1S
+        auction.add_bid(Bid.suit_bid(1, Suit.HEARTS))  # N opens 1H
+        auction.add_bid(Bid.suit_bid(1, Suit.SPADES))  # E overcalls 1S
 
         board = Board(hand=BALANCED, seat=Seat.SOUTH, auction=auction)
         ctx = BiddingContext(board)
@@ -110,9 +110,9 @@ class TestBiddingContextFromBoard:
 
     def test_my_bids_tracks_non_pass(self) -> None:
         auction = AuctionState(dealer=Seat.NORTH)
-        auction.add_bid(Bid.suit_bid(1, Strain.HEARTS))  # N opens 1H
+        auction.add_bid(Bid.suit_bid(1, Suit.HEARTS))  # N opens 1H
         auction.add_bid(Bid.make_pass())  # E
-        auction.add_bid(Bid.suit_bid(2, Strain.HEARTS))  # S raises
+        auction.add_bid(Bid.suit_bid(2, Suit.HEARTS))  # S raises
         auction.add_bid(Bid.make_pass())  # W
 
         board = Board(hand=BALANCED, seat=Seat.NORTH, auction=auction)

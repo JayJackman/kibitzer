@@ -3,7 +3,7 @@
 from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.evaluate import best_major, best_minor, rule_of_15, rule_of_20
-from bridge.model.bid import Bid, Strain
+from bridge.model.bid import Bid
 
 
 def _meets_opening_strength(ctx: BiddingContext) -> bool:
@@ -51,9 +51,8 @@ class Open1Major(Rule):
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = best_major(ctx.hand)
         assert suit is not None
-        strain = Strain.from_suit(suit)
         return RuleResult(
-            bid=Bid.suit_bid(1, strain),
+            bid=Bid.suit_bid(1, suit),
             rule_name=self.name,
             explanation=f"5+ card {suit.letter}, opening strength — SAYC 1-major",
         )
@@ -94,9 +93,8 @@ class Open1Minor(Rule):
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = best_minor(ctx.hand)
-        strain = Strain.from_suit(suit)
         return RuleResult(
-            bid=Bid.suit_bid(1, strain),
+            bid=Bid.suit_bid(1, suit),
             rule_name=self.name,
             explanation=(
                 f"Opening strength, no 5+ major, best minor {suit.letter}"

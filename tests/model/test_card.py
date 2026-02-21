@@ -8,30 +8,35 @@ from bridge.model.card import Card, Rank, Suit
 class TestSuit:
     def test_ordering(self) -> None:
         assert Suit.CLUBS < Suit.DIAMONDS < Suit.HEARTS < Suit.SPADES
+        assert Suit.SPADES < Suit.NOTRUMP
 
     def test_is_major(self) -> None:
         assert Suit.HEARTS.is_major
         assert Suit.SPADES.is_major
         assert not Suit.CLUBS.is_major
         assert not Suit.DIAMONDS.is_major
+        assert not Suit.NOTRUMP.is_major
 
     def test_is_minor(self) -> None:
         assert Suit.CLUBS.is_minor
         assert Suit.DIAMONDS.is_minor
         assert not Suit.HEARTS.is_minor
         assert not Suit.SPADES.is_minor
+        assert not Suit.NOTRUMP.is_minor
 
     def test_str_is_symbol(self) -> None:
         assert str(Suit.CLUBS) == "♣"
         assert str(Suit.DIAMONDS) == "♦"
         assert str(Suit.HEARTS) == "♥"
         assert str(Suit.SPADES) == "♠"
+        assert str(Suit.NOTRUMP) == "NT"
 
     def test_letter(self) -> None:
         assert Suit.CLUBS.letter == "C"
         assert Suit.DIAMONDS.letter == "D"
         assert Suit.HEARTS.letter == "H"
         assert Suit.SPADES.letter == "S"
+        assert Suit.NOTRUMP.letter == "NT"
 
     def test_from_letter(self) -> None:
         assert Suit.from_letter("C") == Suit.CLUBS

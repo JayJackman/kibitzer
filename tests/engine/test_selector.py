@@ -5,8 +5,9 @@ from bridge.engine.registry import RuleRegistry
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.engine.selector import BidSelector
 from bridge.model.auction import AuctionState, Seat
-from bridge.model.bid import Bid, Strain
+from bridge.model.bid import Bid
 from bridge.model.board import Board
+from bridge.model.card import Suit
 from bridge.model.hand import Hand
 
 HAND = Hand.from_pbn("AKJ52.KQ3.84.A73")
@@ -77,7 +78,7 @@ class TestPhaseDetection:
     def test_response(self) -> None:
         # Partner (N) opens 1H, opponent (E) passes, my turn (S)
         auction = AuctionState(dealer=Seat.NORTH)
-        auction.add_bid(Bid.suit_bid(1, Strain.HEARTS))  # N opens
+        auction.add_bid(Bid.suit_bid(1, Suit.HEARTS))  # N opens
         auction.add_bid(Bid.make_pass())  # E passes
 
         ctx = _make_ctx(Seat.SOUTH, auction)
@@ -88,8 +89,8 @@ class TestPhaseDetection:
     def test_competitive_response(self) -> None:
         # Partner (N) opens 1H, opponent (E) overcalls 1S, my turn (S)
         auction = AuctionState(dealer=Seat.NORTH)
-        auction.add_bid(Bid.suit_bid(1, Strain.HEARTS))  # N opens
-        auction.add_bid(Bid.suit_bid(1, Strain.SPADES))  # E overcalls
+        auction.add_bid(Bid.suit_bid(1, Suit.HEARTS))  # N opens
+        auction.add_bid(Bid.suit_bid(1, Suit.SPADES))  # E overcalls
 
         ctx = _make_ctx(Seat.SOUTH, auction)
         selector = BidSelector(RuleRegistry())
@@ -99,9 +100,9 @@ class TestPhaseDetection:
     def test_rebid_opener(self) -> None:
         # I (N) opened 1H, E passes, partner (S) responds 2H, W passes
         auction = AuctionState(dealer=Seat.NORTH)
-        auction.add_bid(Bid.suit_bid(1, Strain.HEARTS))  # N opens
+        auction.add_bid(Bid.suit_bid(1, Suit.HEARTS))  # N opens
         auction.add_bid(Bid.make_pass())  # E
-        auction.add_bid(Bid.suit_bid(2, Strain.HEARTS))  # S responds
+        auction.add_bid(Bid.suit_bid(2, Suit.HEARTS))  # S responds
         auction.add_bid(Bid.make_pass())  # W
 
         ctx = _make_ctx(Seat.NORTH, auction)
@@ -113,11 +114,11 @@ class TestPhaseDetection:
         # Partner (N) opened 1H, E passes, I (S) responded 1S,
         # W passes, partner (N) rebids 2H, E passes, my turn (S)
         auction = AuctionState(dealer=Seat.NORTH)
-        auction.add_bid(Bid.suit_bid(1, Strain.HEARTS))  # N opens
+        auction.add_bid(Bid.suit_bid(1, Suit.HEARTS))  # N opens
         auction.add_bid(Bid.make_pass())  # E
-        auction.add_bid(Bid.suit_bid(1, Strain.SPADES))  # S responds
+        auction.add_bid(Bid.suit_bid(1, Suit.SPADES))  # S responds
         auction.add_bid(Bid.make_pass())  # W
-        auction.add_bid(Bid.suit_bid(2, Strain.HEARTS))  # N rebids
+        auction.add_bid(Bid.suit_bid(2, Suit.HEARTS))  # N rebids
         auction.add_bid(Bid.make_pass())  # E
 
         ctx = _make_ctx(Seat.SOUTH, auction)
@@ -128,7 +129,7 @@ class TestPhaseDetection:
     def test_competitive(self) -> None:
         # Opponent (N) opens 1H, my turn (E)
         auction = AuctionState(dealer=Seat.NORTH)
-        auction.add_bid(Bid.suit_bid(1, Strain.HEARTS))  # N opens
+        auction.add_bid(Bid.suit_bid(1, Suit.HEARTS))  # N opens
 
         ctx = _make_ctx(Seat.EAST, auction)
         selector = BidSelector(RuleRegistry())
@@ -144,7 +145,7 @@ class TestBidSelector:
                 "opening.1suit",
                 Category.OPENING,
                 100,
-                bid=Bid.suit_bid(1, Strain.SPADES),
+                bid=Bid.suit_bid(1, Suit.SPADES),
             )
         )
         reg.register(
@@ -152,7 +153,7 @@ class TestBidSelector:
                 "opening.1nt",
                 Category.OPENING,
                 200,
-                bid=Bid.suit_bid(1, Strain.NOTRUMP),
+                bid=Bid.suit_bid(1, Suit.NOTRUMP),
             )
         )
 
@@ -171,7 +172,7 @@ class TestBidSelector:
                 "opening.2c",
                 Category.OPENING,
                 400,
-                bid=Bid.suit_bid(2, Strain.CLUBS),
+                bid=Bid.suit_bid(2, Suit.CLUBS),
                 should_apply=False,
             )
         )
@@ -180,7 +181,7 @@ class TestBidSelector:
                 "opening.1suit",
                 Category.OPENING,
                 100,
-                bid=Bid.suit_bid(1, Strain.SPADES),
+                bid=Bid.suit_bid(1, Suit.SPADES),
             )
         )
 
@@ -221,7 +222,7 @@ class TestBidSelector:
                 "opening.1suit",
                 Category.OPENING,
                 100,
-                bid=Bid.suit_bid(1, Strain.SPADES),
+                bid=Bid.suit_bid(1, Suit.SPADES),
             )
         )
         # High-priority convention overlay
@@ -230,7 +231,7 @@ class TestBidSelector:
                 "convention.stayman",
                 Category.CONVENTION,
                 350,
-                bid=Bid.suit_bid(2, Strain.CLUBS),
+                bid=Bid.suit_bid(2, Suit.CLUBS),
             )
         )
 
@@ -249,7 +250,7 @@ class TestBidSelector:
                 "opening.1suit",
                 Category.OPENING,
                 100,
-                bid=Bid.suit_bid(1, Strain.SPADES),
+                bid=Bid.suit_bid(1, Suit.SPADES),
             )
         )
         reg.register(
@@ -257,7 +258,7 @@ class TestBidSelector:
                 "slam.blackwood",
                 Category.SLAM,
                 500,
-                bid=Bid.suit_bid(4, Strain.NOTRUMP),
+                bid=Bid.suit_bid(4, Suit.NOTRUMP),
             )
         )
 
@@ -277,7 +278,7 @@ class TestCandidates:
                 "opening.1suit",
                 Category.OPENING,
                 100,
-                bid=Bid.suit_bid(1, Strain.SPADES),
+                bid=Bid.suit_bid(1, Suit.SPADES),
             )
         )
         reg.register(
@@ -285,7 +286,7 @@ class TestCandidates:
                 "opening.1nt",
                 Category.OPENING,
                 200,
-                bid=Bid.suit_bid(1, Strain.NOTRUMP),
+                bid=Bid.suit_bid(1, Suit.NOTRUMP),
             )
         )
         reg.register(

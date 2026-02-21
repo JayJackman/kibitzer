@@ -1,7 +1,7 @@
 """Domain model for bridge bidding."""
 
 from .auction import AuctionState, IllegalBidError, Seat, Vulnerability
-from .bid import Bid, BidType, Strain, parse_bid
+from .bid import Bid, BidType, parse_bid
 from .board import Board
 from .card import Card, Rank, Suit
 from .hand import Hand
@@ -16,7 +16,6 @@ __all__ = [
     "IllegalBidError",
     "Rank",
     "Seat",
-    "Strain",
     "Suit",
     "Vulnerability",
     "parse_bid",

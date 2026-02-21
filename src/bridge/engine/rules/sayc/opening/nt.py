@@ -2,7 +2,8 @@
 
 from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
-from bridge.model.bid import Bid, Strain
+from bridge.model.bid import Bid
+from bridge.model.card import Suit
 
 
 class Open1NT(Rule):
@@ -28,7 +29,7 @@ class Open1NT(Rule):
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
-            bid=Bid.suit_bid(1, Strain.NOTRUMP),
+            bid=Bid.suit_bid(1, Suit.NOTRUMP),
             rule_name=self.name,
             explanation="15-17 HCP, balanced — SAYC 1NT opening",
         )
@@ -57,7 +58,7 @@ class Open2NT(Rule):
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
-            bid=Bid.suit_bid(2, Strain.NOTRUMP),
+            bid=Bid.suit_bid(2, Suit.NOTRUMP),
             rule_name=self.name,
             explanation="20-21 HCP, balanced — SAYC 2NT opening",
         )

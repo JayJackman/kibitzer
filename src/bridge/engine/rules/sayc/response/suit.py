@@ -10,7 +10,7 @@ from __future__ import annotations
 from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.evaluate import support_points
-from bridge.model.bid import Bid, Strain
+from bridge.model.bid import Bid
 from bridge.model.card import Suit
 
 # ── Helpers ─────────────────────────────────────────────────────────
@@ -26,39 +26,33 @@ def _opening_bid(ctx: BiddingContext) -> Bid:
     return ctx.opening_bid[1]
 
 
-def _opener_strain(ctx: BiddingContext) -> Strain:
-    """Return the strain partner opened.
+def _opener_suit(ctx: BiddingContext) -> Suit:
+    """Return the suit (or NOTRUMP) partner opened.
 
-    An opening bid is always a suit bid (never pass/double), so strain
+    An opening bid is always a suit bid (never pass/double), so suit
     is guaranteed non-None.
     """
     bid = _opening_bid(ctx)
-    assert bid.strain is not None
-    return bid.strain
-
-
-def _opener_suit(ctx: BiddingContext) -> Suit | None:
-    """Return the suit partner opened, or None if opener bid NT."""
-    strain = _opener_strain(ctx)
-    return None if strain == Strain.NOTRUMP else Suit(strain)
+    assert bid.suit is not None
+    return bid.suit
 
 
 def _opened_1_suit(ctx: BiddingContext) -> bool:
     """Whether partner opened 1 of any suit (not NT)."""
     bid = _opening_bid(ctx)
-    return bid.level == 1 and bid.strain is not None and bid.strain != Strain.NOTRUMP
+    return bid.level == 1 and bid.suit is not None and bid.suit != Suit.NOTRUMP
 
 
 def _opened_1_major(ctx: BiddingContext) -> bool:
     """Whether partner opened 1H or 1S."""
     bid = _opening_bid(ctx)
-    return bid.level == 1 and bid.strain is not None and bid.strain.is_major
+    return bid.level == 1 and bid.suit is not None and bid.suit.is_major
 
 
 def _opened_1_minor(ctx: BiddingContext) -> bool:
     """Whether partner opened 1C or 1D."""
     bid = _opening_bid(ctx)
-    return bid.level == 1 and bid.strain is not None and bid.strain.is_minor
+    return bid.level == 1 and bid.suit is not None and bid.suit.is_minor
 
 
 def _has_4_card_major(ctx: BiddingContext) -> bool:
@@ -73,29 +67,26 @@ def _adequate_minor_support(ctx: BiddingContext) -> bool:
     SAYC: 4+ for diamonds, 5+ for clubs.
     """
     suit = _opener_suit(ctx)
-    if suit is None:
-        return False
     length = ctx.hand.suit_length(suit)
     if suit == Suit.DIAMONDS:
         return length >= 4
     return length >= 5  # clubs
 
 
-def _find_new_suit_1_level(ctx: BiddingContext) -> Strain | None:
+def _find_new_suit_1_level(ctx: BiddingContext) -> Suit | None:
     """Find cheapest 4+ card suit biddable at the 1-level above opener's bid.
 
-    Searches up the line from just above opener's strain.
+    Searches up the line from just above opener's suit.
     """
-    opener = _opener_strain(ctx)
+    opener = _opener_suit(ctx)
     hand = ctx.hand
-    # Suits higher than opener's strain at 1-level
-    for strain in (Strain.DIAMONDS, Strain.HEARTS, Strain.SPADES):
-        if strain > opener and hand.suit_length(Suit(strain)) >= 4:
-            return strain
+    for suit in (Suit.DIAMONDS, Suit.HEARTS, Suit.SPADES):
+        if suit > opener and hand.suit_length(suit) >= 4:
+            return suit
     return None
 
 
-def _find_2_over_1_suit(ctx: BiddingContext) -> Strain | None:
+def _find_2_over_1_suit(ctx: BiddingContext) -> Suit | None:
     """Find the best suit for a 2-over-1 response.
 
     A 2-over-1 bid is a new suit that ranks LOWER than opener's suit,
@@ -107,45 +98,45 @@ def _find_2_over_1_suit(ctx: BiddingContext) -> Strain | None:
     Over 1H: 2C, 2D.
     Over 1S: 2C, 2D, 2H.
     """
-    opener = _opener_strain(ctx)
+    opener = _opener_suit(ctx)
     hand = ctx.hand
-    best: Strain | None = None
+    best: Suit | None = None
     best_len = 0
-    for strain in (Strain.CLUBS, Strain.DIAMONDS, Strain.HEARTS):
-        if strain < opener:
-            length = hand.suit_length(Suit(strain))
+    for suit in (Suit.CLUBS, Suit.DIAMONDS, Suit.HEARTS):
+        if suit < opener:
+            length = hand.suit_length(suit)
             if length >= 4 and length > best_len:
-                best = strain
+                best = suit
                 best_len = length
     return best
 
 
-def _find_jump_shift_suit(ctx: BiddingContext) -> Strain | None:
+def _find_jump_shift_suit(ctx: BiddingContext) -> Suit | None:
     """Find the best suit for a jump shift response.
 
     Bid the longest new suit; with ties, bid the higher-ranking.
     Jump shifts can be in any suit (higher or lower than opener's).
     """
-    opener = _opener_strain(ctx)
+    opener = _opener_suit(ctx)
     hand = ctx.hand
-    best: Strain | None = None
+    best: Suit | None = None
     best_len = 0
-    for strain in (Strain.CLUBS, Strain.DIAMONDS, Strain.HEARTS, Strain.SPADES):
-        if strain == opener:
+    for suit in (Suit.CLUBS, Suit.DIAMONDS, Suit.HEARTS, Suit.SPADES):
+        if suit == opener:
             continue
-        length = hand.suit_length(Suit(strain))
+        length = hand.suit_length(suit)
         if length >= 4 and (
             length > best_len
-            or (length == best_len and best is not None and strain > best)
+            or (length == best_len and best is not None and suit > best)
         ):
-            best = strain
+            best = suit
             best_len = length
     return best
 
 
-def _jump_level(opener_strain: Strain, new_strain: Strain) -> int:
+def _jump_level(opener_suit: Suit, new_suit: Suit) -> int:
     """Calculate the level for a jump shift (one level above a simple bid)."""
-    if new_strain > opener_strain:
+    if new_suit > opener_suit:
         return 2  # e.g., 1H→2S (jump over simple 1S)
     return 3  # e.g., 1H→3C, 1S→3H (jump over 2-level)
 
@@ -180,14 +171,14 @@ class RespondJumpShift(Rule):
         return _find_jump_shift_suit(ctx) is not None
 
     def select(self, ctx: BiddingContext) -> RuleResult:
-        strain = _find_jump_shift_suit(ctx)
-        assert strain is not None
-        level = _jump_level(_opener_strain(ctx), strain)
+        suit = _find_jump_shift_suit(ctx)
+        assert suit is not None
+        level = _jump_level(_opener_suit(ctx), suit)
         return RuleResult(
-            bid=Bid.suit_bid(level, strain),
+            bid=Bid.suit_bid(level, suit),
             rule_name=self.name,
             explanation=(
-                f"19+ HCP, {strain.letter} suit — SAYC jump shift, slam invitational"
+                f"19+ HCP, {suit.letter} suit — SAYC jump shift, slam invitational"
             ),
             forcing=True,
         )
@@ -224,13 +215,13 @@ class RespondNewSuit1Level(Rule):
         return _find_new_suit_1_level(ctx) is not None
 
     def select(self, ctx: BiddingContext) -> RuleResult:
-        strain = _find_new_suit_1_level(ctx)
-        assert strain is not None
+        suit = _find_new_suit_1_level(ctx)
+        assert suit is not None
         return RuleResult(
-            bid=Bid.suit_bid(1, strain),
+            bid=Bid.suit_bid(1, suit),
             rule_name=self.name,
             explanation=(
-                f"4+ card {strain.letter}, 6+ HCP — SAYC new suit at 1-level, forcing"
+                f"4+ card {suit.letter}, 6+ HCP — SAYC new suit at 1-level, forcing"
             ),
             forcing=True,
         )
@@ -263,13 +254,13 @@ class Respond2Over1(Rule):
         return _find_2_over_1_suit(ctx) is not None
 
     def select(self, ctx: BiddingContext) -> RuleResult:
-        strain = _find_2_over_1_suit(ctx)
-        assert strain is not None
+        suit = _find_2_over_1_suit(ctx)
+        assert suit is not None
         return RuleResult(
-            bid=Bid.suit_bid(2, strain),
+            bid=Bid.suit_bid(2, suit),
             rule_name=self.name,
             explanation=(
-                f"10+ HCP, 4+ card {strain.letter} — SAYC 2-over-1, forcing one round"
+                f"10+ HCP, 4+ card {suit.letter} — SAYC 2-over-1, forcing one round"
             ),
             forcing=True,
         )
@@ -329,14 +320,13 @@ class RespondJacoby2NT(Rule):
         if not _opened_1_major(ctx):
             return False
         suit = _opener_suit(ctx)
-        assert suit is not None
         if ctx.hand.suit_length(suit) < 4:
             return False
         return support_points(ctx.hand, suit) >= 13
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
-            bid=Bid.suit_bid(2, Strain.NOTRUMP),
+            bid=Bid.suit_bid(2, Suit.NOTRUMP),
             rule_name=self.name,
             explanation=(
                 "4+ card support, 13+ support points — SAYC Jacoby 2NT, game forcing"
@@ -368,7 +358,6 @@ class RespondGameRaiseMajor(Rule):
         if not _opened_1_major(ctx):
             return False
         suit = _opener_suit(ctx)
-        assert suit is not None
         if ctx.hand.suit_length(suit) < 5:
             return False
         if ctx.hcp >= 10:
@@ -381,7 +370,7 @@ class RespondGameRaiseMajor(Rule):
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
-            bid=Bid.suit_bid(4, _opener_strain(ctx)),
+            bid=Bid.suit_bid(4, _opener_suit(ctx)),
             rule_name=self.name,
             explanation=(
                 "5+ card support, singleton/void, <10 HCP — SAYC preemptive game raise"
@@ -411,14 +400,13 @@ class Respond3NTOverMajor(Rule):
         if not _opened_1_major(ctx):
             return False
         suit = _opener_suit(ctx)
-        assert suit is not None
         if ctx.hand.suit_length(suit) != 2:
             return False
         return 15 <= ctx.hcp <= 17 and ctx.is_balanced
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
-            bid=Bid.suit_bid(3, Strain.NOTRUMP),
+            bid=Bid.suit_bid(3, Suit.NOTRUMP),
             rule_name=self.name,
             explanation=("15-17 HCP, balanced, 2-card support — SAYC 3NT over major"),
         )
@@ -446,14 +434,13 @@ class RespondLimitRaiseMajor(Rule):
         if not _opened_1_major(ctx):
             return False
         suit = _opener_suit(ctx)
-        assert suit is not None
         if ctx.hand.suit_length(suit) < 3:
             return False
         return 10 <= support_points(ctx.hand, suit) <= 12
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
-            bid=Bid.suit_bid(3, _opener_strain(ctx)),
+            bid=Bid.suit_bid(3, _opener_suit(ctx)),
             rule_name=self.name,
             explanation=(
                 "3+ card support, 10-12 support points — SAYC limit raise, invitational"
@@ -483,14 +470,13 @@ class RespondSingleRaiseMajor(Rule):
         if not _opened_1_major(ctx):
             return False
         suit = _opener_suit(ctx)
-        assert suit is not None
         if ctx.hand.suit_length(suit) < 3:
             return False
         return 6 <= support_points(ctx.hand, suit) <= 10
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
-            bid=Bid.suit_bid(2, _opener_strain(ctx)),
+            bid=Bid.suit_bid(2, _opener_suit(ctx)),
             rule_name=self.name,
             explanation=("3+ card support, 6-10 support points — SAYC single raise"),
         )
@@ -520,13 +506,11 @@ class Respond1NTOverMajor(Rule):
             return False
         if not (6 <= ctx.hcp <= 10):
             return False
-        suit = _opener_suit(ctx)
-        assert suit is not None
-        return ctx.hand.suit_length(suit) < 3
+        return ctx.hand.suit_length(_opener_suit(ctx)) < 3
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
-            bid=Bid.suit_bid(1, Strain.NOTRUMP),
+            bid=Bid.suit_bid(1, Suit.NOTRUMP),
             rule_name=self.name,
             explanation=("6-10 HCP, no 3+ support — SAYC 1NT response, non-forcing"),
         )
@@ -564,7 +548,7 @@ class Respond3NTOverMinor(Rule):
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
-            bid=Bid.suit_bid(3, Strain.NOTRUMP),
+            bid=Bid.suit_bid(3, Suit.NOTRUMP),
             rule_name=self.name,
             explanation=("16-18 HCP, balanced, no 4-card major — SAYC 3NT over minor"),
         )
@@ -599,7 +583,7 @@ class Respond2NTOverMinor(Rule):
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
-            bid=Bid.suit_bid(2, Strain.NOTRUMP),
+            bid=Bid.suit_bid(2, Suit.NOTRUMP),
             rule_name=self.name,
             explanation=(
                 "13-15 HCP, balanced, no 4-card major"
@@ -639,7 +623,7 @@ class RespondLimitRaiseMinor(Rule):
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
-            bid=Bid.suit_bid(3, _opener_strain(ctx)),
+            bid=Bid.suit_bid(3, _opener_suit(ctx)),
             rule_name=self.name,
             explanation=(
                 "10-12 HCP, adequate support — SAYC limit raise of minor, invitational"
@@ -677,7 +661,7 @@ class RespondSingleRaiseMinor(Rule):
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
-            bid=Bid.suit_bid(2, _opener_strain(ctx)),
+            bid=Bid.suit_bid(2, _opener_suit(ctx)),
             rule_name=self.name,
             explanation=(
                 "6-10 HCP, adequate support, no 4-card major"
@@ -713,7 +697,7 @@ class Respond1NTOverMinor(Rule):
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
-            bid=Bid.suit_bid(1, Strain.NOTRUMP),
+            bid=Bid.suit_bid(1, Suit.NOTRUMP),
             rule_name=self.name,
             explanation=(
                 "6-10 HCP, no 4-card major — SAYC 1NT over minor, non-forcing"

@@ -9,51 +9,6 @@ from .card import Suit
 
 
 @unique
-class Strain(IntEnum):
-    """Strain for bids, including notrump."""
-
-    CLUBS = 1
-    DIAMONDS = 2
-    HEARTS = 3
-    SPADES = 4
-    NOTRUMP = 5
-
-    @property
-    def is_major(self) -> bool:
-        return self in (Strain.HEARTS, Strain.SPADES)
-
-    @property
-    def is_minor(self) -> bool:
-        return self in (Strain.CLUBS, Strain.DIAMONDS)
-
-    @classmethod
-    def from_suit(cls, suit: Suit) -> Strain:
-        """Convert a card Suit to a bid Strain."""
-        return cls(suit.value)
-
-    def __str__(self) -> str:
-        if self == Strain.NOTRUMP:
-            return "NT"
-        return {
-            Strain.CLUBS: "♣",
-            Strain.DIAMONDS: "♦",
-            Strain.HEARTS: "♥",
-            Strain.SPADES: "♠",
-        }[self]
-
-    @property
-    def letter(self) -> str:
-        """Short letter code for parsing: C, D, H, S, NT."""
-        return {
-            Strain.CLUBS: "C",
-            Strain.DIAMONDS: "D",
-            Strain.HEARTS: "H",
-            Strain.SPADES: "S",
-            Strain.NOTRUMP: "NT",
-        }[self]
-
-
-@unique
 class BidType(IntEnum):
     """The type of bid action."""
 
@@ -67,24 +22,24 @@ class BidType(IntEnum):
 class Bid:
     """A single bid in the auction.
 
-    For suit bids, level (1-7) and strain are required.
-    For Pass/Double/Redouble, level and strain must be None.
+    For suit bids, level (1-7) and suit are required.
+    For Pass/Double/Redouble, level and suit must be None.
     """
 
     bid_type: BidType
     level: int | None = None
-    strain: Strain | None = None
+    suit: Suit | None = None
 
     def __post_init__(self) -> None:
         if self.bid_type == BidType.SUIT:
-            if self.level is None or self.strain is None:
-                raise ValueError("Suit bids require level and strain")
+            if self.level is None or self.suit is None:
+                raise ValueError("Suit bids require level and suit")
             if not 1 <= self.level <= 7:
                 raise ValueError(f"Bid level must be 1-7, got {self.level}")
         else:
-            if self.level is not None or self.strain is not None:
+            if self.level is not None or self.suit is not None:
                 raise ValueError(
-                    f"{self.bid_type.name} bids must not have level or strain"
+                    f"{self.bid_type.name} bids must not have level or suit"
                 )
 
     @property
@@ -108,8 +63,8 @@ class Bid:
         """
         if self.bid_type != BidType.SUIT:
             raise TypeError(f"Cannot compare {self.bid_type.name} with suit bids")
-        assert self.level is not None and self.strain is not None
-        return self.level * 10 + self.strain.value
+        assert self.level is not None and self.suit is not None
+        return self.level * 10 + self.suit.value
 
     def __lt__(self, other: object) -> bool:
         """Compare suit bids for auction legality."""
@@ -139,8 +94,8 @@ class Bid:
             return "X"
         if self.bid_type == BidType.REDOUBLE:
             return "XX"
-        assert self.level is not None and self.strain is not None
-        return f"{self.level}{self.strain.letter}"
+        assert self.level is not None and self.suit is not None
+        return f"{self.level}{self.suit.letter}"
 
     def __repr__(self) -> str:
         return f"Bid({self})"
@@ -160,19 +115,19 @@ class Bid:
         return cls(BidType.REDOUBLE)
 
     @classmethod
-    def suit_bid(cls, level: int, strain: Strain) -> Bid:
-        return cls(BidType.SUIT, level, strain)
+    def suit_bid(cls, level: int, suit: Suit) -> Bid:
+        return cls(BidType.SUIT, level, suit)
 
 
 # --- Parsing ---
 
-_STRAIN_MAP = {
-    "C": Strain.CLUBS,
-    "D": Strain.DIAMONDS,
-    "H": Strain.HEARTS,
-    "S": Strain.SPADES,
-    "NT": Strain.NOTRUMP,
-    "N": Strain.NOTRUMP,
+_SUIT_MAP = {
+    "C": Suit.CLUBS,
+    "D": Suit.DIAMONDS,
+    "H": Suit.HEARTS,
+    "S": Suit.SPADES,
+    "NT": Suit.NOTRUMP,
+    "N": Suit.NOTRUMP,
 }
 
 
@@ -195,9 +150,9 @@ def parse_bid(text: str) -> Bid:
         raise ValueError(f"Invalid bid: {text!r}")
 
     level = int(text[0])
-    strain_str = text[1:]
+    suit_str = text[1:]
 
-    if strain_str not in _STRAIN_MAP:
-        raise ValueError(f"Invalid strain in bid: {text!r}")
+    if suit_str not in _SUIT_MAP:
+        raise ValueError(f"Invalid suit in bid: {text!r}")
 
-    return Bid.suit_bid(level, _STRAIN_MAP[strain_str])
+    return Bid.suit_bid(level, _SUIT_MAP[suit_str])

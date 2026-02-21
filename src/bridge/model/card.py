@@ -6,19 +6,20 @@ from dataclasses import dataclass
 from enum import IntEnum, unique
 from functools import total_ordering
 
-_SUIT_SYMBOLS = {1: "♣", 2: "♦", 3: "♥", 4: "♠"}
-_SUIT_LETTERS = {1: "C", 2: "D", 3: "H", 4: "S"}
+_SUIT_SYMBOLS = {1: "♣", 2: "♦", 3: "♥", 4: "♠", 5: "NT"}
+_SUIT_LETTERS = {1: "C", 2: "D", 3: "H", 4: "S", 5: "NT"}
 _RANK_CHARS = {10: "T", 11: "J", 12: "Q", 13: "K", 14: "A"}
 
 
 @unique
 class Suit(IntEnum):
-    """Suits ordered by rank for bidding purposes."""
+    """Suits ordered by rank for bidding purposes, plus NOTRUMP for bids."""
 
     CLUBS = 1
     DIAMONDS = 2
     HEARTS = 3
     SPADES = 4
+    NOTRUMP = 5
 
     @property
     def is_major(self) -> bool:
@@ -30,7 +31,7 @@ class Suit(IntEnum):
 
     @property
     def letter(self) -> str:
-        """Single-letter abbreviation for parsing: C, D, H, S."""
+        """Short abbreviation for parsing: C, D, H, S, NT."""
         return _SUIT_LETTERS[self.value]
 
     def __str__(self) -> str:

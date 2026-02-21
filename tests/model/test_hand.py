@@ -73,6 +73,12 @@ class TestHandQueries:
         assert hand.suit_length(Suit.DIAMONDS) == 2
         assert hand.suit_length(Suit.CLUBS) == 3
 
+    def test_notrump_raises(self, hand: Hand) -> None:
+        with pytest.raises(ValueError, match="Cannot get cards for NOTRUMP"):
+            hand.suit_cards(Suit.NOTRUMP)
+        with pytest.raises(ValueError, match="Cannot get length for NOTRUMP"):
+            hand.suit_length(Suit.NOTRUMP)
+
     def test_shape(self, hand: Hand) -> None:
         assert hand.shape == (5, 3, 2, 3)  # S, H, D, C
 

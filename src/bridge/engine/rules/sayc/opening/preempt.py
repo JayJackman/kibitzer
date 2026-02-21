@@ -3,7 +3,7 @@
 from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.evaluate import has_outside_four_card_major, quality_suit
-from bridge.model.bid import Bid, Strain
+from bridge.model.bid import Bid
 from bridge.model.card import Suit
 
 
@@ -38,9 +38,8 @@ class OpenWeakTwo(Rule):
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._find_suit(ctx)
         assert suit is not None
-        strain = Strain.from_suit(suit)
         return RuleResult(
-            bid=Bid.suit_bid(2, strain),
+            bid=Bid.suit_bid(2, suit),
             rule_name=self.name,
             explanation=f"5-11 HCP, 6-card {suit.letter} — SAYC weak two",
         )
@@ -84,9 +83,8 @@ class OpenPreempt3(Rule):
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._find_suit(ctx)
         assert suit is not None
-        strain = Strain.from_suit(suit)
         return RuleResult(
-            bid=Bid.suit_bid(3, strain),
+            bid=Bid.suit_bid(3, suit),
             rule_name=self.name,
             explanation=(f"7-card {suit.letter}, preemptive — SAYC 3-level preempt"),
         )
@@ -131,10 +129,9 @@ class OpenPreempt4(Rule):
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._find_suit(ctx)
         assert suit is not None
-        strain = Strain.from_suit(suit)
         min_length = "7" if suit.is_major else "8"
         return RuleResult(
-            bid=Bid.suit_bid(4, strain),
+            bid=Bid.suit_bid(4, suit),
             rule_name=self.name,
             explanation=(
                 f"{min_length}+ card {suit.letter}, preemptive — SAYC 4-level preempt"
