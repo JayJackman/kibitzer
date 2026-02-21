@@ -13,6 +13,7 @@ from .hand_eval import (
     quick_tricks,
     rule_of_15,
     rule_of_20,
+    support_points,
     total_points,
 )
 
@@ -29,5 +30,6 @@ __all__ = [
     "quick_tricks",
     "rule_of_15",
     "rule_of_20",
+    "support_points",
     "total_points",
 ]

@@ -174,6 +174,15 @@ def rule_of_20(hand: Hand, hand_hcp: int) -> bool:
     return hand_hcp + lengths[0] + lengths[1] >= 20
 
 
+def support_points(hand: Hand, trump_suit: Suit) -> int:
+    """Dummy points for raising partner's suit: HCP + shortness.
+
+    Used when raising partner's major. Shortness in the trump suit
+    is excluded (handled by distribution_points).
+    """
+    return hcp(hand) + distribution_points(hand, trump_suit)
+
+
 def rule_of_15(hand: Hand, hand_hcp: int) -> bool:
     """Rule of 15 (4th seat): HCP + number of spades >= 15."""
     return hand_hcp + hand.suit_length(Suit.SPADES) >= 15

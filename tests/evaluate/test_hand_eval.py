@@ -7,6 +7,7 @@ from bridge.evaluate import (
     length_points,
     losing_trick_count,
     quick_tricks,
+    support_points,
     total_points,
 )
 from bridge.model.card import Suit
@@ -234,3 +235,32 @@ class TestLosingTrickCount:
         # D: Q32 (3+, Q only) = 2
         # C: K8 (doubleton, has K) = 1 → 9
         assert losing_trick_count(FLAT_WEAK) == 9
+
+
+class TestSupportPoints:
+    def test_with_shortness(self) -> None:
+        # K84=3, QJ3=3, A842=4, 973=0 → 10 HCP, 3-3-4-3
+        # Raising hearts: no shortness outside trump → support = 10
+        hand = Hand.from_pbn("K84.QJ3.A842.973")
+        assert support_points(hand, Suit.HEARTS) == 10
+
+    def test_singleton_outside_trump(self) -> None:
+        # K842=3, AJ83=5, 4=0, K732=3 → 11 HCP, 4-4-1-4
+        # Raising hearts: singleton diamond = +3 → support = 14
+        hand = Hand.from_pbn("K842.AJ83.4.K732")
+        assert support_points(hand, Suit.HEARTS) == 14
+
+    def test_void_outside_trump(self) -> None:
+        # 84=0, KJ842=4, 98743=0, .=void → 4 HCP, 2-5-5-0 (wait, 12 cards)
+        # Let me use: 84=0, KJ842=4, 9874=0, 3=0 → 4 HCP, 2-5-4-1 (wait, 12)
+        # Better: 843=0, KJ842=4, 9874=0, 3=0 → 4 HCP, 3-5-4-1
+        # Raising hearts: singleton club = +3 → support = 7
+        hand = Hand.from_pbn("843.KJ842.9874.3")
+        assert support_points(hand, Suit.HEARTS) == 7
+
+    def test_trump_shortness_excluded(self) -> None:
+        # K843=3, 4=0, AJ842=5, K73=3 → 11 HCP, 4-1-5-3
+        # Raising hearts: singleton IS in trump, excluded
+        # No other shortness → support = 11
+        hand = Hand.from_pbn("K843.4.AJ842.K73")
+        assert support_points(hand, Suit.HEARTS) == 11

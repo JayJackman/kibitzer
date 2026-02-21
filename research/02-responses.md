@@ -56,7 +56,7 @@ Do not count side-suit honors as both HCP and support points.
 | Single raise (2C/2D) | Adequate trump support (see above), 6–10 points |
 | Jump raise (3C/3D) — limit raise | Adequate trump support, 10–12 points; invitational |
 | 2NT | 13–15 HCP, balanced, denies 4-card major; game forcing |
-| 3NT | 16–17 HCP, balanced, denies 4-card major; to play |
+| 3NT | 16–18 HCP, balanced, denies 4-card major; to play |
 | Jump shift (e.g., 1C→2H) | 19+ points, 5+ cards; slam invitational |
 | 2-over-1 in new suit (e.g., 1D→2C) | 4+ cards, 10+ points; forcing one round |
 
