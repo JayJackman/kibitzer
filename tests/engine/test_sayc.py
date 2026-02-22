@@ -415,3 +415,110 @@ class TestSAYC1NTRebidIntegration:
             _rebid_select("AQ3.KJ42.QJ3.K43", "1NT", "4NT")
             == "rebid.accept_4nt_over_1nt"
         )
+
+
+class TestSAYC2NTResponseIntegration:
+    """Smoke tests: correct response to 2NT wins for representative hands."""
+
+    def test_stayman_4_hearts(self):
+        """4 hearts, 5+ HCP, non-flat -> Stayman 3C."""
+        # Q432.QJ42.43.432 = 4 HCP, 4-4-2-3
+        assert _response_select("Q432.QJ42.43.432", "2NT") == "response.stayman_2nt"
+
+    def test_transfer_5_hearts(self):
+        """5+ hearts -> transfer 3D."""
+        # 432.KJ432.43.432 = 4 HCP, 3-5-2-3
+        assert _response_select("432.KJ432.43.432", "2NT") == "response.transfer_2nt"
+
+    def test_texas_6_hearts(self):
+        """6+ hearts, 4-10 HCP -> Texas 4D."""
+        # 43.KQJ932.Q43.42 = 8 HCP, 2-6-3-2
+        assert _response_select("43.KQJ932.Q43.42", "2NT") == "response.texas_2nt"
+
+    def test_3nt_over_2nt(self):
+        """4-10 HCP, no conventions apply -> 3NT."""
+        # Q43.J42.K43.J432 = 7 HCP, 3-3-3-4
+        assert _response_select("Q43.J42.K43.J432", "2NT") == "response.3nt_over_2nt"
+
+    def test_gerber_13_hcp(self):
+        """13+ HCP, balanced -> Gerber 4C."""
+        # AQ3.KJ4.KQ3.Q432 = 16 HCP, 3-3-3-4
+        assert _response_select("AQ3.KJ4.KQ3.Q432", "2NT") == "response.gerber_2nt"
+
+    def test_4nt_quantitative(self):
+        """11-12 HCP, balanced -> quantitative 4NT."""
+        # AQ3.K42.J43.Q432 = 12 HCP, 3-3-3-4
+        assert _response_select("AQ3.K42.J43.Q432", "2NT") == "response.4nt_over_2nt"
+
+    def test_3s_puppet_weak_minor(self):
+        """0-3 HCP, 6+ minor -> 3S puppet."""
+        # 432.43.43.J98432 = 1 HCP, 3-2-2-6
+        assert _response_select("432.43.43.J98432", "2NT") == "response.3s_puppet_2nt"
+
+    def test_pass_weak_flat(self):
+        """0-3 HCP, no conventions -> pass."""
+        # 432.J42.432.5432 = 1 HCP, 3-3-3-4
+        assert _response_select("432.J42.432.5432", "2NT") == "response.pass_over_2nt"
+
+
+class TestSAYC2NTRebidIntegration:
+    """Smoke tests: opener rebids correctly after 2NT opening."""
+
+    def test_stayman_3h_with_4_hearts(self):
+        """4+ hearts -> 3H after Stayman."""
+        # AQ3.KQ42.AQ3.K43 = 20 HCP, 3-4-3-3
+        assert _rebid_select("AQ3.KQ42.AQ3.K43", "2NT", "3C") == "rebid.stayman_3h_2nt"
+
+    def test_stayman_3d_no_major(self):
+        """No 4-card major -> 3D denial."""
+        # AQ3.KQ4.AQ32.K43 = 20 HCP, 3-3-4-3
+        assert _rebid_select("AQ3.KQ4.AQ32.K43", "2NT", "3C") == "rebid.stayman_3d_2nt"
+
+    def test_complete_transfer_3h(self):
+        """Complete transfer 3D -> 3H."""
+        assert (
+            _rebid_select("AQ3.KQ4.AQ32.K43", "2NT", "3D")
+            == "rebid.complete_transfer_2nt"
+        )
+
+    def test_complete_3s_puppet(self):
+        """3S puppet -> forced 4C."""
+        assert (
+            _rebid_select("AQ3.KQ4.AQ32.K43", "2NT", "3S")
+            == "rebid.complete_3s_puppet_2nt"
+        )
+
+    def test_gerber_response_2_aces(self):
+        """2 aces -> 4S after Gerber."""
+        # AQ3.AQ4.KQ32.K43 = 21 HCP, 2 aces
+        assert (
+            _rebid_select("AQ3.AQ4.KQ32.K43", "2NT", "4C")
+            == "rebid.gerber_response_2nt"
+        )
+
+    def test_complete_texas_4d(self):
+        """4D -> 4H (Texas complete)."""
+        assert (
+            _rebid_select("AQ3.KQ4.AQ32.K43", "2NT", "4D") == "rebid.complete_texas_2nt"
+        )
+
+    def test_pass_after_3nt(self):
+        """3NT is to play -> pass."""
+        assert (
+            _rebid_select("AQ3.KQ42.AQ3.K43", "2NT", "3NT")
+            == "rebid.pass_after_3nt_over_2nt"
+        )
+
+    def test_accept_4nt_21_hcp(self):
+        """21 HCP -> accept 4NT, bid 6NT."""
+        assert (
+            _rebid_select("AQ3.AQ4.AQ32.K43", "2NT", "4NT")
+            == "rebid.accept_4nt_over_2nt"
+        )
+
+    def test_decline_4nt_20_hcp(self):
+        """20 HCP -> decline 4NT, pass."""
+        assert (
+            _rebid_select("AQ3.KQ4.AQ32.K43", "2NT", "4NT")
+            == "rebid.decline_4nt_over_2nt"
+        )

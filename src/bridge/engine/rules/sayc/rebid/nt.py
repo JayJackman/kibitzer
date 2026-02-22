@@ -1,10 +1,10 @@
-"""Opener's rebid rules after 1NT opening -- SAYC.
+"""Opener's rebid rules after 1NT and 2NT openings -- SAYC.
 
-All rebid rules for when I opened 1NT (15-17 HCP balanced) and partner
-has responded. Covers:
-- Stayman responses (2D/2H/2S)
-- Jacoby transfer completion (normal + super-accept)
-- 2S puppet completion (3C)
+All rebid rules for when I opened 1NT (15-17 HCP balanced) or 2NT
+(20-21 HCP balanced) and partner has responded. Covers:
+- Stayman responses
+- Jacoby transfer completion (normal + super-accept over 1NT)
+- Puppet completion (2S->3C over 1NT, 3S->4C over 2NT)
 - Gerber ace response (4D/4H/4S/4NT)
 - Texas transfer completion (4H/4S)
 - Raises/declines for 3M, 2NT, 3m, 3NT, 4NT
@@ -114,6 +114,43 @@ def _partner_bid_4nt(ctx: BiddingContext) -> bool:
 def _ace_count(ctx: BiddingContext) -> int:
     """Count aces in opener's hand (for Gerber response)."""
     return sum(ctx.hand.has_card(s, Rank.ACE) for s in SUITS_SHDC)
+
+
+# -- 2NT helpers -------------------------------------------------------------
+
+
+def _opened_2nt_self(ctx: BiddingContext) -> bool:
+    """Whether I opened 2NT."""
+    if not ctx.my_bids:
+        return False
+    bid = ctx.my_bids[0]
+    return is_suit_bid(bid) and bid.level == 2 and bid.suit == Suit.NOTRUMP
+
+
+def _partner_bid_stayman_2nt(ctx: BiddingContext) -> bool:
+    """Partner bid 3C (Stayman over 2NT)."""
+    resp = _partner_bid(ctx)
+    return resp.level == 3 and resp.suit == Suit.CLUBS
+
+
+def _partner_transferred_2nt(ctx: BiddingContext) -> bool:
+    """Partner bid 3D (hearts) or 3H (spades) -- transfer over 2NT."""
+    resp = _partner_bid(ctx)
+    return resp.level == 3 and resp.suit in (Suit.DIAMONDS, Suit.HEARTS)
+
+
+def _transfer_suit_2nt(ctx: BiddingContext) -> Suit:
+    """The suit partner transferred to over 2NT (hearts if 3D, spades if 3H)."""
+    resp = _partner_bid(ctx)
+    if resp.suit == Suit.DIAMONDS:
+        return Suit.HEARTS
+    return Suit.SPADES
+
+
+def _partner_bid_3s_puppet(ctx: BiddingContext) -> bool:
+    """Partner bid 3S (puppet to 4C over 2NT)."""
+    resp = _partner_bid(ctx)
+    return resp.level == 3 and resp.suit == Suit.SPADES
 
 
 # -- After Stayman (2C) -----------------------------------------------------
@@ -743,4 +780,382 @@ class RebidDecline4NTOver1NT(Rule):
             bid=PASS,
             rule_name=self.name,
             explanation="15 HCP -- decline quantitative 4NT, pass",
+        )
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Opener's rebids after 2NT opening (20-21 HCP balanced)
+# ══════════════════════════════════════════════════════════════════════
+
+
+# -- After Stayman (3C) over 2NT -------------------------------------------
+
+
+class Rebid2NTStayman3H(Rule):
+    """3H -- 4+ hearts in response to Stayman over 2NT.
+
+    e.g. 2NT->3C->3H
+
+    Bid hearts first with both 4-card majors (research/05-conventions.md).
+    """
+
+    @property
+    def name(self) -> str:
+        return "rebid.stayman_3h_2nt"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_OPENER
+
+    @property
+    def priority(self) -> int:
+        return 574
+
+    def applies(self, ctx: BiddingContext) -> bool:
+        if not _opened_2nt_self(ctx):
+            return False
+        if not _partner_bid_stayman_2nt(ctx):
+            return False
+        return ctx.hand.num_hearts >= 4
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        return RuleResult(
+            bid=SuitBid(3, Suit.HEARTS),
+            rule_name=self.name,
+            explanation="4+ hearts -- Stayman response over 2NT",
+        )
+
+
+class Rebid2NTStayman3S(Rule):
+    """3S -- 4+ spades, no 4-card heart suit over 2NT.
+
+    e.g. 2NT->3C->3S
+
+    Only bid spades when we don't have 4 hearts (research/05-conventions.md).
+    """
+
+    @property
+    def name(self) -> str:
+        return "rebid.stayman_3s_2nt"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_OPENER
+
+    @property
+    def priority(self) -> int:
+        return 569
+
+    def applies(self, ctx: BiddingContext) -> bool:
+        if not _opened_2nt_self(ctx):
+            return False
+        if not _partner_bid_stayman_2nt(ctx):
+            return False
+        return ctx.hand.num_spades >= 4 and ctx.hand.num_hearts < 4
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        return RuleResult(
+            bid=SuitBid(3, Suit.SPADES),
+            rule_name=self.name,
+            explanation="4+ spades, no 4-card heart suit -- Stayman response over 2NT",
+        )
+
+
+class Rebid2NTStayman3D(Rule):
+    """3D -- no 4-card major over 2NT.
+
+    e.g. 2NT->3C->3D
+
+    Denies both 4+ hearts and 4+ spades (research/05-conventions.md).
+    """
+
+    @property
+    def name(self) -> str:
+        return "rebid.stayman_3d_2nt"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_OPENER
+
+    @property
+    def priority(self) -> int:
+        return 564
+
+    def applies(self, ctx: BiddingContext) -> bool:
+        if not _opened_2nt_self(ctx):
+            return False
+        if not _partner_bid_stayman_2nt(ctx):
+            return False
+        return ctx.hand.num_hearts < 4 and ctx.hand.num_spades < 4
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        return RuleResult(
+            bid=SuitBid(3, Suit.DIAMONDS),
+            rule_name=self.name,
+            explanation="No 4-card major -- Stayman 3D denial over 2NT",
+        )
+
+
+# -- After Transfer (3D/3H) over 2NT ---------------------------------------
+
+
+class Rebid2NTCompleteTransfer(Rule):
+    """Complete Jacoby transfer over 2NT.
+
+    e.g. 2NT->3D->3H, 2NT->3H->3S
+
+    Always complete at cheapest level. No super-accept over 2NT
+    (already at max range).
+    """
+
+    @property
+    def name(self) -> str:
+        return "rebid.complete_transfer_2nt"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_OPENER
+
+    @property
+    def priority(self) -> int:
+        return 554
+
+    def applies(self, ctx: BiddingContext) -> bool:
+        if not _opened_2nt_self(ctx):
+            return False
+        return _partner_transferred_2nt(ctx)
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        suit = _transfer_suit_2nt(ctx)
+        return RuleResult(
+            bid=SuitBid(3, suit),
+            rule_name=self.name,
+            explanation=f"Complete Jacoby transfer to 3{suit.letter} over 2NT",
+        )
+
+
+# -- After 3S Puppet over 2NT ----------------------------------------------
+
+
+class Rebid2NTComplete3SPuppet(Rule):
+    """4C -- forced response to 3S puppet over 2NT.
+
+    e.g. 2NT->3S->4C
+
+    Opener must bid 4C; responder passes (clubs) or corrects to 4D.
+    """
+
+    @property
+    def name(self) -> str:
+        return "rebid.complete_3s_puppet_2nt"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_OPENER
+
+    @property
+    def priority(self) -> int:
+        return 551
+
+    def applies(self, ctx: BiddingContext) -> bool:
+        if not _opened_2nt_self(ctx):
+            return False
+        return _partner_bid_3s_puppet(ctx)
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        return RuleResult(
+            bid=SuitBid(4, Suit.CLUBS),
+            rule_name=self.name,
+            explanation="Forced 4C response to 3S puppet over 2NT",
+            alerts=("Forced relay -- responder will pass or correct to 4D",),
+        )
+
+
+# -- After Gerber (4C) over 2NT --------------------------------------------
+
+
+class Rebid2NTGerberResponse(Rule):
+    """Gerber ace response over 2NT -- 4D/4H/4S/4NT by ace count.
+
+    e.g. 2NT->4C->4D (0/4 aces), 2NT->4C->4S (2 aces)
+
+    0/4 aces = 4D, 1 = 4H, 2 = 4S, 3 = 4NT (research/06-slam.md).
+    """
+
+    @property
+    def name(self) -> str:
+        return "rebid.gerber_response_2nt"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_OPENER
+
+    @property
+    def priority(self) -> int:
+        return 549
+
+    def applies(self, ctx: BiddingContext) -> bool:
+        if not _opened_2nt_self(ctx):
+            return False
+        return _partner_bid_gerber(ctx)
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        aces = _ace_count(ctx)
+        response_map = {
+            0: (Suit.DIAMONDS, "0 or 4"),
+            1: (Suit.HEARTS, "1"),
+            2: (Suit.SPADES, "2"),
+            3: (Suit.NOTRUMP, "3"),
+            4: (Suit.DIAMONDS, "0 or 4"),
+        }
+        suit, desc = response_map[aces]
+        return RuleResult(
+            bid=SuitBid(4, suit),
+            rule_name=self.name,
+            explanation=f"{desc} aces -- Gerber response over 2NT",
+            alerts=(f"Gerber response -- showing {desc} aces",),
+        )
+
+
+# -- After Texas Transfer (4D/4H) over 2NT ---------------------------------
+
+
+class Rebid2NTCompleteTexas(Rule):
+    """Complete Texas transfer over 2NT -- 4H or 4S.
+
+    e.g. 2NT->4D->4H, 2NT->4H->4S
+
+    Opener always completes (research/02-responses.md).
+    """
+
+    @property
+    def name(self) -> str:
+        return "rebid.complete_texas_2nt"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_OPENER
+
+    @property
+    def priority(self) -> int:
+        return 544
+
+    def applies(self, ctx: BiddingContext) -> bool:
+        if not _opened_2nt_self(ctx):
+            return False
+        return _partner_bid_texas(ctx)
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        suit = _texas_suit(ctx)
+        return RuleResult(
+            bid=SuitBid(4, suit),
+            rule_name=self.name,
+            explanation=f"Complete Texas transfer to 4{suit.letter} over 2NT",
+        )
+
+
+# -- After 3NT over 2NT ----------------------------------------------------
+
+
+class Rebid2NTPassAfter3NT(Rule):
+    """Pass -- 3NT is to play over 2NT.
+
+    e.g. 2NT->3NT->Pass
+
+    Always pass (research/02-responses.md).
+    """
+
+    @property
+    def name(self) -> str:
+        return "rebid.pass_after_3nt_over_2nt"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_OPENER
+
+    @property
+    def priority(self) -> int:
+        return 509
+
+    def applies(self, ctx: BiddingContext) -> bool:
+        if not _opened_2nt_self(ctx):
+            return False
+        return _partner_bid_3nt(ctx)
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        return RuleResult(
+            bid=PASS,
+            rule_name=self.name,
+            explanation="3NT to play -- pass over 2NT",
+        )
+
+
+# -- After 4NT (quantitative) over 2NT -------------------------------------
+
+
+class Rebid2NTAccept4NT(Rule):
+    """Accept 4NT -- bid 6NT with maximum over 2NT.
+
+    e.g. 2NT->4NT->6NT
+
+    21 HCP (research/06-slam.md).
+    """
+
+    @property
+    def name(self) -> str:
+        return "rebid.accept_4nt_over_2nt"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_OPENER
+
+    @property
+    def priority(self) -> int:
+        return 504
+
+    def applies(self, ctx: BiddingContext) -> bool:
+        if not _opened_2nt_self(ctx):
+            return False
+        if not _partner_bid_4nt(ctx):
+            return False
+        return ctx.hcp >= 21
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        return RuleResult(
+            bid=SuitBid(6, Suit.NOTRUMP),
+            rule_name=self.name,
+            explanation="21 HCP -- accept quantitative 4NT, bid 6NT over 2NT",
+        )
+
+
+class Rebid2NTDecline4NT(Rule):
+    """Decline 4NT -- pass with minimum over 2NT.
+
+    e.g. 2NT->4NT->Pass
+
+    20 HCP (research/06-slam.md).
+    """
+
+    @property
+    def name(self) -> str:
+        return "rebid.decline_4nt_over_2nt"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_OPENER
+
+    @property
+    def priority(self) -> int:
+        return 499
+
+    def applies(self, ctx: BiddingContext) -> bool:
+        if not _opened_2nt_self(ctx):
+            return False
+        return _partner_bid_4nt(ctx)
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        return RuleResult(
+            bid=PASS,
+            rule_name=self.name,
+            explanation="20 HCP -- decline quantitative 4NT, pass over 2NT",
         )

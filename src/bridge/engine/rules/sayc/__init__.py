@@ -15,9 +15,19 @@ from .opening import (
 )
 from .rebid import (
     Rebid1NT,
+    Rebid2NTAccept4NT,
     Rebid2NTAfter2Over1,
     Rebid2NTAfterRaiseMinor,
+    Rebid2NTComplete3SPuppet,
+    Rebid2NTCompleteTexas,
+    Rebid2NTCompleteTransfer,
+    Rebid2NTDecline4NT,
+    Rebid2NTGerberResponse,
     Rebid2NTOver1NT,
+    Rebid2NTPassAfter3NT,
+    Rebid2NTStayman3D,
+    Rebid2NTStayman3H,
+    Rebid2NTStayman3S,
     Rebid3NTAfter2Over1,
     Rebid3NTAfterRaiseMinor,
     Rebid3NTOver1NT,
@@ -89,11 +99,15 @@ from .response import (
     Respond3MajorOver1NT,
     Respond3MinorOver1NT,
     Respond3NTOver1NT,
+    Respond3NTOver2NT,
     Respond3NTOverMajor,
     Respond3NTOverMinor,
+    Respond3SPuppetOver2NT,
     Respond4NTOver1NT,
+    Respond4NTOver2NT,
     RespondGameRaiseMajor,
     RespondGerber,
+    RespondGerberOver2NT,
     RespondJacoby2NT,
     RespondJacobyTransfer,
     RespondJumpShift,
@@ -102,10 +116,14 @@ from .response import (
     RespondNewSuit1Level,
     RespondPass,
     RespondPassOver1NT,
+    RespondPassOver2NT,
     RespondSingleRaiseMajor,
     RespondSingleRaiseMinor,
     RespondStayman,
+    RespondStaymanOver2NT,
+    RespondTexasOver2NT,
     RespondTexasTransfer,
+    RespondTransferOver2NT,
 )
 
 
@@ -242,4 +260,32 @@ def create_sayc_registry() -> RuleRegistry:
     reg.register(RebidPassAfter3NTOver1NT())
     reg.register(RebidAccept4NTOver1NT())
     reg.register(RebidDecline4NTOver1NT())
+
+    # ── Responses to 2NT ────────────────────────────────────────────
+    reg.register(RespondGerberOver2NT())
+    reg.register(Respond4NTOver2NT())
+    reg.register(RespondTexasOver2NT())
+    reg.register(RespondStaymanOver2NT())
+    reg.register(RespondTransferOver2NT())
+    reg.register(Respond3NTOver2NT())
+    reg.register(Respond3SPuppetOver2NT())
+    reg.register(RespondPassOver2NT())
+
+    # ── Opener rebids after 2NT opening (Stayman) ──────────────────
+    reg.register(Rebid2NTStayman3H())
+    reg.register(Rebid2NTStayman3S())
+    reg.register(Rebid2NTStayman3D())
+
+    # ── Opener rebids after 2NT opening (transfers) ────────────────
+    reg.register(Rebid2NTCompleteTransfer())
+    reg.register(Rebid2NTComplete3SPuppet())
+
+    # ── Opener rebids after 2NT opening (conventions) ──────────────
+    reg.register(Rebid2NTGerberResponse())
+    reg.register(Rebid2NTCompleteTexas())
+
+    # ── Opener rebids after 2NT opening (raises/declines) ──────────
+    reg.register(Rebid2NTPassAfter3NT())
+    reg.register(Rebid2NTAccept4NT())
+    reg.register(Rebid2NTDecline4NT())
     return reg

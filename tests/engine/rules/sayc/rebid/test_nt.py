@@ -1,7 +1,17 @@
-"""Tests for opener's rebid rules after 1NT opening -- SAYC."""
+"""Tests for opener's rebid rules after 1NT and 2NT openings -- SAYC."""
 
 from bridge.engine.context import BiddingContext
 from bridge.engine.rules.sayc.rebid.nt import (
+    Rebid2NTAccept4NT,
+    Rebid2NTComplete3SPuppet,
+    Rebid2NTCompleteTexas,
+    Rebid2NTCompleteTransfer,
+    Rebid2NTDecline4NT,
+    Rebid2NTGerberResponse,
+    Rebid2NTPassAfter3NT,
+    Rebid2NTStayman3D,
+    Rebid2NTStayman3H,
+    Rebid2NTStayman3S,
     RebidAccept2NTOver1NT,
     RebidAccept3MinorOver1NT,
     RebidAccept4NTOver1NT,
@@ -478,3 +488,268 @@ class TestNotAfter1SuitOpening:
         assert not RebidStayman2H().applies(ctx)
         assert not RebidStayman2S().applies(ctx)
         assert not RebidStayman2D().applies(ctx)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Opener's rebids after 2NT opening
+# ══════════════════════════════════════════════════════════════════════
+
+
+def _ctx_2nt(pbn: str, response: str) -> BiddingContext:
+    """Build a BiddingContext where I opened 2NT and partner responded.
+
+    North opens 2NT, East passes, South responds, West passes, North rebids.
+    """
+    auction = AuctionState(dealer=Seat.NORTH)
+    auction.add_bid(parse_bid("2NT"))  # N opens 2NT
+    auction.add_bid(PASS)  # E passes
+    auction.add_bid(parse_bid(response))  # S responds
+    auction.add_bid(PASS)  # W passes
+    return BiddingContext(
+        Board(hand=Hand.from_pbn(pbn), seat=Seat.NORTH, auction=auction)
+    )
+
+
+# ── After Stayman (3C) ───────────────────────────────────────────
+
+
+class TestRebid2NTStayman3H:
+    rule = Rebid2NTStayman3H()
+
+    def test_4_hearts(self) -> None:
+        """4+ hearts -> bid 3H."""
+        # AQ3.KQ42.AQ3.K43 = 20 HCP, 3-4-3-3
+        ctx = _ctx_2nt("AQ3.KQ42.AQ3.K43", "3C")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "3H"
+
+    def test_4_4_majors_bids_hearts_first(self) -> None:
+        """4-4 in majors -> bid hearts first."""
+        # AQ32.KQ42.AQ3.K3 = 20 HCP, 4-4-3-2
+        ctx = _ctx_2nt("AQ32.KQ42.AQ3.K3", "3C")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "3H"
+
+    def test_3_hearts_rejected(self) -> None:
+        """Only 3 hearts -> not 3H."""
+        # AQ32.KQ4.AQ3.K43 = 20 HCP, 4-3-3-3
+        ctx = _ctx_2nt("AQ32.KQ4.AQ3.K43", "3C")
+        assert not self.rule.applies(ctx)
+
+    def test_not_after_1nt(self) -> None:
+        """Does not apply when I opened 1NT."""
+        ctx = _ctx("AQ3.KQ42.AQ3.K43", "2C")
+        assert not self.rule.applies(ctx)
+
+
+class TestRebid2NTStayman3S:
+    rule = Rebid2NTStayman3S()
+
+    def test_4_spades_no_4_hearts(self) -> None:
+        """4+ spades, <4 hearts -> bid 3S."""
+        # AQ32.KQ4.AQ3.K43 = 20 HCP, 4-3-3-3
+        ctx = _ctx_2nt("AQ32.KQ4.AQ3.K43", "3C")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "3S"
+
+    def test_4_4_majors_rejected(self) -> None:
+        """4-4 in majors -> 3H first, not 3S."""
+        # AQ32.KQ42.AQ3.K3 = 20 HCP
+        ctx = _ctx_2nt("AQ32.KQ42.AQ3.K3", "3C")
+        assert not self.rule.applies(ctx)
+
+
+class TestRebid2NTStayman3D:
+    rule = Rebid2NTStayman3D()
+
+    def test_no_4_card_major(self) -> None:
+        """No 4-card major -> 3D denial."""
+        # AQ3.KQ4.AQ32.K43 = 20 HCP, 3-3-4-3
+        ctx = _ctx_2nt("AQ3.KQ4.AQ32.K43", "3C")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "3D"
+
+    def test_4_hearts_rejected(self) -> None:
+        """4 hearts -> bid 3H, not 3D."""
+        ctx = _ctx_2nt("AQ3.KQ42.AQ3.K43", "3C")
+        assert not self.rule.applies(ctx)
+
+
+# ── After Transfer (3D/3H) ───────────────────────────────────────
+
+
+class TestRebid2NTCompleteTransfer:
+    rule = Rebid2NTCompleteTransfer()
+
+    def test_complete_heart_transfer(self) -> None:
+        """3D -> complete to 3H."""
+        ctx = _ctx_2nt("AQ3.KQ4.AQ32.K43", "3D")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "3H"
+
+    def test_complete_spade_transfer(self) -> None:
+        """3H -> complete to 3S."""
+        ctx = _ctx_2nt("AQ3.KQ4.AQ32.K43", "3H")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "3S"
+
+    def test_no_super_accept(self) -> None:
+        """Even with 21 HCP + 4-card support, just complete (no super-accept)."""
+        # AQ3.AKQ4.AQ3.K43 = 22 HCP, but 2NT range is 20-21
+        # Use a valid 2NT hand: AQ32.KQ42.AQ3.K3 = 20 HCP with 4 hearts
+        ctx = _ctx_2nt("AQ32.KQ42.AQ3.K3", "3D")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "3H"  # Just complete, not 4H
+
+
+# ── After 3S Puppet ──────────────────────────────────────────────
+
+
+class TestRebid2NTComplete3SPuppet:
+    rule = Rebid2NTComplete3SPuppet()
+
+    def test_forced_4c(self) -> None:
+        """3S puppet -> forced 4C."""
+        ctx = _ctx_2nt("AQ3.KQ4.AQ32.K43", "3S")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "4C"
+
+    def test_not_after_1nt_2s(self) -> None:
+        """Does not apply to 2S puppet over 1NT."""
+        ctx = _ctx("AQ3.KJ4.QJ3.K432", "2S")
+        assert not self.rule.applies(ctx)
+
+
+# ── After Gerber (4C) ────────────────────────────────────────────
+
+
+class TestRebid2NTGerberResponse:
+    rule = Rebid2NTGerberResponse()
+
+    def test_2_aces(self) -> None:
+        """2 aces -> 4S."""
+        # AQ3.AQ4.AQ32.K43 = 21 HCP, 2 aces (SA, HA)
+        ctx = _ctx_2nt("AQ3.AQ4.KQ32.K43", "4C")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "4S"
+
+    def test_1_ace(self) -> None:
+        """1 ace -> 4H."""
+        # AQ3.KQ4.KQ32.K43 = 21 HCP, 1 ace (SA)
+        ctx = _ctx_2nt("AQ3.KQ4.KQ32.K43", "4C")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "4H"
+
+    def test_0_aces(self) -> None:
+        """0 aces -> 4D."""
+        # KQ3.KQ4.KQ32.KQ3 = 22 HCP but 0 aces (unrealistic for 2NT but tests logic)
+        ctx = _ctx_2nt("KQ3.KQ4.KQ32.KQ3", "4C")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "4D"
+
+    def test_3_aces(self) -> None:
+        """3 aces -> 4NT."""
+        # AQ3.A4.AQ32.KQ43 = 20 HCP, 3 aces
+        ctx = _ctx_2nt("AQ3.A4.AQ32.KQ43", "4C")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "4NT"
+
+
+# ── After Texas (4D/4H) ─────────────────────────────────────────
+
+
+class TestRebid2NTCompleteTexas:
+    rule = Rebid2NTCompleteTexas()
+
+    def test_4d_to_4h(self) -> None:
+        """4D -> complete to 4H."""
+        ctx = _ctx_2nt("AQ3.KQ4.AQ32.K43", "4D")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "4H"
+
+    def test_4h_to_4s(self) -> None:
+        """4H -> complete to 4S."""
+        ctx = _ctx_2nt("AQ3.KQ4.AQ32.K43", "4H")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "4S"
+
+
+# ── After 3NT ────────────────────────────────────────────────────
+
+
+class TestRebid2NTPassAfter3NT:
+    rule = Rebid2NTPassAfter3NT()
+
+    def test_always_passes(self) -> None:
+        """3NT is to play -> always pass."""
+        ctx = _ctx_2nt("AQ3.KQ42.AQ3.K43", "3NT")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert is_pass(result.bid)
+
+
+# ── After 4NT (quantitative) ────────────────────────────────────
+
+
+class TestRebid2NTAccept4NT:
+    rule = Rebid2NTAccept4NT()
+
+    def test_21_hcp_bids_6nt(self) -> None:
+        """21 HCP -> accept, bid 6NT."""
+        # AQ3.AQ4.AQ32.K43 = 21 HCP
+        ctx = _ctx_2nt("AQ3.AQ4.AQ32.K43", "4NT")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "6NT"
+
+    def test_20_hcp_rejected(self) -> None:
+        """20 HCP -> decline."""
+        # AQ3.KQ4.AQ32.K43 = 20 HCP
+        ctx = _ctx_2nt("AQ3.KQ4.AQ32.K43", "4NT")
+        assert not self.rule.applies(ctx)
+
+
+class TestRebid2NTDecline4NT:
+    rule = Rebid2NTDecline4NT()
+
+    def test_20_hcp_passes(self) -> None:
+        """20 HCP -> pass."""
+        # AQ3.KQ4.AQ32.K43 = 20 HCP
+        ctx = _ctx_2nt("AQ3.KQ4.AQ32.K43", "4NT")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert is_pass(result.bid)
+
+    def test_21_hcp_rejected(self) -> None:
+        """21 HCP -> accept, not decline."""
+        # AQ3.AQ4.AQ32.K43 = 21 HCP
+        ctx = _ctx_2nt("AQ3.AQ4.AQ32.K43", "4NT")
+        # Decline still applies (catch-all), but Accept has higher priority
+        assert self.rule.applies(ctx)
+
+
+# ── Guard: 2NT rules don't fire after 1NT ────────────────────────
+
+
+class TestNotAfter1NTOpening:
+    """2NT rebid rules should not fire after a 1NT opening."""
+
+    def test_stayman_not_after_1nt(self) -> None:
+        ctx = _ctx("AQ3.KQ42.AQ3.K43", "2C")
+        assert not Rebid2NTStayman3H().applies(ctx)
+        assert not Rebid2NTStayman3S().applies(ctx)
+        assert not Rebid2NTStayman3D().applies(ctx)

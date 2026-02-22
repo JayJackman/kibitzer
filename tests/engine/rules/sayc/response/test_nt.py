@@ -1,4 +1,4 @@
-"""Tests for responses to 1NT opening -- SAYC."""
+"""Tests for responses to 1NT and 2NT openings -- SAYC."""
 
 from bridge.engine.context import BiddingContext
 from bridge.engine.rules.sayc.response.nt import (
@@ -7,12 +7,20 @@ from bridge.engine.rules.sayc.response.nt import (
     Respond3MajorOver1NT,
     Respond3MinorOver1NT,
     Respond3NTOver1NT,
+    Respond3NTOver2NT,
+    Respond3SPuppetOver2NT,
     Respond4NTOver1NT,
+    Respond4NTOver2NT,
     RespondGerber,
+    RespondGerberOver2NT,
     RespondJacobyTransfer,
     RespondPassOver1NT,
+    RespondPassOver2NT,
     RespondStayman,
+    RespondStaymanOver2NT,
+    RespondTexasOver2NT,
     RespondTexasTransfer,
+    RespondTransferOver2NT,
 )
 from bridge.model.auction import AuctionState, Seat
 from bridge.model.bid import PASS, is_pass, parse_bid
@@ -465,3 +473,304 @@ class TestPriorityConflicts:
         ctx = _ctx("432.98765.43.432")
         assert RespondJacobyTransfer().applies(ctx)
         assert RespondPassOver1NT().applies(ctx)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Responses to 2NT opening
+# ══════════════════════════════════════════════════════════════════════
+
+
+def _ctx_2nt(pbn: str) -> BiddingContext:
+    """Build a BiddingContext where partner opened 2NT and responder acts.
+
+    North opens 2NT, East passes, South (responder) acts.
+    """
+    auction = AuctionState(dealer=Seat.NORTH)
+    auction.add_bid(parse_bid("2NT"))  # Partner (N) opens 2NT
+    auction.add_bid(PASS)  # RHO (E) passes
+    return BiddingContext(
+        Board(hand=Hand.from_pbn(pbn), seat=Seat.SOUTH, auction=auction)
+    )
+
+
+# ── RespondGerberOver2NT ──────────────────────────────────────────
+
+
+class TestRespondGerberOver2NT:
+    rule = RespondGerberOver2NT()
+
+    def test_13_hcp_balanced_no_5_major(self) -> None:
+        """13+ HCP, balanced, no 5+ major -> 4C Gerber."""
+        # AQ3.KJ4.KQ3.Q432 = 16 HCP, 3-3-3-4 balanced
+        ctx = _ctx_2nt("AQ3.KJ4.KQ3.Q432")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "4C"
+
+    def test_13_hcp_with_5_major_rejected(self) -> None:
+        """13+ HCP but 5+ major -> should transfer, not Gerber."""
+        # AKQ43.A4.KQ3.432 = 18 HCP, 5-2-3-3
+        ctx = _ctx_2nt("AKQ43.A4.KQ3.432")
+        assert not self.rule.applies(ctx)
+
+    def test_12_hcp_rejected(self) -> None:
+        """12 HCP -> quantitative 4NT, not Gerber."""
+        # KJ3.Q42.KJ3.Q432 = 12 HCP, 3-3-3-4
+        ctx = _ctx_2nt("KJ3.Q42.KJ3.Q432")
+        assert not self.rule.applies(ctx)
+
+    def test_not_over_1nt(self) -> None:
+        """Gerber over 2NT does not apply over 1NT opening."""
+        ctx = _ctx("AQ3.KJ4.KQ3.Q432")
+        assert not self.rule.applies(ctx)
+
+
+# ── Respond4NTOver2NT ─────────────────────────────────────────────
+
+
+class TestRespond4NTOver2NT:
+    rule = Respond4NTOver2NT()
+
+    def test_11_hcp_balanced(self) -> None:
+        """11-12 HCP, balanced -> 4NT quantitative."""
+        # AQ3.K42.J43.Q432 = 12 HCP, 3-3-3-4
+        ctx = _ctx_2nt("AQ3.K42.J43.Q432")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "4NT"
+
+    def test_10_hcp_rejected(self) -> None:
+        """10 HCP -> 3NT, not 4NT."""
+        # KJ4.Q42.J43.Q432 = 9 HCP
+        ctx = _ctx_2nt("KJ4.Q42.J43.Q432")
+        assert not self.rule.applies(ctx)
+
+    def test_13_hcp_rejected(self) -> None:
+        """13+ HCP -> Gerber, not 4NT."""
+        # AQ3.KJ4.KQ3.Q432 = 16 HCP
+        ctx = _ctx_2nt("AQ3.KJ4.KQ3.Q432")
+        assert not self.rule.applies(ctx)
+
+
+# ── RespondTexasOver2NT ───────────────────────────────────────────
+
+
+class TestRespondTexasOver2NT:
+    rule = RespondTexasOver2NT()
+
+    def test_6_hearts_8_hcp(self) -> None:
+        """6+ hearts, 4-10 HCP -> 4D Texas transfer."""
+        # 43.KQJ932.Q43.42 = 8 HCP, 2-6-3-2
+        ctx = _ctx_2nt("43.KQJ932.Q43.42")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "4D"
+
+    def test_6_spades_5_hcp(self) -> None:
+        """6+ spades, 4-10 HCP -> 4H Texas transfer."""
+        # KJ9432.43.Q43.42 = 6 HCP, 6-2-3-2
+        ctx = _ctx_2nt("KJ9432.43.Q43.42")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "4H"
+
+    def test_3_hcp_rejected(self) -> None:
+        """3 HCP with 6 hearts -> transfer (not Texas), too weak for game."""
+        # 43.J98432.Q43.42 = 3 HCP
+        ctx = _ctx_2nt("43.J98432.Q43.42")
+        assert not self.rule.applies(ctx)
+
+    def test_11_hcp_rejected(self) -> None:
+        """11 HCP with 6 hearts -> slam interest, not Texas."""
+        # A4.AQJ932.Q43.42 = 13 HCP
+        ctx = _ctx_2nt("A4.AQJ932.Q43.42")
+        assert not self.rule.applies(ctx)
+
+
+# ── RespondStaymanOver2NT ─────────────────────────────────────────
+
+
+class TestRespondStaymanOver2NT:
+    rule = RespondStaymanOver2NT()
+
+    def test_4_hearts_5_hcp(self) -> None:
+        """4 hearts, 5 HCP, not 4-3-3-3 -> Stayman 3C."""
+        # Q432.QJ42.43.432 = 4 HCP, 4-4-2-3
+        ctx = _ctx_2nt("Q432.QJ42.43.432")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "3C"
+
+    def test_4_hearts_4333_rejected(self) -> None:
+        """4 hearts but 4-3-3-3 flat -> bid 3NT directly."""
+        # Q42.QJ42.432.432 = 4 HCP, 3-4-3-3
+        ctx = _ctx_2nt("Q42.QJ42.432.432")
+        assert not self.rule.applies(ctx)
+
+    def test_5_hearts_rejected(self) -> None:
+        """5+ hearts -> transfer, not Stayman."""
+        # Q43.QJ432.43.432 = 4 HCP, 3-5-2-3
+        ctx = _ctx_2nt("Q43.QJ432.43.432")
+        assert not self.rule.applies(ctx)
+
+    def test_3_hcp_rejected(self) -> None:
+        """3 HCP with 4-card major -> too weak for Stayman over 2NT."""
+        # J432.J432.43.432 = 2 HCP
+        ctx = _ctx_2nt("J432.J432.43.432")
+        assert not self.rule.applies(ctx)
+
+    def test_no_garbage_stayman_over_2nt(self) -> None:
+        """4-4 majors, 2 HCP -> no garbage Stayman over 2NT (unlike 1NT)."""
+        # J432.Q432.43.432 = 3 HCP, 4-4-2-3
+        ctx = _ctx_2nt("J432.Q432.43.432")
+        assert not self.rule.applies(ctx)
+
+
+# ── RespondTransferOver2NT ────────────────────────────────────────
+
+
+class TestRespondTransferOver2NT:
+    rule = RespondTransferOver2NT()
+
+    def test_5_hearts_any_hcp(self) -> None:
+        """5+ hearts -> 3D transfer."""
+        # 432.KJ432.43.432 = 4 HCP, 3-5-2-3
+        ctx = _ctx_2nt("432.KJ432.43.432")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "3D"
+
+    def test_5_spades_any_hcp(self) -> None:
+        """5+ spades -> 3H transfer."""
+        # KJ432.432.43.432 = 4 HCP, 5-3-2-3
+        ctx = _ctx_2nt("KJ432.432.43.432")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "3H"
+
+    def test_0_hcp_signoff(self) -> None:
+        """0 HCP with 5 hearts -> still transfers (sign-off at 3H)."""
+        # 432.98765.43.432 = 0 HCP
+        ctx = _ctx_2nt("432.98765.43.432")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "3D"
+
+    def test_4_hearts_rejected(self) -> None:
+        """Only 4 hearts -> Stayman, not transfer."""
+        # K432.Q432.43.432 = 4 HCP
+        ctx = _ctx_2nt("K432.Q432.43.432")
+        assert not self.rule.applies(ctx)
+
+
+# ── Respond3NTOver2NT ─────────────────────────────────────────────
+
+
+class TestRespond3NTOver2NT:
+    rule = Respond3NTOver2NT()
+
+    def test_6_hcp_balanced(self) -> None:
+        """4-10 HCP -> 3NT to play."""
+        # Q43.J42.K43.J432 = 7 HCP, 3-3-3-4
+        ctx = _ctx_2nt("Q43.J42.K43.J432")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "3NT"
+
+    def test_3_hcp_rejected(self) -> None:
+        """3 HCP -> pass, not 3NT."""
+        # 432.J42.432.J432 = 2 HCP
+        ctx = _ctx_2nt("432.J42.432.J432")
+        assert not self.rule.applies(ctx)
+
+    def test_11_hcp_rejected(self) -> None:
+        """11 HCP -> quantitative 4NT, not 3NT."""
+        # AQ3.K42.J43.Q432 = 12 HCP
+        ctx = _ctx_2nt("AQ3.K42.J43.Q432")
+        assert not self.rule.applies(ctx)
+
+
+# ── Respond3SPuppetOver2NT ────────────────────────────────────────
+
+
+class TestRespond3SPuppetOver2NT:
+    rule = Respond3SPuppetOver2NT()
+
+    def test_6_clubs_weak(self) -> None:
+        """6+ clubs, 0-3 HCP -> 3S puppet."""
+        # 432.43.43.J98432 = 1 HCP, 3-2-2-6
+        ctx = _ctx_2nt("432.43.43.J98432")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "3S"
+
+    def test_6_diamonds_weak(self) -> None:
+        """6+ diamonds, 0-3 HCP -> 3S puppet."""
+        # 432.43.J98432.43 = 1 HCP, 3-2-6-2
+        ctx = _ctx_2nt("432.43.J98432.43")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "3S"
+
+    def test_4_hcp_rejected(self) -> None:
+        """4 HCP with 6 clubs -> 3NT or Stayman, not puppet."""
+        # Q32.42.43.QJ8432 = 5 HCP
+        ctx = _ctx_2nt("Q32.42.43.QJ8432")
+        assert not self.rule.applies(ctx)
+
+
+# ── RespondPassOver2NT ────────────────────────────────────────────
+
+
+class TestRespondPassOver2NT:
+    rule = RespondPassOver2NT()
+
+    def test_weak_flat_hand(self) -> None:
+        """0-3 HCP, no 6+ minor -> pass."""
+        # 432.J42.432.5432 = 1 HCP, 3-3-3-4
+        ctx = _ctx_2nt("432.J42.432.5432")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert is_pass(result.bid)
+
+    def test_4_hcp_rejected(self) -> None:
+        """4 HCP -> game values over 2NT, not passing."""
+        # K43.J42.J43.5432 = 4 HCP
+        ctx = _ctx_2nt("K43.J42.J43.5432")
+        assert not self.rule.applies(ctx)
+
+    def test_not_over_1nt(self) -> None:
+        """Pass over 2NT does not apply over 1NT opening."""
+        ctx = _ctx("432.J42.432.5432")
+        assert not self.rule.applies(ctx)
+
+
+# ── 2NT Priority conflict tests ──────────────────────────────────
+
+
+class TestPriorityConflicts2NT:
+    """Verify priority ordering for 2NT responses."""
+
+    def test_5_hearts_8_hcp_transfer_over_3nt(self) -> None:
+        """5H, 8 HCP -> Transfer (434) wins over 3NT (424)."""
+        ctx = _ctx_2nt("432.KJ432.K43.42")
+        assert RespondTransferOver2NT().applies(ctx)
+        assert Respond3NTOver2NT().applies(ctx)
+
+    def test_6_hearts_8_hcp_texas_over_transfer(self) -> None:
+        """6H, 8 HCP -> Texas (464) wins over Transfer (434)."""
+        ctx = _ctx_2nt("43.KQJ932.Q43.42")
+        assert RespondTexasOver2NT().applies(ctx)
+        assert RespondTransferOver2NT().applies(ctx)
+
+    def test_4_hearts_5_hcp_stayman_over_3nt(self) -> None:
+        """4H non-flat, 5 HCP -> Stayman (444) wins over 3NT (424)."""
+        ctx = _ctx_2nt("Q432.QJ42.43.432")
+        assert RespondStaymanOver2NT().applies(ctx)
+        assert Respond3NTOver2NT().applies(ctx)
+
+    def test_6_clubs_2_hcp_puppet_over_pass(self) -> None:
+        """6C, 2 HCP -> 3S puppet (394) wins over Pass (44)."""
+        ctx = _ctx_2nt("432.43.43.J98432")
+        assert Respond3SPuppetOver2NT().applies(ctx)
+        assert RespondPassOver2NT().applies(ctx)

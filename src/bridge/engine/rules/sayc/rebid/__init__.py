@@ -1,6 +1,16 @@
 """SAYC opener rebid rules."""
 
 from .nt import (
+    Rebid2NTAccept4NT,
+    Rebid2NTComplete3SPuppet,
+    Rebid2NTCompleteTexas,
+    Rebid2NTCompleteTransfer,
+    Rebid2NTDecline4NT,
+    Rebid2NTGerberResponse,
+    Rebid2NTPassAfter3NT,
+    Rebid2NTStayman3D,
+    Rebid2NTStayman3H,
+    Rebid2NTStayman3S,
     RebidAccept2NTOver1NT,
     RebidAccept3MinorOver1NT,
     RebidAccept4NTOver1NT,
@@ -136,4 +146,15 @@ __all__ = [
     "RebidStayman2H",
     "RebidStayman2S",
     "RebidSuperAccept",
+    # Rebids after 2NT opening
+    "Rebid2NTAccept4NT",
+    "Rebid2NTComplete3SPuppet",
+    "Rebid2NTCompleteTexas",
+    "Rebid2NTCompleteTransfer",
+    "Rebid2NTDecline4NT",
+    "Rebid2NTGerberResponse",
+    "Rebid2NTPassAfter3NT",
+    "Rebid2NTStayman3D",
+    "Rebid2NTStayman3H",
+    "Rebid2NTStayman3S",
 ]

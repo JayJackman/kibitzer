@@ -1,7 +1,8 @@
-"""Responses to 1NT opening -- SAYC.
+"""Responses to 1NT and 2NT openings -- SAYC.
 
-All response rules for when partner opens 1NT (15-17 HCP balanced).
-Conventions: Stayman, Jacoby Transfers, Texas Transfers, Gerber, 2S puppet.
+Response rules for when partner opens 1NT (15-17 HCP balanced) or
+2NT (20-21 HCP balanced). Conventions: Stayman, Jacoby Transfers,
+Texas Transfers, Gerber, puppet to minor sign-off.
 """
 
 from bridge.engine.context import BiddingContext
@@ -18,6 +19,14 @@ def _opened_1nt(ctx: BiddingContext) -> bool:
         return False
     _, bid = ctx.opening_bid
     return is_suit_bid(bid) and bid.level == 1 and bid.suit == Suit.NOTRUMP
+
+
+def _opened_2nt(ctx: BiddingContext) -> bool:
+    """Whether partner opened 2NT."""
+    if ctx.opening_bid is None:
+        return False
+    _, bid = ctx.opening_bid
+    return is_suit_bid(bid) and bid.level == 2 and bid.suit == Suit.NOTRUMP
 
 
 def _has_5_plus_major(ctx: BiddingContext) -> bool:
@@ -450,4 +459,308 @@ class RespondPassOver1NT(Rule):
             bid=PASS,
             rule_name=self.name,
             explanation="0-7 HCP -- pass 1NT",
+        )
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Responses to 2NT opening (20-21 HCP balanced)
+# ══════════════════════════════════════════════════════════════════════
+
+
+class RespondGerberOver2NT(Rule):
+    """Gerber 4C -- ace-asking over 2NT.
+
+    e.g. 2NT->4C
+
+    13+ HCP, balanced, no 5+ card major. Asks opener for aces.
+    SAYC 4C directly over NT is Gerber (research/06-slam.md).
+    """
+
+    @property
+    def name(self) -> str:
+        return "response.gerber_2nt"
+
+    @property
+    def category(self) -> Category:
+        return Category.RESPONSE
+
+    @property
+    def priority(self) -> int:
+        return 494
+
+    def applies(self, ctx: BiddingContext) -> bool:
+        if not _opened_2nt(ctx):
+            return False
+        if _has_5_plus_major(ctx):
+            return False
+        return ctx.hcp >= 13 and (ctx.is_balanced or ctx.is_semi_balanced)
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        return RuleResult(
+            bid=SuitBid(4, Suit.CLUBS),
+            rule_name=self.name,
+            explanation="13+ HCP, balanced -- Gerber ace-ask over 2NT",
+            alerts=("Gerber -- asking for aces",),
+        )
+
+
+class Respond4NTOver2NT(Rule):
+    """Quantitative 4NT -- invites 6NT.
+
+    e.g. 2NT->4NT
+
+    11-12 HCP, balanced. Opener passes with minimum (20), bids 6NT with
+    maximum (21). SAYC quantitative (research/06-slam.md).
+    """
+
+    @property
+    def name(self) -> str:
+        return "response.4nt_over_2nt"
+
+    @property
+    def category(self) -> Category:
+        return Category.RESPONSE
+
+    @property
+    def priority(self) -> int:
+        return 484
+
+    def applies(self, ctx: BiddingContext) -> bool:
+        if not _opened_2nt(ctx):
+            return False
+        return 11 <= ctx.hcp <= 12 and (ctx.is_balanced or ctx.is_semi_balanced)
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        return RuleResult(
+            bid=SuitBid(4, Suit.NOTRUMP),
+            rule_name=self.name,
+            explanation="11-12 HCP, balanced -- quantitative 4NT, invites 6NT over 2NT",
+        )
+
+
+class RespondTexasOver2NT(Rule):
+    """Texas transfer -- 4D (hearts) or 4H (spades) over 2NT.
+
+    e.g. 2NT->4D (transfer to 4H), 2NT->4H (transfer to 4S)
+
+    6+ card major, 4-10 HCP. Game-level sign-off; opener completes
+    the transfer. SAYC (research/02-responses.md).
+    """
+
+    @property
+    def name(self) -> str:
+        return "response.texas_2nt"
+
+    @property
+    def category(self) -> Category:
+        return Category.RESPONSE
+
+    @property
+    def priority(self) -> int:
+        return 464
+
+    def applies(self, ctx: BiddingContext) -> bool:
+        if not _opened_2nt(ctx):
+            return False
+        if not (4 <= ctx.hcp <= 10):
+            return False
+        return ctx.hand.num_hearts >= 6 or ctx.hand.num_spades >= 6
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        suit = _longest_major(ctx)
+        transfer_suit = Suit.DIAMONDS if suit == Suit.HEARTS else Suit.HEARTS
+        return RuleResult(
+            bid=SuitBid(4, transfer_suit),
+            rule_name=self.name,
+            explanation=(
+                f"6+ {suit.letter}, game values -- Texas transfer to 4{suit.letter}"
+                " over 2NT"
+            ),
+            alerts=(f"Texas transfer -- showing 6+ {suit.letter}",),
+        )
+
+
+class RespondStaymanOver2NT(Rule):
+    """Stayman 3C -- asks opener for a 4-card major over 2NT.
+
+    e.g. 2NT->3C
+
+    4+ HCP, at least one 4-card major, not 4-3-3-3 flat, no 5+ major.
+    No garbage Stayman over 2NT (research/05-conventions.md).
+    """
+
+    @property
+    def name(self) -> str:
+        return "response.stayman_2nt"
+
+    @property
+    def category(self) -> Category:
+        return Category.RESPONSE
+
+    @property
+    def priority(self) -> int:
+        return 444
+
+    def applies(self, ctx: BiddingContext) -> bool:
+        if not _opened_2nt(ctx):
+            return False
+        if ctx.hcp < 4:
+            return False
+        has_4h = ctx.hand.num_hearts >= 4
+        has_4s = ctx.hand.num_spades >= 4
+        if not (has_4h or has_4s):
+            return False
+        if _has_5_plus_major(ctx):
+            return False
+        return not _is_4333(ctx)
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        return RuleResult(
+            bid=SuitBid(3, Suit.CLUBS),
+            rule_name=self.name,
+            explanation="Stayman -- asking for 4-card major over 2NT",
+            alerts=("Stayman -- asking for 4-card major",),
+        )
+
+
+class RespondTransferOver2NT(Rule):
+    """Jacoby transfer -- 3D (5+ hearts) or 3H (5+ spades) over 2NT.
+
+    e.g. 2NT->3D (transfer to 3H), 2NT->3H (transfer to 3S)
+
+    Any strength. Opener completes the transfer.
+    SAYC (research/05-conventions.md).
+    """
+
+    @property
+    def name(self) -> str:
+        return "response.transfer_2nt"
+
+    @property
+    def category(self) -> Category:
+        return Category.RESPONSE
+
+    @property
+    def priority(self) -> int:
+        return 434
+
+    def applies(self, ctx: BiddingContext) -> bool:
+        if not _opened_2nt(ctx):
+            return False
+        return _has_5_plus_major(ctx)
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        suit = _longest_major(ctx)
+        transfer_suit = Suit.DIAMONDS if suit == Suit.HEARTS else Suit.HEARTS
+        return RuleResult(
+            bid=SuitBid(3, transfer_suit),
+            rule_name=self.name,
+            explanation=f"5+ {suit.letter} -- transfer over 2NT",
+            alerts=(f"Transfer -- showing 5+ {suit.letter}",),
+        )
+
+
+class Respond3NTOver2NT(Rule):
+    """3NT -- to play over 2NT.
+
+    e.g. 2NT->3NT
+
+    4-10 HCP. Sign-off. Hands with 4-card majors and non-flat shape
+    will Stayman instead (higher priority).
+    SAYC (research/02-responses.md).
+    """
+
+    @property
+    def name(self) -> str:
+        return "response.3nt_over_2nt"
+
+    @property
+    def category(self) -> Category:
+        return Category.RESPONSE
+
+    @property
+    def priority(self) -> int:
+        return 424
+
+    def applies(self, ctx: BiddingContext) -> bool:
+        if not _opened_2nt(ctx):
+            return False
+        return 4 <= ctx.hcp <= 10
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        return RuleResult(
+            bid=SuitBid(3, Suit.NOTRUMP),
+            rule_name=self.name,
+            explanation="4-10 HCP -- 3NT to play over 2NT",
+        )
+
+
+class Respond3SPuppetOver2NT(Rule):
+    """3S puppet to 4C -- sign-off mechanism for weak hands with long minors.
+
+    e.g. 2NT->3S
+
+    Weak hand (0-3 HCP), 6+ card minor. Opener must bid 4C; responder
+    passes (clubs) or corrects to 4D (diamonds).
+    SAYC (research/05-conventions.md).
+    """
+
+    @property
+    def name(self) -> str:
+        return "response.3s_puppet_2nt"
+
+    @property
+    def category(self) -> Category:
+        return Category.RESPONSE
+
+    @property
+    def priority(self) -> int:
+        return 394
+
+    def applies(self, ctx: BiddingContext) -> bool:
+        if not _opened_2nt(ctx):
+            return False
+        if ctx.hcp > 3:
+            return False
+        return ctx.hand.num_clubs >= 6 or ctx.hand.num_diamonds >= 6
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        return RuleResult(
+            bid=SuitBid(3, Suit.SPADES),
+            rule_name=self.name,
+            explanation="Weak hand, 6+ minor -- 3S puppet to 4C over 2NT",
+            alerts=("Puppet to 4C -- weak hand with long minor",),
+        )
+
+
+class RespondPassOver2NT(Rule):
+    """Pass -- no game interest over 2NT.
+
+    e.g. 2NT->Pass
+
+    0-3 HCP without a 6+ minor (would puppet).
+    """
+
+    @property
+    def name(self) -> str:
+        return "response.pass_over_2nt"
+
+    @property
+    def category(self) -> Category:
+        return Category.RESPONSE
+
+    @property
+    def priority(self) -> int:
+        return 44
+
+    def applies(self, ctx: BiddingContext) -> bool:
+        if not _opened_2nt(ctx):
+            return False
+        return ctx.hcp <= 3
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        return RuleResult(
+            bid=PASS,
+            rule_name=self.name,
+            explanation="0-3 HCP -- pass 2NT",
         )
