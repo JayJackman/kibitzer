@@ -17,6 +17,7 @@ from .rebid import (
     Rebid1NT,
     Rebid2NTAccept4NT,
     Rebid2NTAfter2C,
+    Rebid2NTAfter2COffshape,
     Rebid2NTAfter2Over1,
     Rebid2NTAfterRaiseMinor,
     Rebid2NTComplete3SPuppet,
@@ -39,6 +40,7 @@ from .rebid import (
     RebidAccept3MinorOver1NT,
     RebidAccept4NTOver1NT,
     RebidAcceptLimitRaiseMajor,
+    RebidAcceptLimitRaiseMinor3NT,
     RebidComplete2SPuppet,
     RebidCompleteTexas,
     RebidCompleteTransfer,
@@ -50,9 +52,11 @@ from .rebid import (
     RebidDoubleJumpRaiseResponder,
     RebidDoubleJumpRebidOwnSuit,
     RebidGameAfterRaiseMajor,
+    RebidGameAfterSingleRaiseMinor,
     RebidGerberResponse,
     RebidHelpSuitGameTry,
     RebidInviteAfterRaiseMajor,
+    RebidInviteAfterRaiseMinor,
     RebidJacoby3LevelShortness,
     RebidJacoby3Major,
     RebidJacoby3NT,
@@ -228,12 +232,15 @@ def create_sayc_registry() -> RuleRegistry:
     # ── Opener rebids after limit raise ───────────────────────────
     reg.register(RebidAcceptLimitRaiseMajor())
     reg.register(Rebid5mAfterLimitRaiseMinor())
+    reg.register(RebidAcceptLimitRaiseMinor3NT())
     reg.register(RebidDeclineLimitRaise())
 
     # ── Opener rebids after single raise ──────────────────────────
     reg.register(Rebid3NTAfterRaiseMinor())
     reg.register(RebidGameAfterRaiseMajor())
+    reg.register(RebidGameAfterSingleRaiseMinor())
     reg.register(RebidInviteAfterRaiseMajor())
+    reg.register(RebidInviteAfterRaiseMinor())
     reg.register(RebidHelpSuitGameTry())
     reg.register(Rebid2NTAfterRaiseMinor())
     reg.register(RebidNewSuitAfterRaiseMinor())
@@ -302,6 +309,7 @@ def create_sayc_registry() -> RuleRegistry:
     reg.register(Rebid2NTAfter2C())
     reg.register(Rebid3NTAfter2C())
     reg.register(RebidSuitAfter2C())
+    reg.register(Rebid2NTAfter2COffshape())
 
     # ── Opener rebids after 2C opening (after positive response) ─────
     reg.register(RebidRaiseAfterPositive2C())

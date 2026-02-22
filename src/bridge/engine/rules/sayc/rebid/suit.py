@@ -650,6 +650,85 @@ class RebidNewSuitAfterRaiseMinor(Rule):
         )
 
 
+class RebidGameAfterSingleRaiseMinor(Rule):
+    """Bid 5 of minor after single raise — 19+ Bergen pts, unbalanced.
+
+    e.g. 1D→2D→5D
+
+    With game-level Bergen pts but no balanced shape for 3NT,
+    bid game directly in the minor.
+    """
+
+    @property
+    def name(self) -> str:
+        return "rebid.game_after_single_raise_minor"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_OPENER
+
+    @property
+    def priority(self) -> int:
+        return 175
+
+    def applies(self, ctx: BiddingContext) -> bool:
+        if not _partner_single_raised(ctx):
+            return False
+        if not _my_opening_suit(ctx).is_minor:
+            return False
+        if ctx.is_balanced or ctx.is_semi_balanced:
+            return False
+        return _bergen_pts(ctx) >= 19
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        suit = _my_opening_suit(ctx)
+        return RuleResult(
+            bid=SuitBid(5, suit),
+            rule_name=self.name,
+            explanation=f"19+ Bergen pts, unbalanced — game in {suit.letter}",
+        )
+
+
+class RebidInviteAfterRaiseMinor(Rule):
+    """Invite game after single raise of minor — 16-18 Bergen pts, unbalanced.
+
+    e.g. 1D→2D→3D
+
+    Mirrors RebidInviteAfterRaiseMajor but for minors. Covers hands
+    with extras but no 4+ side suit to show (those use
+    RebidNewSuitAfterRaiseMinor instead).
+    """
+
+    @property
+    def name(self) -> str:
+        return "rebid.invite_after_raise_minor"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_OPENER
+
+    @property
+    def priority(self) -> int:
+        return 165
+
+    def applies(self, ctx: BiddingContext) -> bool:
+        if not _partner_single_raised(ctx):
+            return False
+        if not _my_opening_suit(ctx).is_minor:
+            return False
+        if ctx.is_balanced or ctx.is_semi_balanced:
+            return False
+        return 16 <= _bergen_pts(ctx) <= 18
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        suit = _my_opening_suit(ctx)
+        return RuleResult(
+            bid=SuitBid(3, suit),
+            rule_name=self.name,
+            explanation=f"16-18 Bergen pts, invitational raise — 3{suit.letter}",
+        )
+
+
 class Rebid5mAfterLimitRaiseMinor(Rule):
     """Bid 5 of minor after limit raise — 15+ Bergen pts, unbalanced, 6+ minor.
 
@@ -686,6 +765,49 @@ class Rebid5mAfterLimitRaiseMinor(Rule):
             bid=SuitBid(5, suit),
             rule_name=self.name,
             explanation=f"15+ Bergen pts, 6+ minor, unbalanced — SAYC 5{suit.letter}",
+        )
+
+
+class RebidAcceptLimitRaiseMinor3NT(Rule):
+    """Bid 3NT after limit raise of minor — unbalanced, 15+ Bergen pts.
+
+    e.g. 1D→3D→3NT
+
+    Covers the gap where opener accepts a minor limit raise but is
+    unbalanced with fewer than 6 cards in the minor. With 25+ combined
+    points (opener 15+ Bergen + responder 10-12), game is reached.
+    3NT is the default game contract with a minor fit since 5m requires
+    11 tricks. Balanced hands are already handled by
+    Rebid3NTAfterRaiseMinor; hands with 6+ minor go to
+    Rebid5mAfterLimitRaiseMinor.
+    """
+
+    @property
+    def name(self) -> str:
+        return "rebid.accept_limit_raise_minor_3nt"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_OPENER
+
+    @property
+    def priority(self) -> int:
+        return 178
+
+    def applies(self, ctx: BiddingContext) -> bool:
+        if not _partner_limit_raised(ctx):
+            return False
+        if not _my_opening_suit(ctx).is_minor:
+            return False
+        if ctx.is_balanced or ctx.is_semi_balanced:
+            return False
+        return _bergen_pts(ctx) >= 15
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        return RuleResult(
+            bid=SuitBid(3, Suit.NOTRUMP),
+            rule_name=self.name,
+            explanation="15+ Bergen pts, unbalanced, accept limit raise — 3NT",
         )
 
 

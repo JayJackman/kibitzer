@@ -11,12 +11,15 @@ from bridge.engine.rules.sayc.rebid.suit import (
     Rebid3NTOver1NT,
     Rebid5mAfterLimitRaiseMinor,
     RebidAcceptLimitRaiseMajor,
+    RebidAcceptLimitRaiseMinor3NT,
     RebidDeclineLimitRaise,
     RebidDoubleJumpRaiseResponder,
     RebidDoubleJumpRebidOwnSuit,
     RebidGameAfterRaiseMajor,
+    RebidGameAfterSingleRaiseMinor,
     RebidHelpSuitGameTry,
     RebidInviteAfterRaiseMajor,
+    RebidInviteAfterRaiseMinor,
     RebidJacoby3LevelShortness,
     RebidJacoby3Major,
     RebidJacoby3NT,
@@ -237,6 +240,105 @@ class TestRaiseMinorRebids:
         # AK3.K3.AJ852.Q73 — 15 HCP, semi-balanced
         ctx = _ctx("AK3.K3.AJ852.Q73", "1D", "3D")
         assert not rule.applies(ctx)
+
+
+class TestGameAfterSingleRaiseMinor:
+    rule = RebidGameAfterSingleRaiseMinor()
+
+    def test_19_bergen_unbalanced_bids_5d(self) -> None:
+        # A3.8.AKJ852.AQ73 — 16 HCP, 2-1-6-4, bergen=16+3+1=20
+        ctx = _ctx("A3.8.AKJ852.AQ73", "1D", "2D")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "5D"
+
+    def test_19_bergen_clubs(self) -> None:
+        # 8.A3.AQ73.AKJ852 — 16 HCP, 1-2-4-6, bergen=16+3+1=20
+        ctx = _ctx("8.A3.AQ73.AKJ852", "1C", "2C")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "5C"
+
+    def test_balanced_rejected(self) -> None:
+        # AK3.KQ3.AJ52.A73 — 19 HCP, balanced 3-3-4-3
+        ctx = _ctx("AK3.KQ3.AJ52.A73", "1D", "2D")
+        assert not self.rule.applies(ctx)
+
+    def test_18_bergen_too_low(self) -> None:
+        # A32.8.AKJ852.Q73 — 13 HCP, 3-1-6-3, bergen=13+3+2=18
+        ctx = _ctx("A32.8.AKJ852.Q73", "1D", "2D")
+        assert not self.rule.applies(ctx)
+
+    def test_major_rejected(self) -> None:
+        # A3.AKJ852.8.AQ73 — 16 HCP, unbalanced
+        ctx = _ctx("A3.AKJ852.8.AQ73", "1H", "2H")
+        assert not self.rule.applies(ctx)
+
+
+class TestInviteAfterRaiseMinor:
+    rule = RebidInviteAfterRaiseMinor()
+
+    def test_16_bergen_unbalanced_bids_3d(self) -> None:
+        # A32.8.AKJ852.Q73 — 13 HCP, 3-1-6-3, bergen=13+3+2=18
+        ctx = _ctx("A32.8.AKJ852.Q73", "1D", "2D")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "3D"
+
+    def test_clubs(self) -> None:
+        # 8.A32.Q73.AKJ852 — 13 HCP, 1-3-3-6, bergen=13+3+2=18
+        ctx = _ctx("8.A32.Q73.AKJ852", "1C", "2C")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "3C"
+
+    def test_balanced_rejected(self) -> None:
+        # AK3.Q73.QJ52.K73 — 15 HCP, balanced 3-3-4-3
+        ctx = _ctx("AK3.Q73.QJ52.K73", "1D", "2D")
+        assert not self.rule.applies(ctx)
+
+    def test_15_bergen_too_low(self) -> None:
+        # Q32.83.AKJ52.Q73 — 11 HCP, 3-2-5-3, bergen=11+1+2=14
+        ctx = _ctx("Q32.83.AKJ52.Q73", "1D", "2D")
+        assert not self.rule.applies(ctx)
+
+    def test_19_bergen_too_high(self) -> None:
+        # A3.8.AKJ852.AQ73 — 16 HCP, 2-1-6-4, bergen=16+3+1=20
+        ctx = _ctx("A3.8.AKJ852.AQ73", "1D", "2D")
+        assert not self.rule.applies(ctx)
+
+
+class TestAcceptLimitRaiseMinor3NT:
+    rule = RebidAcceptLimitRaiseMinor3NT()
+
+    def test_unbalanced_15_bergen_bids_3nt(self) -> None:
+        # AQ32.8.KQJ52.A73 — 14 HCP, 4-1-5-3, bergen=14+3=17
+        ctx = _ctx("AQ32.8.KQJ52.A73", "1D", "3D")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "3NT"
+
+    def test_clubs_unbalanced(self) -> None:
+        # 8.AQ32.A73.KQJ52 — 14 HCP, 1-4-3-5, bergen=14+3=17
+        ctx = _ctx("8.AQ32.A73.KQJ52", "1C", "3C")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "3NT"
+
+    def test_balanced_rejected(self) -> None:
+        # K73.Q73.AJ52.K73 — 12 HCP, balanced 3-3-4-3
+        ctx = _ctx("K73.Q73.AJ52.K73", "1D", "3D")
+        assert not self.rule.applies(ctx)
+
+    def test_14_bergen_too_low(self) -> None:
+        # Q732.83.KQJ52.A3 — 11 HCP, 4-2-5-2, bergen=11+1+2=14
+        ctx = _ctx("Q732.83.KQJ52.A3", "1D", "3D")
+        assert not self.rule.applies(ctx)
+
+    def test_major_rejected(self) -> None:
+        # AQ32.KQJ52.8.A73 — 14 HCP, unbalanced
+        ctx = _ctx("AQ32.KQJ52.8.A73", "1H", "3H")
+        assert not self.rule.applies(ctx)
 
 
 # ── After 1NT Response ──────────────────────────────────────────────

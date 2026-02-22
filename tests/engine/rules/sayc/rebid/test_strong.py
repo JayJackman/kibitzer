@@ -3,6 +3,7 @@
 from bridge.engine.context import BiddingContext
 from bridge.engine.rules.sayc.rebid.strong import (
     Rebid2NTAfter2C,
+    Rebid2NTAfter2COffshape,
     Rebid3NTAfter2C,
     RebidNTAfterPositive2C,
     RebidRaiseAfterPositive2C,
@@ -151,6 +152,46 @@ class TestRebidSuitAfter2C:
         """No 5+ card suit -> does not apply."""
         # AKQ3.AJ4.KQ3.K43 = 22 HCP, 4-3-3-3 (no 5+ suit)
         ctx = _ctx_after_2d("AKQ3.AJ4.KQ3.K43")
+        assert not self.rule.applies(ctx)
+
+
+# -- Rebid2NTAfter2COffshape ----------------------------------------------------
+
+
+class TestRebid2NTAfter2COffshape:
+    rule = Rebid2NTAfter2COffshape()
+
+    def test_4441_bids_2nt(self) -> None:
+        """4-4-4-1 shape with 22+ HCP -> 2NT despite singleton."""
+        # AKJ4.AKQ4.KQJ4.2 — 22 HCP, 4-4-4-1
+        ctx = _ctx_after_2d("AKJ4.AKQ4.KQJ4.2")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "2NT"
+
+    def test_4441_singleton_club(self) -> None:
+        """4-4-4-1 with singleton spade."""
+        # 2.AKQ4.AKJ4.AKJ4 — 23 HCP, 1-4-4-4
+        ctx = _ctx_after_2d("2.AKQ4.AKJ4.AKJ4")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "2NT"
+
+    def test_balanced_rejected(self) -> None:
+        """Balanced hands use the standard Rebid2NTAfter2C rule."""
+        # AKQ3.AJ4.KQ3.K43 — 22 HCP, balanced 4-3-3-3
+        ctx = _ctx_after_2d("AKQ3.AJ4.KQ3.K43")
+        assert not self.rule.applies(ctx)
+
+    def test_5_card_suit_rejected(self) -> None:
+        """Hands with a 5+ suit use RebidSuitAfter2C instead."""
+        # AKQJ2.AK432.A.32 — 21 HCP, 5-5-1-2
+        ctx = _ctx_after_2d("AKQJ2.AK432.A.32")
+        assert not self.rule.applies(ctx)
+
+    def test_not_after_positive(self) -> None:
+        """Does not apply after positive response."""
+        ctx = _ctx_after_positive("AKJ4.AKQ4.KQJ4.2", "2H")
         assert not self.rule.applies(ctx)
 
 

@@ -822,3 +822,72 @@ class TestSAYC4LevelRebidIntegration:
         assert (
             _rebid_select("43.4.43.AKQJ5432", "4C", "5C") == "rebid.pass_after_4_level"
         )
+
+
+# ── Coverage Gap Fixes Integration ────────────────────────────────────────
+
+
+class TestSAYCMinorRaiseGapFixes:
+    """Integration tests for minor raise rebid gaps."""
+
+    def test_game_after_single_raise_minor(self):
+        """19+ Bergen, unbalanced, after 1D->2D -> 5D."""
+        # A3.8.AKJ852.AQ73 — 16 HCP, 2-1-6-4, bergen=20
+        assert (
+            _rebid_select("A3.8.AKJ852.AQ73", "1D", "2D")
+            == "rebid.game_after_single_raise_minor"
+        )
+
+    def test_invite_after_single_raise_minor(self):
+        """16-18 Bergen, unbalanced, no side suit, after 1D->2D -> 3D."""
+        # A32.8.AKJ852.Q73 — 13 HCP, 3-1-6-3, bergen=18
+        assert (
+            _rebid_select("A32.8.AKJ852.Q73", "1D", "2D")
+            == "rebid.invite_after_raise_minor"
+        )
+
+    def test_new_suit_beats_invite_with_side_suit(self):
+        """16+ Bergen with 4+ side suit -> new suit wins over invite."""
+        # A3.AK32.AJ852.73 — 15 HCP, 2-4-5-2, bergen=15+1=16
+        assert (
+            _rebid_select("A3.AK32.AJ852.73", "1D", "2D")
+            == "rebid.new_suit_after_raise_minor"
+        )
+
+    def test_accept_limit_raise_minor_3nt(self):
+        """Unbalanced, 15+ Bergen, after 1D->3D -> 3NT."""
+        # AQ32.8.KQJ52.A73 — 14 HCP, 4-1-5-3, bergen=17
+        assert (
+            _rebid_select("AQ32.8.KQJ52.A73", "1D", "3D")
+            == "rebid.accept_limit_raise_minor_3nt"
+        )
+
+    def test_5m_beats_3nt_with_6_card_suit(self):
+        """Unbalanced, 15+ Bergen, 6+ minor -> 5m wins over 3NT."""
+        # AK3.8.AKJ852.Q73 — 16 HCP, 3-1-6-3, bergen=21
+        assert (
+            _rebid_select("AK3.8.AKJ852.Q73", "1D", "3D")
+            == "rebid.5m_after_limit_raise_minor"
+        )
+
+
+class TestSAYC2COffshapeIntegration:
+    """Integration tests for 2C->2D 4-4-4-1 offshape gap fix."""
+
+    def test_4441_bids_2nt(self):
+        """4-4-4-1, 22+ HCP, after 2C->2D -> 2NT offshape."""
+        # AKJ4.AKQ4.KQJ4.2 — 22 HCP, 4-4-4-1
+        assert (
+            _rebid_select("AKJ4.AKQ4.KQJ4.2", "2C", "2D")
+            == "rebid.2nt_after_2c_offshape"
+        )
+
+    def test_balanced_uses_standard_2nt(self):
+        """Balanced 22 HCP still uses standard rule."""
+        # AKQ3.AJ4.KQ3.K43 = 22 HCP, balanced
+        assert _rebid_select("AKQ3.AJ4.KQ3.K43", "2C", "2D") == "rebid.2nt_after_2c"
+
+    def test_5_card_suit_uses_suit_rule(self):
+        """5+ suit still uses suit rule even if 22+ HCP."""
+        # AK2.AKQ432.A.432 — 20 HCP, 6 hearts
+        assert _rebid_select("AK2.AKQ432.A.432", "2C", "2D") == "rebid.suit_after_2c"

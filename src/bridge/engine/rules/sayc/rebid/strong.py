@@ -204,6 +204,50 @@ class RebidSuitAfter2C(Rule):
         )
 
 
+class Rebid2NTAfter2COffshape(Rule):
+    """Rebid 2NT after 2C-2D with 4-4-4-1 shape -- no 5+ suit, not balanced.
+
+    e.g. 2C->2D->2NT with AKJx.AKQx.KQJx.x
+
+    Catch-all for the rare case where a 2C opener has 22+ HCP but
+    exactly 4-4-4-1 distribution: no 5-card suit to bid naturally
+    and not balanced for the standard 2NT rebid. Common expert
+    practice is to treat these hands as 2NT despite the singleton,
+    since there is no good alternative. Stayman and transfers apply.
+    """
+
+    @property
+    def name(self) -> str:
+        return "rebid.2nt_after_2c_offshape"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_OPENER
+
+    @property
+    def priority(self) -> int:
+        return 578
+
+    def applies(self, ctx: BiddingContext) -> bool:
+        return (
+            _opened_2c_self(ctx)
+            and _partner_bid_2d_waiting(ctx)
+            and not ctx.is_balanced
+            and not _has_5_plus_suit(ctx)
+        )
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        return RuleResult(
+            bid=SuitBid(2, Suit.NOTRUMP),
+            rule_name=self.name,
+            explanation=(
+                "22+ HCP, 4-4-4-1 shape -- 2NT despite singleton "
+                "(no 5+ suit, common expert practice)"
+            ),
+            forcing=False,
+        )
+
+
 # -- Rebids after positive response ------------------------------------------
 
 
