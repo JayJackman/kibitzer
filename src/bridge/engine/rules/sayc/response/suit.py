@@ -58,7 +58,7 @@ def _opened_1_minor(ctx: BiddingContext) -> bool:
 def _has_4_card_major(ctx: BiddingContext) -> bool:
     """Whether responder has a 4+ card major."""
     hand = ctx.hand
-    return hand.suit_length(Suit.SPADES) >= 4 or hand.suit_length(Suit.HEARTS) >= 4
+    return hand.num_spades >= 4 or hand.num_hearts >= 4
 
 
 def _adequate_minor_support(ctx: BiddingContext) -> bool:

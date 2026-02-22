@@ -40,6 +40,22 @@ cli --> service/advisor --> engine (rule-based, deterministic)
 
 Each layer only depends downward. The `service/advisor.py` is the stable API surface.
 
+## Rule Directory Structure
+
+Rules live under `src/bridge/engine/rules/sayc/`. Each directory maps to one auction round:
+
+```
+opening/       # Round 1: opener's first bid
+response/      # Round 2: responder's first bid
+rebid/         # Round 3: opener's second bid
+reresponse/    # Round 4: responder's second bid (future)
+further/       # Round 5+: later bids (future)
+```
+
+Within each directory, files are organized by opening type: `suit.py` (after 1-of-a-suit), `nt.py` (after NT opening), `strong.py` (after 2C), `preempt.py` (after weak/preemptive opening). Not every directory needs all file types — only create what's needed.
+
+Competitive bidding (overcalls, doubles) cuts across all rounds and will be handled separately.
+
 ## SAYC Rule Accuracy
 
 Every bidding rule must be accurate to the official SAYC (Standard American Yellow Card) system as published by the ACBL. The primary reference is the ACBL SAYC System Booklet (SP-3, revised January 2006).
@@ -53,5 +69,7 @@ Every bidding rule must be accurate to the official SAYC (Standard American Yell
 ## Code Conventions
 
 - **Never use string-quoted type annotations** like `-> "Foo"`. When forward references are needed, add `from __future__ import annotations` to the file. Only include the import when it's actually necessary (e.g., forward references, self-referencing types).
+- **Inline single-use variables** when the expression is legible on its own. Don't extract a local variable just to name something used once.
+- **Use plain ASCII in source code.** Hyphens (`-`) not en dashes, `<=` not `≤`, etc.
 - All tool config lives in `pyproject.toml` — no separate config files.
 - Pre-commit hooks run ruff + mypy on every commit.

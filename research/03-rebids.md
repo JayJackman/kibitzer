@@ -2,6 +2,20 @@
 
 ## Opener's Rebids
 
+### Hand Re-evaluation After a Fit
+
+When partner raises opener's suit, the fit is confirmed and opener should re-evaluate using Bergen points rather than the original total points (HCP + length). Shortness gains value once a trump fit exists because it translates to ruffs.
+
+**Bergen points** (Marty Bergen, *Points Schmoints*):
+1. Start with HCP
+2. Add +2 for a singleton, +4 for a void (side suits only)
+3. Add +1 for each trump beyond the 5th
+4. Add +1 for a 4-card or 5-card side suit
+
+This re-evaluation applies to all raise-related rebid decisions (pass/invite/game after a single or limit raise). For NT rebid decisions, use HCP only — distribution doesn't help in notrump.
+
+For rebids after a new suit response or 1NT response (where no fit is confirmed), opener continues to use total points (HCP + length points).
+
 ### Strength Categories
 
 | Category | Points | Actions |
@@ -105,7 +119,7 @@ Game-forcing raise with 4+ trumps and 13+ dummy points. Trump suit is establishe
 | Rebid | Meaning |
 |-------|---------|
 | 3-level new suit (3C/3D/3S) | Singleton or void in the bid suit |
-| 4-level new suit (4C/4D/4S) | 5+ card side suit (a source of tricks) |
+| 4-level new suit (4C/4D/4S) | 5+ card side suit (a source of tricks). Prefer a *good* suit (2+ honors) — a weak 5-card suit should be weighed lower when offering multiple bid candidates. |
 | 3 of agreed major (e.g., 3H) | Maximum (18+), no shortness |
 | 3NT | Medium (15–17), no shortness |
 | 4 of agreed major (e.g., 4H) | Minimum (12–14), no shortness |

@@ -1,6 +1,7 @@
 """Hand evaluation functions for bridge bidding."""
 
 from .hand_eval import (
+    bergen_points,
     best_major,
     best_minor,
     controls,
@@ -18,6 +19,7 @@ from .hand_eval import (
 )
 
 __all__ = [
+    "bergen_points",
     "best_major",
     "best_minor",
     "controls",

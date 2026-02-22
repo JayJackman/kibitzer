@@ -208,3 +208,110 @@ class TestSAYCResponseIntegration:
     def test_pass_over_1c(self):
         """<6 HCP → pass."""
         assert _response_select("843.973.973.J842", "1C") == "response.pass"
+
+
+def _rebid_select(pbn: str, opening: str, response: str) -> str:
+    """Run a hand through the full SAYC pipeline as opener rebidding.
+
+    North opens, East passes, South responds, West passes, North rebids.
+    """
+    reg = create_sayc_registry()
+    selector = BidSelector(reg)
+    auction = AuctionState(dealer=Seat.NORTH)
+    auction.add_bid(parse_bid(opening))
+    auction.add_bid(Bid.make_pass())
+    auction.add_bid(parse_bid(response))
+    auction.add_bid(Bid.make_pass())
+    board = Board(hand=Hand.from_pbn(pbn), seat=Seat.NORTH, auction=auction)
+    ctx = BiddingContext(board)
+    result = selector.select(ctx)
+    return result.rule_name
+
+
+class TestSAYCRebidIntegration:
+    """Smoke tests: correct rebid rule wins for representative hands."""
+
+    # ── After single raise of major ─────────────────────────────────
+
+    def test_game_after_raise_19_bergen(self):
+        """19+ Bergen pts → 4S after 1S→2S."""
+        assert (
+            _rebid_select("AKJ52.A3.K84.A73", "1S", "2S")
+            == "rebid.game_after_raise_major"
+        )
+
+    def test_invite_after_raise_17_bergen(self):
+        """17 Bergen pts → 3S (invite) after 1S→2S."""
+        assert (
+            _rebid_select("AKJ52.KQ3.84.A73", "1S", "2S")
+            == "rebid.invite_after_raise_major"
+        )
+
+    def test_pass_after_raise_minimum(self):
+        """13 Bergen pts → pass after 1S→2S."""
+        assert _rebid_select("KJ852.KQ3.84.A73", "1S", "2S") == "rebid.pass_after_raise"
+
+    # ── After limit raise of major ──────────────────────────────────
+
+    def test_accept_limit_raise(self):
+        """17 Bergen pts → 4S after 1S→3S."""
+        assert (
+            _rebid_select("AKJ52.KQ3.84.A73", "1S", "3S")
+            == "rebid.accept_limit_raise_major"
+        )
+
+    def test_decline_limit_raise(self):
+        """11 Bergen pts → pass after 1S→3S."""
+        assert (
+            _rebid_select("KJ852.Q73.84.A73", "1S", "3S") == "rebid.decline_limit_raise"
+        )
+
+    # ── After 1NT response ──────────────────────────────────────────
+
+    def test_2nt_over_1nt_18_balanced(self):
+        """18 HCP balanced → 2NT over 1NT."""
+        # AKJ3=8, KQ8=5, Q84=2, K73=3 → 18 HCP, 4-3-3-3
+        assert _rebid_select("AKJ3.KQ8.Q84.K73", "1S", "1NT") == "rebid.2nt_over_1nt"
+
+    def test_rebid_suit_over_1nt(self):
+        """6-card suit, minimum → 2S over 1NT."""
+        assert (
+            _rebid_select("KJ8532.KQ3.8.A73", "1S", "1NT")
+            == "rebid.rebid_suit_over_1nt"
+        )
+
+    def test_pass_over_1nt_balanced_min(self):
+        """Balanced minimum with 5-card suit → pass over 1NT."""
+        # KJ852.Q73.K4.A73 — 13 HCP, 5-3-2-3
+        assert _rebid_select("KJ852.Q73.K4.A73", "1S", "1NT") == "rebid.pass_over_1nt"
+
+    # ── After new suit at 1-level ───────────────────────────────────
+
+    def test_raise_responder_4_card(self):
+        """4-card support, minimum → 2S after 1H→1S."""
+        assert _rebid_select("K842.AKJ52.Q7.73", "1H", "1S") == "rebid.raise_responder"
+
+    def test_1nt_rebid_balanced(self):
+        """12-14 HCP balanced → 1NT after 1H→1S."""
+        assert _rebid_select("K73.AJ852.Q73.Q7", "1H", "1S") == "rebid.1nt"
+
+    def test_reverse_17_pts(self):
+        """17+ pts, higher suit → reverse after 1D→1S."""
+        # 8=0, AQ73=6, AKJ52=8, Q73=2 → 16 HCP + 1 len = 17 total, 1-4-5-3
+        assert _rebid_select("8.AQ73.AKJ52.Q73", "1D", "1S") == "rebid.reverse"
+
+    # ── After 2-over-1 ──────────────────────────────────────────────
+
+    def test_rebid_suit_after_2over1(self):
+        """6+ card suit → rebid after 2-over-1."""
+        assert (
+            _rebid_select("A4.AKJ852.Q7.K73", "1H", "2C")
+            == "rebid.rebid_suit_after_2over1"
+        )
+
+    def test_new_suit_after_2over1(self):
+        """Third suit after 2-over-1."""
+        assert (
+            _rebid_select("AK42.AKJ52.Q7.73", "1H", "2C")
+            == "rebid.new_suit_after_2over1"
+        )

@@ -37,15 +37,17 @@ bridge/
 │   │   ├── selector.py # Phase detection + priority-based conflict resolution
 │   │   ├── context.py  # BiddingContext (hand eval + auction state bundle)
 │   │   ├── sayc.py     # Wires all SAYC rules into one system
-│   │   └── rules/      # One module per rule category
-│   │       ├── opening.py, opening_nt.py, opening_strong.py, opening_preempt.py
-│   │       ├── response_major.py, response_minor.py, response_nt.py
-│   │       ├── response_2c.py, response_weak.py
-│   │       ├── rebid_opener.py, rebid_responder.py
-│   │       ├── competitive.py, negative_double.py
-│   │       ├── conventions.py  (Stayman, Jacoby transfers, etc.)
-│   │       ├── slam.py         (Blackwood, Gerber, cue bids)
-│   │       └── passed_hand.py
+│   │   └── rules/sayc/  # SAYC bidding system rules
+│   │       ├── opening/     # Round 1: opener's first bid
+│   │       │   ├── suit.py, nt.py, strong.py, preempt.py
+│   │       ├── response/    # Round 2: responder's first bid
+│   │       │   ├── suit.py
+│   │       ├── rebid/       # Round 3: opener's second bid
+│   │       │   ├── suit.py  (after 1-of-a-suit opening)
+│   │       │   ├── nt.py    (after NT opening — Stayman/transfers; future)
+│   │       ├── reresponse/  # Round 4: responder's second bid (future)
+│   │       ├── further/     # Round 5+: later bids (future)
+│   │       └── competitive/ # Overcalls, doubles (future, cross-cutting)
 │   ├── llm/            # Claude API integration
 │   │   ├── client.py   # Thin Anthropic SDK wrapper
 │   │   ├── prompts.py  # System/user prompt templates
@@ -78,15 +80,18 @@ The `BidSelector` routes by auction phase, then picks the highest-priority match
 
 The selector determines which rule category to search based on auction state:
 
-| Condition | Category |
-|-----------|----------|
-| No non-pass bids yet | `opening` |
-| Partner opened, my first bid, no interference | `response` |
-| Partner opened, my first bid, opponent interfered | `competitive_response` |
-| I opened, partner responded | `rebid_opener` |
-| Partner opened, I responded | `rebid_responder` |
-| Opponent opened, my first bid | `competitive` |
-| `convention` and `slam` | Always checked as overlays |
+| Condition | Category | Directory |
+|-----------|----------|-----------|
+| No non-pass bids yet | `opening` | `opening/` |
+| Partner opened, my first bid, no interference | `response` | `response/` |
+| Partner opened, my first bid, opponent interfered | `competitive_response` | `competitive/` |
+| I opened, partner responded | `rebid_opener` | `rebid/` |
+| Partner opened, I responded, opener rebid | `reresponse` | `reresponse/` |
+| Round 5+ | `further` | `further/` |
+| Opponent opened, my first bid | `competitive` | `competitive/` |
+| `convention` and `slam` | Always checked as overlays | (cross-cutting) |
+
+Each directory under `rules/sayc/` maps to one auction round. Within each directory, files are organized by opening type (e.g., `suit.py`, `nt.py`) following the same pattern as `opening/`.
 
 ## LLM Integration
 
@@ -98,36 +103,45 @@ Two optional Claude API calls, controlled by CLI flags:
 
 Both are skipped with `--no-llm` for offline/fast usage.
 
-## Build Order (10 phases)
+## Build Order
 
-### Phase 1: Domain Model
+### Phase 1: Domain Model ✅
 `model/` package (Card, Hand, Bid, AuctionState, Seat, Vulnerability). Foundation for everything.
 
-### Phase 2: Hand Evaluation
-`evaluate/` package (HCP, distribution points, quick tricks, LTC, controls).
+### Phase 2: Hand Evaluation ✅
+`evaluate/` package (HCP, distribution points, quick tricks, LTC, controls, Bergen points).
 
-### Phase 3: Rule Engine Skeleton
+### Phase 3: Rule Engine Skeleton ✅
 `rule.py`, `registry.py`, `selector.py`, `context.py`. Test with mock rules.
 
-### Phase 4: Opening Bid Rules
-Simplest category (no prior auction context). Validates the architecture.
+### Phase 4: Opening Bid Rules ✅
+All 9 opening rules (1-suit, NT, 2C, weak twos, preempts, pass). Complete.
 
-### Phase 5: Response Rules
-Adds auction-context dependency. Forces phase-detection to work.
+### Phase 5: Response Rules ✅
+All 15 response rules to 1-of-a-suit openings (+ pass). Complete.
 
-### Phase 6: Rebid + Competitive Rules
-Largest state space. Build incrementally.
+### Phase 6: Opener's Rebids (partial) ✅
+30 rebid rules covering 5 response types (single raise, limit raise, 1NT, new suit 1-level, 2-over-1). In `rebid/suit.py`.
 
-### Phase 7: Convention + Slam Rules
-Overlay rules (Stayman, Blackwood, etc.).
+### Phase 7: Complete 1-of-a-suit Pipeline
+Fill remaining rebid gaps (17 new rules): Jacoby 2NT rebids, jump shift rebids, 2NT-over-minor rebids, help suit game tries, double-jump bids, pass after game-level responses. See `planning/phase7-complete-suit-pipeline.md`.
 
-### Phase 8: CLI
+### Phase 8: Complete All Responses + Rebids
+Add responses to every other opening type (1NT, 2NT, 2C, weak twos, preempts) and their corresponding opener rebids. ~75 new rules. See `planning/phase7-complete-suit-pipeline.md` Phase B section.
+
+### Phase 9: Responder's Rebids + Further Bidding
+Rules in `reresponse/` and `further/`. Includes handling game tries from responder's side.
+
+### Phase 10: Competitive Bidding
+Overcalls, doubles, negative doubles. Cross-cutting across all rounds.
+
+### Phase 11: CLI
 Wire up typer, input parsing, rich output formatting.
 
-### Phase 9: LLM Integration
+### Phase 12: LLM Integration
 Claude API client, prompts, structured output parsing.
 
-### Phase 10: Regression Baseline
+### Phase 13: Regression Baseline
 Run engine against hundreds of test hands, freeze as baseline.
 
 ## Testing Strategy

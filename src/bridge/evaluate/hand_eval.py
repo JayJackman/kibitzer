@@ -132,8 +132,8 @@ def quality_suit(hand: Hand, suit: Suit) -> bool:
 
 def best_major(hand: Hand) -> Suit | None:
     """Longest 5+ card major, or None. Spades wins ties."""
-    s_len = hand.suit_length(Suit.SPADES)
-    h_len = hand.suit_length(Suit.HEARTS)
+    s_len = hand.num_spades
+    h_len = hand.num_hearts
     if s_len < 5 and h_len < 5:
         return None
     if s_len >= h_len:
@@ -148,8 +148,8 @@ def best_minor(hand: Hand) -> Suit:
     - 4-4 in minors: open 1D.
     - 3-3 in minors: open 1C.
     """
-    d_len = hand.suit_length(Suit.DIAMONDS)
-    c_len = hand.suit_length(Suit.CLUBS)
+    d_len = hand.num_diamonds
+    c_len = hand.num_clubs
     if d_len > c_len:
         return Suit.DIAMONDS
     if c_len > d_len:
@@ -183,6 +183,43 @@ def support_points(hand: Hand, trump_suit: Suit) -> int:
     return hcp(hand) + distribution_points(hand, trump_suit)
 
 
+def bergen_points(hand: Hand, trump_suit: Suit) -> int:
+    """Re-evaluate opener's hand after partner raises their suit.
+
+    Once a trump fit is confirmed, shortness translates to ruffs and extra
+    trumps/side-suit length provide additional trick-taking potential.  This
+    replaces total_points (HCP + length) for all raise-related rebid decisions.
+
+    Formula (Marty Bergen, *Points Schmoints*):
+      1. Start with HCP.
+      2. +2 for each singleton in a side suit.
+      3. +4 for each void in a side suit.
+      4. +1 for each trump beyond the 5th.
+      5. +1 for any 4-card or 5-card side suit.
+    """
+    pts = hcp(hand)
+    trump_len = hand.suit_length(trump_suit)
+
+    for suit in SUITS_SHDC:
+        if suit == trump_suit:
+            continue
+        length = hand.suit_length(suit)
+        # Shortness bonuses
+        if length == 0:
+            pts += 4
+        elif length == 1:
+            pts += 2
+        # Side-suit length bonus
+        if length in (4, 5):
+            pts += 1
+
+    # Extra trumps beyond the 5th
+    if trump_len > 5:
+        pts += trump_len - 5
+
+    return pts
+
+
 def rule_of_15(hand: Hand, hand_hcp: int) -> bool:
     """Rule of 15 (4th seat): HCP + number of spades >= 15."""
-    return hand_hcp + hand.suit_length(Suit.SPADES) >= 15
+    return hand_hcp + hand.num_spades >= 15

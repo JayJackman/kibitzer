@@ -75,14 +75,29 @@ class Hand:
         return self.suit_cards(Suit.CLUBS)
 
     @property
+    def num_spades(self) -> int:
+        """Number of spades."""
+        return self.suit_length(Suit.SPADES)
+
+    @property
+    def num_hearts(self) -> int:
+        """Number of hearts."""
+        return self.suit_length(Suit.HEARTS)
+
+    @property
+    def num_diamonds(self) -> int:
+        """Number of diamonds."""
+        return self.suit_length(Suit.DIAMONDS)
+
+    @property
+    def num_clubs(self) -> int:
+        """Number of clubs."""
+        return self.suit_length(Suit.CLUBS)
+
+    @property
     def shape(self) -> tuple[int, int, int, int]:
         """Suit lengths in S-H-D-C order."""
-        return (
-            self.suit_length(Suit.SPADES),
-            self.suit_length(Suit.HEARTS),
-            self.suit_length(Suit.DIAMONDS),
-            self.suit_length(Suit.CLUBS),
-        )
+        return (self.num_spades, self.num_hearts, self.num_diamonds, self.num_clubs)
 
     @property
     def sorted_shape(self) -> tuple[int, ...]:

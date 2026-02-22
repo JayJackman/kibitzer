@@ -1,6 +1,7 @@
 """Tests for hand evaluation functions."""
 
 from bridge.evaluate import (
+    bergen_points,
     controls,
     distribution_points,
     hcp,
@@ -251,10 +252,7 @@ class TestSupportPoints:
         assert support_points(hand, Suit.HEARTS) == 14
 
     def test_void_outside_trump(self) -> None:
-        # 84=0, KJ842=4, 98743=0, .=void → 4 HCP, 2-5-5-0 (wait, 12 cards)
-        # Let me use: 84=0, KJ842=4, 9874=0, 3=0 → 4 HCP, 2-5-4-1 (wait, 12)
-        # Better: 843=0, KJ842=4, 9874=0, 3=0 → 4 HCP, 3-5-4-1
-        # Raising hearts: singleton club = +3 → support = 7
+        # 843.KJ842.9874.3 — 4 HCP, 3-5-4-1, singleton club = +3 → support = 7
         hand = Hand.from_pbn("843.KJ842.9874.3")
         assert support_points(hand, Suit.HEARTS) == 7
 
@@ -264,3 +262,60 @@ class TestSupportPoints:
         # No other shortness → support = 11
         hand = Hand.from_pbn("K843.4.AJ842.K73")
         assert support_points(hand, Suit.HEARTS) == 11
+
+
+class TestBergenPoints:
+    def test_balanced_no_bonus(self) -> None:
+        # AKJ52.KQ3.84.A73 — 5-3-2-3, 17 HCP
+        # Trump spades: no shortness bonus (doubleton doesn't count),
+        # no extra trumps (exactly 5), no 4+ side suit → 17
+        hand = Hand.from_pbn("AKJ52.KQ3.84.A73")
+        assert bergen_points(hand, Suit.SPADES) == 17
+
+    def test_singleton_bonus(self) -> None:
+        # AKJ52.Q3.8.AK732 — 5-2-1-5, 17 HCP
+        # Trump spades: singleton D = +2, 5-card club side suit = +1 → 20
+        hand = Hand.from_pbn("AKJ52.Q3.8.AK732")
+        assert bergen_points(hand, Suit.SPADES) == 20
+
+    def test_void_bonus(self) -> None:
+        # AKQJ5.KQJT9..A32 — 5-5-0-3, 20 HCP
+        # Trump spades: void D = +4, 5-card heart side suit = +1 → 25
+        hand = Hand.from_pbn("AKQJ5.KQJT9..A32")
+        assert bergen_points(hand, Suit.SPADES) == 25
+
+    def test_extra_trumps(self) -> None:
+        # AKJ852.KQ3.84.A7 — 6-3-2-2, 17 HCP
+        # Trump spades: 6th trump = +1, no shortness, no 4+ side suit → 18
+        hand = Hand.from_pbn("AKJ852.KQ3.84.A7")
+        assert bergen_points(hand, Suit.SPADES) == 18
+
+    def test_7_card_trump(self) -> None:
+        # AKJT852.KQ.84.A7 — 7-2-2-2, 17 HCP
+        # Trump spades: 6th + 7th trump = +2, no shortness, no 4+ side → 19
+        hand = Hand.from_pbn("AKJT852.KQ.84.A7")
+        assert bergen_points(hand, Suit.SPADES) == 19
+
+    def test_4_card_side_suit(self) -> None:
+        # AKJ52.KQ73.84.A7 — 5-4-2-2, 17 HCP
+        # Trump spades: 4-card heart side suit = +1 → 18
+        hand = Hand.from_pbn("AKJ52.KQ73.84.A7")
+        assert bergen_points(hand, Suit.SPADES) == 18
+
+    def test_all_bonuses_combined(self) -> None:
+        # AKJ82.Q3.8.AK732 — 5-2-1-5, 17 HCP
+        # Trump spades: singleton D = +2, 5-card club = +1, no extra trumps → 20
+        hand = Hand.from_pbn("AKJ82.Q3.8.AK732")
+        assert bergen_points(hand, Suit.SPADES) == 20
+
+    def test_flat_hand_equals_hcp(self) -> None:
+        # AKQJ.AKQ.AKQ.A32 — 4-3-3-3, 32 HCP
+        # Trump spades: no shortness, no extra trumps, no 4+ side → 32
+        hand = Hand.from_pbn("AKQJ.AKQ.AKQ.A32")
+        assert bergen_points(hand, Suit.SPADES) == 32
+
+    def test_minor_trump(self) -> None:
+        # A73.84.AKJ52.KQ3 — 3-2-5-3, 17 HCP
+        # Trump diamonds: doubleton H (no bonus), no extra trumps, no 4+ side → 17
+        hand = Hand.from_pbn("A73.84.AKJ52.KQ3")
+        assert bergen_points(hand, Suit.DIAMONDS) == 17

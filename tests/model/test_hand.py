@@ -47,8 +47,8 @@ class TestHandCreation:
     def test_void_suit(self) -> None:
         # Void in diamonds: S:AKQJ52 H:KQ32 D:- C:A7
         hand = Hand.from_pbn("AKQJ52.KQ32..A73")
-        assert hand.suit_length(Suit.DIAMONDS) == 0
-        assert hand.suit_length(Suit.SPADES) == 6
+        assert hand.num_diamonds == 0
+        assert hand.num_spades == 6
 
     def test_compact_no_suit_prefix(self) -> None:
         with pytest.raises(ValueError, match="Expected suit letter"):
@@ -68,10 +68,10 @@ class TestHandQueries:
         assert ranks == [Rank.ACE, Rank.KING, Rank.JACK, Rank.FIVE, Rank.TWO]
 
     def test_suit_length(self, hand: Hand) -> None:
-        assert hand.suit_length(Suit.SPADES) == 5
-        assert hand.suit_length(Suit.HEARTS) == 3
-        assert hand.suit_length(Suit.DIAMONDS) == 2
-        assert hand.suit_length(Suit.CLUBS) == 3
+        assert hand.num_spades == 5
+        assert hand.num_hearts == 3
+        assert hand.num_diamonds == 2
+        assert hand.num_clubs == 3
 
     def test_notrump_raises(self, hand: Hand) -> None:
         with pytest.raises(ValueError, match="Cannot get cards for NOTRUMP"):

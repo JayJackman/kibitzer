@@ -43,7 +43,7 @@ SAYC is a set of bidding agreements created by the American Contract Bridge Leag
 
 ### Support Points (Dummy Points)
 
-When raising partner's suit, add for shortness in side suits:
+When raising partner's suit as responder, add for shortness in side suits:
 
 | Holding | Points |
 |---------|--------|
@@ -52,6 +52,21 @@ When raising partner's suit, add for shortness in side suits:
 | Doubleton | 1 |
 
 Do not count side-suit honors as both HCP and support points.
+
+### Bergen Points (Opener Re-evaluation After a Fit)
+
+When partner has raised your suit, re-evaluate using Bergen's method (Marty Bergen, *Points Schmoints*). Shortness only counts once a fit is confirmed:
+
+| Factor | Points |
+|--------|--------|
+| Singleton (side suit) | +2 |
+| Void (side suit) | +4 |
+| Each trump beyond the 5th | +1 (e.g., 6-card suit = +1, 7-card = +2) |
+| 4-card or 5-card side suit | +1 |
+
+Start with HCP, then add the above. This replaces length points once a fit is established.
+
+**Why not just use support points?** Support points (dummy points) are designed for the hand that will be dummy — the responder raising partner. Bergen points are for the hand that will be declarer — the opener whose suit was raised. The adjustments differ because declarer values long trumps and side suits for tricks, while dummy values shortness for ruffs.
 
 ### Length Points
 
