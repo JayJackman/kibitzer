@@ -36,7 +36,7 @@ class BiddingContext:
         self.distribution_pts: int = evaluate.distribution_points(hand)
         self.controls: int = evaluate.controls(hand)
         self.quick_tricks: float = evaluate.quick_tricks(hand)
-        self.ltc: int = evaluate.losing_trick_count(hand)
+        self.losers: int = evaluate.losing_trick_count(hand)
 
         # Shape helpers
         self.shape: tuple[int, int, int, int] = hand.shape

@@ -7,9 +7,6 @@ from enum import IntEnum, unique
 
 from .bid import (
     Bid,
-    DoubleBid,
-    RedoubleBid,
-    SuitBid,
     is_double,
     is_pass,
     is_redouble,
@@ -211,31 +208,33 @@ class AuctionState:
             current = self.current_seat
             if last_bidder == current or last_bidder == current.partner:
                 raise IllegalBidError("Cannot double your own side's bid")
-            if self._is_doubled() or self._is_redoubled():
+            if self.is_doubled or self.is_redoubled:
                 raise IllegalBidError("Bid is already doubled")
 
         elif is_redouble(bid):
             # Can only redouble a doubled bid by the opponents
-            if not self._is_doubled():
+            if not self.is_doubled:
                 raise IllegalBidError("Cannot redouble: bid is not doubled")
-            if self._is_redoubled():
+            if self.is_redoubled:
                 raise IllegalBidError("Bid is already redoubled")
 
         self._bids.append(bid)
 
-    def _is_doubled(self) -> bool:
+    @property
+    def is_doubled(self) -> bool:
         """Check if the current contract is doubled (not redoubled)."""
         for bid in reversed(self._bids):
-            if isinstance(bid, (SuitBid, RedoubleBid)):
+            if is_suit_bid(bid) or is_redouble(bid):
                 return False
             if is_double(bid):
                 return True
         return False
 
-    def _is_redoubled(self) -> bool:
+    @property
+    def is_redoubled(self) -> bool:
         """Check if the current contract is redoubled."""
         for bid in reversed(self._bids):
-            if isinstance(bid, (SuitBid, DoubleBid)):
+            if is_suit_bid(bid) or is_double(bid):
                 return False
             if is_redouble(bid):
                 return True

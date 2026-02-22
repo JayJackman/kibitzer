@@ -27,7 +27,7 @@ class TestBiddingContextFromBoard:
         assert ctx.distribution_pts == 1
         assert ctx.controls == 6
         assert ctx.quick_tricks == 4.0
-        assert ctx.ltc == 6
+        assert ctx.losers == 6
 
     def test_shape_helpers(self) -> None:
         board = Board(
@@ -134,4 +134,4 @@ class TestBiddingContextFromBoard:
         assert ctx.total_pts == 1
         assert ctx.controls == 0
         assert ctx.quick_tricks == 0.0
-        assert ctx.ltc == 11
+        assert ctx.losers == 11
