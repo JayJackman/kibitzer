@@ -29,6 +29,14 @@ from .nt import (
     RebidStayman2S,
     RebidSuperAccept,
 )
+from .strong import (
+    Rebid2NTAfter2C,
+    Rebid3NTAfter2C,
+    RebidNTAfterPositive2C,
+    RebidRaiseAfterPositive2C,
+    RebidSuitAfter2C,
+    RebidSuitAfterPositive2C,
+)
 from .suit import (
     Rebid1NT,
     Rebid2NTAfter2Over1,
@@ -157,4 +165,11 @@ __all__ = [
     "Rebid2NTStayman3D",
     "Rebid2NTStayman3H",
     "Rebid2NTStayman3S",
+    # Rebids after 2C opening
+    "Rebid2NTAfter2C",
+    "Rebid3NTAfter2C",
+    "RebidNTAfterPositive2C",
+    "RebidRaiseAfterPositive2C",
+    "RebidSuitAfter2C",
+    "RebidSuitAfterPositive2C",
 ]

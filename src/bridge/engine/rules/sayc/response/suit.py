@@ -11,7 +11,7 @@ from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.evaluate import support_points
 from bridge.model.bid import PASS, Bid, SuitBid, is_suit_bid
-from bridge.model.card import Suit
+from bridge.model.card import SUITS_SHDC, Suit
 
 # ── Helpers ─────────────────────────────────────────────────────────
 
@@ -363,10 +363,7 @@ class RespondGameRaiseMajor(Rule):
         if ctx.hcp >= 10:
             return False
         # Must have singleton or void in a side suit
-        for s in (Suit.SPADES, Suit.HEARTS, Suit.DIAMONDS, Suit.CLUBS):
-            if s != suit and ctx.hand.suit_length(s) <= 1:
-                return True
-        return False
+        return any(s != suit and ctx.hand.suit_length(s) <= 1 for s in SUITS_SHDC)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(

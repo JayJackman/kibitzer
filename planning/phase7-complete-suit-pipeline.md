@@ -2,15 +2,17 @@
 
 ## Current State
 
-117 rules registered, 675 tests passing.
+126 rules registered, 739 tests passing.
 
 - **Opening**: 9 rules (suit, NT, 2C, weak two, preempt 3/4) -- complete
 - **Response to 1-of-a-suit**: 15 rules -- complete
 - **Response to 1NT**: 11 rules -- complete (Phase B1)
 - **Response to 2NT**: 8 rules -- complete (Phase B2)
+- **Response to 2C**: 3 rules -- complete (Phase B3)
 - **Rebid after 1-of-a-suit**: 47 rules -- complete (Phase A)
 - **Rebid after 1NT**: 17 rules -- complete (Phase B1)
 - **Rebid after 2NT**: 10 rules -- complete (Phase B2)
+- **Rebid after 2C**: 6 rules -- complete (Phase B3)
 
 ---
 
@@ -312,7 +314,7 @@ Add to `response/preempt.py` and `rebid/preempt.py`.
 |-------|-------------|-------------------|-----------------|-----------|--------|
 | B1 | 1NT (15-17) | 11 | 17 | 28 | COMPLETE |
 | B2 | 2NT (20-21) | 8 | 10 | 18 | COMPLETE |
-| B3 | 2C (strong) | 3 | 6 | 9 | Planned |
+| B3 | 2C (strong) | 3 | 6 | 9 | COMPLETE |
 | B4 | Weak twos | 6 | 6 | 12 | Planned |
 | B5 | 3-level preempts | 5 | 3 | 8 | Planned |
 | B6 | 4-level preempts | 2 | 1 | 3 | Planned |

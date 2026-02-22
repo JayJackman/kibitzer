@@ -4,7 +4,7 @@ from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.evaluate import has_outside_four_card_major, quality_suit
 from bridge.model.bid import SuitBid
-from bridge.model.card import Suit
+from bridge.model.card import SUITS_SHDC, Suit
 
 
 class OpenWeakTwo(Rule):
@@ -92,7 +92,7 @@ class OpenPreempt3(Rule):
     def _find_suit(self, ctx: BiddingContext) -> Suit | None:
         """Find a 7-card suit suitable for a 3-level preempt."""
         hand = ctx.hand
-        for suit in (Suit.SPADES, Suit.HEARTS, Suit.DIAMONDS, Suit.CLUBS):
+        for suit in SUITS_SHDC:
             if (
                 hand.suit_length(suit) == 7
                 and quality_suit(hand, suit)
@@ -141,7 +141,7 @@ class OpenPreempt4(Rule):
     def _find_suit(self, ctx: BiddingContext) -> Suit | None:
         """Find a suit suitable for a 4-level preempt."""
         hand = ctx.hand
-        for suit in (Suit.SPADES, Suit.HEARTS, Suit.DIAMONDS, Suit.CLUBS):
+        for suit in SUITS_SHDC:
             length = hand.suit_length(suit)
             min_length = 7 if suit.is_major else 8
             if length >= min_length and quality_suit(hand, suit):

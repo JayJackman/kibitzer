@@ -16,6 +16,7 @@ from .opening import (
 from .rebid import (
     Rebid1NT,
     Rebid2NTAccept4NT,
+    Rebid2NTAfter2C,
     Rebid2NTAfter2Over1,
     Rebid2NTAfterRaiseMinor,
     Rebid2NTComplete3SPuppet,
@@ -28,6 +29,7 @@ from .rebid import (
     Rebid2NTStayman3D,
     Rebid2NTStayman3H,
     Rebid2NTStayman3S,
+    Rebid3NTAfter2C,
     Rebid3NTAfter2Over1,
     Rebid3NTAfterRaiseMinor,
     Rebid3NTOver1NT,
@@ -69,6 +71,7 @@ from .rebid import (
     RebidNewSuitNonreverse,
     RebidNTAfter2NTMinor,
     RebidNTAfterJumpShift,
+    RebidNTAfterPositive2C,
     RebidOwnSuit,
     RebidOwnSuitAfterJumpShift,
     RebidPassAfter3NT,
@@ -79,20 +82,25 @@ from .rebid import (
     RebidRaise2Over1Responder,
     RebidRaise3MajorOver1NT,
     RebidRaiseAfterJumpShift,
+    RebidRaiseAfterPositive2C,
     RebidRaiseResponder,
     RebidReverse,
     RebidShowMajorAfter2NTMinor,
     RebidStayman2D,
     RebidStayman2H,
     RebidStayman2S,
+    RebidSuitAfter2C,
     RebidSuitAfter2Over1,
+    RebidSuitAfterPositive2C,
     RebidSuitOver1NT,
     RebidSuperAccept,
 )
 from .response import (
     Respond1NTOverMajor,
     Respond1NTOverMinor,
+    Respond2DWaiting,
     Respond2NTOver1NT,
+    Respond2NTOver2C,
     Respond2NTOverMinor,
     Respond2Over1,
     Respond2SPuppet,
@@ -117,6 +125,7 @@ from .response import (
     RespondPass,
     RespondPassOver1NT,
     RespondPassOver2NT,
+    RespondPositiveSuitOver2C,
     RespondSingleRaiseMajor,
     RespondSingleRaiseMinor,
     RespondStayman,
@@ -260,6 +269,21 @@ def create_sayc_registry() -> RuleRegistry:
     reg.register(RebidPassAfter3NTOver1NT())
     reg.register(RebidAccept4NTOver1NT())
     reg.register(RebidDecline4NTOver1NT())
+
+    # ── Responses to 2C ──────────────────────────────────────────────
+    reg.register(Respond2NTOver2C())
+    reg.register(RespondPositiveSuitOver2C())
+    reg.register(Respond2DWaiting())
+
+    # ── Opener rebids after 2C opening (after 2D waiting) ────────────
+    reg.register(Rebid2NTAfter2C())
+    reg.register(Rebid3NTAfter2C())
+    reg.register(RebidSuitAfter2C())
+
+    # ── Opener rebids after 2C opening (after positive response) ─────
+    reg.register(RebidRaiseAfterPositive2C())
+    reg.register(RebidSuitAfterPositive2C())
+    reg.register(RebidNTAfterPositive2C())
 
     # ── Responses to 2NT ────────────────────────────────────────────
     reg.register(RespondGerberOver2NT())

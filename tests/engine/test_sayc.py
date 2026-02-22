@@ -522,3 +522,101 @@ class TestSAYC2NTRebidIntegration:
             _rebid_select("AQ3.KQ4.AQ32.K43", "2NT", "4NT")
             == "rebid.decline_4nt_over_2nt"
         )
+
+
+# ── 2C Response Integration ──────────────────────────────────────────────
+
+
+class TestSAYC2CResponseIntegration:
+    """Smoke tests: correct response rule wins after 2C opening."""
+
+    def test_2nt_positive_balanced(self):
+        """9 HCP, balanced -> 2NT positive."""
+        # KJ3.Q42.K43.5432 = K=3+J=1+Q=2+K=3 = 9 HCP, balanced
+        assert _response_select("KJ3.Q42.K43.5432", "2C") == "response.2nt_over_2c"
+
+    def test_positive_suit_hearts(self):
+        """10 HCP, 5 hearts with AK -> 2H positive."""
+        # 5432.AK432.K4.32 = A=4+K=3+K=3 = 10 HCP, 5H with AK
+        assert _response_select("5432.AK432.K4.32", "2C") == "response.positive_suit_2c"
+
+    def test_positive_suit_spades(self):
+        """9 HCP, 5 spades with AQ, unbalanced -> 2S positive."""
+        # AQ432.K43.2.5432 = A=4+Q=2+K=3 = 9 HCP, 5-3-1-4 unbalanced
+        assert _response_select("AQ432.K43.2.5432", "2C") == "response.positive_suit_2c"
+
+    def test_2d_waiting_weak(self):
+        """0 HCP -> 2D waiting."""
+        assert _response_select("5432.5432.5432.5", "2C") == "response.2d_waiting"
+
+    def test_2d_waiting_no_quality_suit(self):
+        """8 HCP, unbalanced, no quality suit -> 2D waiting."""
+        # AJ432.K43.2.Q432 = A=4+J=1+K=3+Q=2 = 10 HCP, 5-3-1-4 unbalanced
+        # Only A in spades (1 of top 3), not balanced -> 2D
+        assert _response_select("AJ432.K43.2.Q432", "2C") == "response.2d_waiting"
+
+    def test_balanced_prefers_2nt_over_positive_suit(self):
+        """11 HCP, balanced, 5 AQ spades -> 2NT (not positive suit)."""
+        # AQ432.K43.Q43.32 = A=4+Q=2+K=3+Q=2 = 11 HCP, balanced 5-3-3-2
+        assert _response_select("AQ432.K43.Q43.32", "2C") == "response.2nt_over_2c"
+
+
+# ── 2C Rebid Integration ─────────────────────────────────────────────────
+
+
+class TestSAYC2CRebidIntegration:
+    """Smoke tests: correct rebid rule wins after 2C opening."""
+
+    def test_2nt_after_2d(self):
+        """22 HCP, balanced, after 2D -> 2NT."""
+        # AKQ3.AJ4.KQ3.K43 = 22 HCP, balanced
+        assert _rebid_select("AKQ3.AJ4.KQ3.K43", "2C", "2D") == "rebid.2nt_after_2c"
+
+    def test_3nt_after_2d(self):
+        """25 HCP, balanced, after 2D -> 3NT."""
+        # AKQ3.AQ4.AK3.K43 = 25 HCP, balanced
+        assert _rebid_select("AKQ3.AQ4.AK3.K43", "2C", "2D") == "rebid.3nt_after_2c"
+
+    def test_suit_after_2d(self):
+        """6 hearts, unbalanced, after 2D -> 2H."""
+        # AK2.AKQ432.A.432 = A=4+K=3+A=4+K=3+Q=2+A=4 = 20 HCP, 6H
+        assert _rebid_select("AK2.AKQ432.A.432", "2C", "2D") == "rebid.suit_after_2c"
+
+    def test_raise_after_positive(self):
+        """4+ hearts after partner's 2H -> raise to 3H."""
+        # AK32.AK43.AK.432 = 21 HCP, 4 hearts
+        assert (
+            _rebid_select("AK32.AK43.AK.432", "2C", "2H")
+            == "rebid.raise_after_positive_2c"
+        )
+
+    def test_suit_after_positive(self):
+        """5+ spades after partner's 2H, <4 hearts -> 2S."""
+        # AKQJ2.A32.AK.432 = 21 HCP, 5 spades, 3 hearts
+        assert (
+            _rebid_select("AKQJ2.A32.AK.432", "2C", "2H")
+            == "rebid.suit_after_positive_2c"
+        )
+
+    def test_3nt_after_positive(self):
+        """No fit, no 5+ suit after positive -> 3NT."""
+        # AK32.A32.AK3.K32 = 21 HCP, 4-3-3-3
+        assert (
+            _rebid_select("AK32.A32.AK3.K32", "2C", "2H")
+            == "rebid.nt_after_positive_2c"
+        )
+
+    def test_suit_after_2nt_positive(self):
+        """5+ spades after partner's 2NT -> 3S."""
+        # AKQJ2.AK3.AK.432 = 24 HCP, 5 spades
+        assert (
+            _rebid_select("AKQJ2.AK3.AK.432", "2C", "2NT")
+            == "rebid.suit_after_positive_2c"
+        )
+
+    def test_3nt_after_2nt_positive(self):
+        """Balanced, no 5+ suit after partner's 2NT -> 3NT."""
+        assert (
+            _rebid_select("AK32.A32.AK3.K32", "2C", "2NT")
+            == "rebid.nt_after_positive_2c"
+        )
