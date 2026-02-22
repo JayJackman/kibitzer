@@ -84,7 +84,7 @@ from .response import (
 def create_sayc_registry() -> RuleRegistry:
     """Build a RuleRegistry with all SAYC bidding rules."""
     reg = RuleRegistry()
-    # Opening rules
+    # ── Opening bids ──────────────────────────────────────────────
     reg.register(Open2C())
     reg.register(Open2NT())
     reg.register(Open1NT())
@@ -94,7 +94,8 @@ def create_sayc_registry() -> RuleRegistry:
     reg.register(Open1Major())
     reg.register(Open1Minor())
     reg.register(OpenPass())
-    # Response rules
+
+    # ── Responses to 1-of-a-suit ──────────────────────────────────
     reg.register(RespondJumpShift())
     reg.register(RespondJacoby2NT())
     reg.register(RespondGameRaiseMajor())
@@ -110,56 +111,69 @@ def create_sayc_registry() -> RuleRegistry:
     reg.register(Respond1NTOverMinor())
     reg.register(Respond1NTOverMajor())
     reg.register(RespondPass())
-    # Opener rebid rules — after jump shift (highest priority)
+
+    # ── Opener rebids after jump shift ────────────────────────────
     reg.register(RebidRaiseAfterJumpShift())
     reg.register(RebidOwnSuitAfterJumpShift())
     reg.register(RebidNewSuitAfterJumpShift())
     reg.register(RebidNTAfterJumpShift())
-    # Opener rebid rules — after Jacoby 2NT
+
+    # ── Opener rebids after Jacoby 2NT ────────────────────────────
     reg.register(RebidJacoby3LevelShortness())
     reg.register(RebidJacoby4LevelSource())
     reg.register(RebidJacoby3Major())
     reg.register(RebidJacoby3NT())
     reg.register(RebidJacoby4Major())
-    # Opener rebid rules — after 2NT over minor
+
+    # ── Opener rebids after 3NT / 4M game raise ───────────────────
+    reg.register(RebidPassAfter3NT())
+    reg.register(RebidPassAfterGameRaise())
+
+    # ── Opener rebids after 2NT over minor ────────────────────────
     reg.register(RebidShowMajorAfter2NTMinor())
     reg.register(RebidMinorAfter2NTMinor())
     reg.register(RebidNTAfter2NTMinor())
-    # Opener rebid rules — after new suit 1-level (double-jumps)
-    reg.register(RebidDoubleJumpRaiseResponder())
-    reg.register(RebidDoubleJumpRebidOwnSuit())
-    # Opener rebid rules — existing (after new suit 1-level)
-    reg.register(RebidJumpTo2NT())
-    reg.register(RebidJumpShiftNewSuit())
-    reg.register(Rebid3NTOver1NT())
-    reg.register(RebidJumpShiftOver1NT())
-    reg.register(Rebid3NTAfterRaiseMinor())
+
+    # ── Opener rebids after limit raise ───────────────────────────
     reg.register(RebidAcceptLimitRaiseMajor())
+    reg.register(Rebid5mAfterLimitRaiseMinor())
+    reg.register(RebidDeclineLimitRaise())
+
+    # ── Opener rebids after single raise ──────────────────────────
+    reg.register(Rebid3NTAfterRaiseMinor())
     reg.register(RebidGameAfterRaiseMajor())
-    reg.register(RebidRaise2Over1Responder())
-    reg.register(RebidJumpRaiseResponder())
-    reg.register(RebidNewSuitAfter2Over1())
-    reg.register(RebidReverse())
-    reg.register(Rebid2NTOver1NT())
-    reg.register(RebidJumpRebidOwnSuit())
-    reg.register(RebidJumpRebidOver1NT())
     reg.register(RebidInviteAfterRaiseMajor())
     reg.register(RebidHelpSuitGameTry())
     reg.register(Rebid2NTAfterRaiseMinor())
+    reg.register(RebidNewSuitAfterRaiseMinor())
+    reg.register(RebidPassAfterRaise())
+
+    # ── Opener rebids after 1NT response ──────────────────────────
+    reg.register(Rebid3NTOver1NT())
+    reg.register(RebidJumpShiftOver1NT())
+    reg.register(Rebid2NTOver1NT())
+    reg.register(RebidJumpRebidOver1NT())
+    reg.register(RebidNewLowerSuitOver1NT())
+    reg.register(RebidSuitOver1NT())
+    reg.register(RebidPassOver1NT())
+
+    # ── Opener rebids after new suit at 1-level ───────────────────
+    reg.register(RebidDoubleJumpRaiseResponder())
+    reg.register(RebidDoubleJumpRebidOwnSuit())
+    reg.register(RebidJumpTo2NT())
+    reg.register(RebidJumpShiftNewSuit())
+    reg.register(RebidJumpRaiseResponder())
+    reg.register(RebidReverse())
+    reg.register(RebidJumpRebidOwnSuit())
+    reg.register(RebidRaiseResponder())
+    reg.register(RebidNewSuitNonreverse())
+    reg.register(RebidOwnSuit())  # also applies after 2-over-1
+    reg.register(Rebid1NT())
+
+    # ── Opener rebids after 2-over-1 ──────────────────────────────
+    reg.register(RebidRaise2Over1Responder())
+    reg.register(RebidNewSuitAfter2Over1())
     reg.register(Rebid3NTAfter2Over1())
     reg.register(RebidSuitAfter2Over1())
-    reg.register(Rebid5mAfterLimitRaiseMinor())
-    reg.register(RebidNewSuitAfterRaiseMinor())
-    reg.register(RebidRaiseResponder())
-    reg.register(RebidNewLowerSuitOver1NT())
-    reg.register(RebidNewSuitNonreverse())
-    reg.register(RebidSuitOver1NT())
-    reg.register(RebidOwnSuit())
     reg.register(Rebid2NTAfter2Over1())
-    reg.register(Rebid1NT())
-    reg.register(RebidDeclineLimitRaise())
-    reg.register(RebidPassAfterRaise())
-    reg.register(RebidPassAfterGameRaise())
-    reg.register(RebidPassAfter3NT())
-    reg.register(RebidPassOver1NT())
     return reg
