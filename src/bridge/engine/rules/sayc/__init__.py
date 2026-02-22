@@ -31,6 +31,7 @@ from .rebid import (
     Rebid2NTStayman3S,
     Rebid3NTAfter2C,
     Rebid3NTAfter2Over1,
+    Rebid3NTAfterFeatureAsk,
     Rebid3NTAfterRaiseMinor,
     Rebid3NTOver1NT,
     Rebid5mAfterLimitRaiseMinor,
@@ -73,18 +74,27 @@ from .rebid import (
     RebidNTAfterJumpShift,
     RebidNTAfterPositive2C,
     RebidOwnSuit,
+    RebidOwnSuitAfterFeatureAsk,
     RebidOwnSuitAfterJumpShift,
+    RebidOwnSuitAfterNewSuit3Level,
+    RebidOwnSuitAfterNewSuitWeakTwo,
+    RebidPassAfter3Level,
     RebidPassAfter3NT,
     RebidPassAfter3NTOver1NT,
+    RebidPassAfter4Level,
     RebidPassAfterGameRaise,
     RebidPassAfterRaise,
+    RebidPassAfterWeakTwo,
     RebidPassOver1NT,
     RebidRaise2Over1Responder,
     RebidRaise3MajorOver1NT,
     RebidRaiseAfterJumpShift,
+    RebidRaiseAfterNewSuit3Level,
     RebidRaiseAfterPositive2C,
+    RebidRaiseNewSuitWeakTwo,
     RebidRaiseResponder,
     RebidReverse,
+    RebidShowFeature,
     RebidShowMajorAfter2NTMinor,
     RebidStayman2D,
     RebidStayman2H,
@@ -99,6 +109,7 @@ from .response import (
     Respond1NTOverMajor,
     Respond1NTOverMinor,
     Respond2DWaiting,
+    Respond2NTFeatureAsk,
     Respond2NTOver1NT,
     Respond2NTOver2C,
     Respond2NTOverMinor,
@@ -108,12 +119,16 @@ from .response import (
     Respond3MinorOver1NT,
     Respond3NTOver1NT,
     Respond3NTOver2NT,
+    Respond3NTOver3Level,
     Respond3NTOverMajor,
     Respond3NTOverMinor,
+    Respond3NTOverWeakTwo,
     Respond3SPuppetOver2NT,
     Respond4NTOver1NT,
     Respond4NTOver2NT,
+    RespondGameRaise3Level,
     RespondGameRaiseMajor,
+    RespondGameRaiseWeakTwo,
     RespondGerber,
     RespondGerberOver2NT,
     RespondJacoby2NT,
@@ -122,10 +137,18 @@ from .response import (
     RespondLimitRaiseMajor,
     RespondLimitRaiseMinor,
     RespondNewSuit1Level,
+    RespondNewSuitOver3Level,
+    RespondNewSuitOverWeakTwo,
     RespondPass,
     RespondPassOver1NT,
     RespondPassOver2NT,
+    RespondPassOver3Level,
+    RespondPassOver4Level,
+    RespondPassOverWeakTwo,
     RespondPositiveSuitOver2C,
+    RespondRaise3Level,
+    RespondRaise4Level,
+    RespondRaiseWeakTwo,
     RespondSingleRaiseMajor,
     RespondSingleRaiseMinor,
     RespondStayman,
@@ -312,4 +335,39 @@ def create_sayc_registry() -> RuleRegistry:
     reg.register(Rebid2NTPassAfter3NT())
     reg.register(Rebid2NTAccept4NT())
     reg.register(Rebid2NTDecline4NT())
+
+    # ── Responses to weak two (2D/2H/2S) ────────────────────────────
+    reg.register(RespondGameRaiseWeakTwo())
+    reg.register(Respond3NTOverWeakTwo())
+    reg.register(RespondNewSuitOverWeakTwo())
+    reg.register(Respond2NTFeatureAsk())
+    reg.register(RespondRaiseWeakTwo())
+    reg.register(RespondPassOverWeakTwo())
+
+    # ── Responses to 3-level preempt ─────────────────────────────────
+    reg.register(RespondGameRaise3Level())
+    reg.register(Respond3NTOver3Level())
+    reg.register(RespondNewSuitOver3Level())
+    reg.register(RespondRaise3Level())
+    reg.register(RespondPassOver3Level())
+
+    # ── Responses to 4-level preempt ─────────────────────────────────
+    reg.register(RespondRaise4Level())
+    reg.register(RespondPassOver4Level())
+
+    # ── Opener rebids after weak two ─────────────────────────────────
+    reg.register(RebidShowFeature())
+    reg.register(Rebid3NTAfterFeatureAsk())
+    reg.register(RebidOwnSuitAfterFeatureAsk())
+    reg.register(RebidRaiseNewSuitWeakTwo())
+    reg.register(RebidOwnSuitAfterNewSuitWeakTwo())
+    reg.register(RebidPassAfterWeakTwo())
+
+    # ── Opener rebids after 3-level preempt ──────────────────────────
+    reg.register(RebidRaiseAfterNewSuit3Level())
+    reg.register(RebidOwnSuitAfterNewSuit3Level())
+    reg.register(RebidPassAfter3Level())
+
+    # ── Opener rebids after 4-level preempt ──────────────────────────
+    reg.register(RebidPassAfter4Level())
     return reg

@@ -1,4 +1,4 @@
-"""SAYC response rules — responses to 1-of-a-suit, 1NT, 2NT, and 2C openings."""
+"""SAYC response rules — responses to all opening bid types."""
 
 from .nt import (
     Respond2NTOver1NT,
@@ -20,6 +20,21 @@ from .nt import (
     RespondTexasOver2NT,
     RespondTexasTransfer,
     RespondTransferOver2NT,
+)
+from .preempt import (
+    Respond2NTFeatureAsk,
+    Respond3NTOver3Level,
+    Respond3NTOverWeakTwo,
+    RespondGameRaise3Level,
+    RespondGameRaiseWeakTwo,
+    RespondNewSuitOver3Level,
+    RespondNewSuitOverWeakTwo,
+    RespondPassOver3Level,
+    RespondPassOver4Level,
+    RespondPassOverWeakTwo,
+    RespondRaise3Level,
+    RespondRaise4Level,
+    RespondRaiseWeakTwo,
 )
 from .strong import (
     Respond2DWaiting,
@@ -86,4 +101,20 @@ __all__ = [
     "Respond2DWaiting",
     "Respond2NTOver2C",
     "RespondPositiveSuitOver2C",
+    # Responses to weak twos
+    "Respond2NTFeatureAsk",
+    "Respond3NTOverWeakTwo",
+    "RespondGameRaiseWeakTwo",
+    "RespondNewSuitOverWeakTwo",
+    "RespondPassOverWeakTwo",
+    "RespondRaiseWeakTwo",
+    # Responses to 3-level preempts
+    "Respond3NTOver3Level",
+    "RespondGameRaise3Level",
+    "RespondNewSuitOver3Level",
+    "RespondPassOver3Level",
+    "RespondRaise3Level",
+    # Responses to 4-level preempts
+    "RespondPassOver4Level",
+    "RespondRaise4Level",
 ]

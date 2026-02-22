@@ -220,6 +220,16 @@ def bergen_points(hand: Hand, trump_suit: Suit) -> int:
     return pts
 
 
+def has_stopper(hand: Hand, suit: Suit) -> bool:
+    """Whether the hand has a stopper in the given suit (A, Kx+, or Qxx+)."""
+    if hand.has_card(suit, Rank.ACE):
+        return True
+    length = hand.suit_length(suit)
+    if hand.has_card(suit, Rank.KING) and length >= 2:
+        return True
+    return hand.has_card(suit, Rank.QUEEN) and length >= 3
+
+
 def rule_of_15(hand: Hand, hand_hcp: int) -> bool:
     """Rule of 15 (4th seat): HCP + number of spades >= 15."""
     return hand_hcp + hand.num_spades >= 15

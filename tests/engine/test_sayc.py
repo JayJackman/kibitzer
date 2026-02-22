@@ -620,3 +620,205 @@ class TestSAYC2CRebidIntegration:
             _rebid_select("AK32.A32.AK3.K32", "2C", "2NT")
             == "rebid.nt_after_positive_2c"
         )
+
+
+# ── Weak Two Response Integration ──────────────────────────────────────────
+
+
+class TestSAYCWeakTwoResponseIntegration:
+    """Smoke tests: correct response rule wins after weak two opening."""
+
+    def test_game_raise_4h(self):
+        """3+ support, 14+ support pts -> 4H."""
+        # AK43.K43.AK32.43 = A4+K3+K3+A4+K3 = 17 HCP, 3 hearts
+        assert (
+            _response_select("AK43.K43.AK32.43", "2H") == "response.game_raise_weak_two"
+        )
+
+    def test_preemptive_game_raise_5_support(self):
+        """5+ support, major -> 4H (preemptive)."""
+        # 43.QJ432.43.5432 = Q2+J1 = 3 HCP, 5 hearts
+        assert (
+            _response_select("43.QJ432.43.5432", "2H") == "response.game_raise_weak_two"
+        )
+
+    def test_3nt_over_weak_two(self):
+        """15+ HCP, stoppers in unbid suits -> 3NT."""
+        # AQ3.43.KQ43.AQ43 = A4+Q2+K3+Q2+A4+Q2 = 17 HCP, stoppers in S/D/C
+        assert (
+            _response_select("AQ3.43.KQ43.AQ43", "2H") == "response.3nt_over_weak_two"
+        )
+
+    def test_new_suit_over_weak_two(self):
+        """14+ HCP, 5+ card suit -> new suit."""
+        # 16 HCP, 5 spades
+        assert (
+            _response_select("AKQ43.43.AK32.43", "2H") == "response.new_suit_weak_two"
+        )
+
+    def test_2nt_feature_ask(self):
+        """14+ HCP, game interest, no stoppers -> 2NT feature ask."""
+        # 16 HCP, no spade stopper (5432) -> can't bid 3NT
+        assert _response_select("5432.43.AKQ3.AK3", "2H") == "response.2nt_feature_ask"
+
+    def test_raise_weak_two(self):
+        """3+ support, weak -> preemptive raise."""
+        # K43.Q43.J432.432 = K3+Q2+J1 = 6 HCP, 3 hearts
+        assert _response_select("K43.Q43.J432.432", "2H") == "response.raise_weak_two"
+
+    def test_pass_over_weak_two(self):
+        """Weak, no fit -> pass."""
+        # 5432.43.J432.432 = J1 = 1 HCP, 2 hearts
+        assert (
+            _response_select("5432.43.J432.432", "2H") == "response.pass_over_weak_two"
+        )
+
+
+# ── 3-Level Preempt Response Integration ──────────────────────────────────
+
+
+class TestSAYC3LevelResponseIntegration:
+    """Smoke tests: correct response rule wins after 3-level preempt."""
+
+    def test_game_raise_4h(self):
+        """3+ support, 14+ support pts -> 4H."""
+        # AK43.K43.AK32.43 = 17 HCP, 3 hearts
+        assert (
+            _response_select("AK43.K43.AK32.43", "3H") == "response.game_raise_3_level"
+        )
+
+    def test_3nt_over_3_level(self):
+        """15+ HCP, stoppers, <3 support -> 3NT over 3C."""
+        # AQ32.KQ3.KQ43.43 = A4+Q2+K3+Q2+K3+Q2 = 16 HCP, 2 clubs (no support)
+        assert _response_select("AQ32.KQ3.KQ43.43", "3C") == "response.3nt_over_3_level"
+
+    def test_new_suit_3s_over_3d(self):
+        """14+ HCP, 5+ card higher suit, no stoppers -> new suit at 3-level."""
+        # 16 HCP, 5 spades, no heart stopper
+        assert _response_select("AKQ43.5432.43.AK", "3D") == "response.new_suit_3_level"
+
+    def test_raise_3_level(self):
+        """3+ support, weak -> raise."""
+        # K43.432.43.QJ432 = K3+Q2+J1 = 6 HCP, 3 clubs
+        assert _response_select("K43.432.43.QJ432", "3C") == "response.raise_3_level"
+
+    def test_pass_over_3_level(self):
+        """Weak, no fit -> pass."""
+        # 5432.432.J432.43 = J1 = 1 HCP
+        assert (
+            _response_select("5432.432.J432.43", "3C") == "response.pass_over_3_level"
+        )
+
+
+# ── 4-Level Preempt Response Integration ──────────────────────────────────
+
+
+class TestSAYC4LevelResponseIntegration:
+    """Smoke tests: correct response rule wins after 4-level preempt."""
+
+    def test_raise_4c_to_5c(self):
+        """4+ support, 14+ support pts -> 5C."""
+        # 11 HCP, 4 clubs, singleton diamond -> 14 support pts
+        assert _response_select("A432.A432.4.K432", "4C") == "response.raise_4_level"
+
+    def test_pass_over_4h(self):
+        """No raise possible over 4H -> pass."""
+        # 5432.43.K432.432 = K3 = 3 HCP
+        assert (
+            _response_select("5432.43.K432.432", "4H") == "response.pass_over_4_level"
+        )
+
+
+# ── Weak Two Rebid Integration ────────────────────────────────────────────
+
+
+class TestSAYCWeakTwoRebidIntegration:
+    """Smoke tests: correct rebid rule wins after weak two opening."""
+
+    def test_show_feature(self):
+        """Max with outside ace after 2NT ask -> show feature."""
+        # 43.KQJ432.43.A32 = K3+Q2+J1+A4 = 10 HCP, ace of clubs
+        assert _rebid_select("43.KQJ432.43.A32", "2H", "2NT") == "rebid.show_feature"
+
+    def test_3nt_max_no_feature(self):
+        """Max, no feature after 2NT ask -> 3NT."""
+        # 43.AKQ432.J32.43 = A4+K3+Q2+J1 = 10 HCP, no outside feature
+        assert (
+            _rebid_select("43.AKQ432.J32.43", "2H", "2NT")
+            == "rebid.3nt_after_feature_ask"
+        )
+
+    def test_min_sign_off(self):
+        """Min after 2NT ask -> rebid own suit."""
+        # 43.KQJ432.Q32.43 = K3+Q2+J1+Q2 = 8 HCP
+        assert (
+            _rebid_select("43.KQJ432.Q32.43", "2H", "2NT")
+            == "rebid.own_suit_after_feature_ask"
+        )
+
+    def test_raise_partner_suit(self):
+        """3+ support for partner's new suit -> raise."""
+        # K32.KQJ432.43.43 = K3+K3+Q2+J1 = 9 HCP, 3 spades
+        assert (
+            _rebid_select("K32.KQJ432.43.43", "2H", "2S")
+            == "rebid.raise_new_suit_weak_two"
+        )
+
+    def test_rebid_own_suit_no_fit(self):
+        """No fit for partner's new suit -> rebid own."""
+        # K2.KQJ432.432.43 = K3+K3+Q2+J1 = 9 HCP, 2 spades
+        assert (
+            _rebid_select("K2.KQJ432.432.43", "2H", "2S")
+            == "rebid.own_suit_after_new_suit_weak_two"
+        )
+
+    def test_pass_after_raise(self):
+        """Raise is to play -> pass."""
+        # 43.KQJ432.432.43 = K3+Q2+J1 = 6 HCP
+        assert (
+            _rebid_select("43.KQJ432.432.43", "2H", "3H") == "rebid.pass_after_weak_two"
+        )
+
+
+# ── 3-Level Preempt Rebid Integration ────────────────────────────────────
+
+
+class TestSAYC3LevelRebidIntegration:
+    """Smoke tests: correct rebid rule wins after 3-level preempt."""
+
+    def test_raise_partner_suit(self):
+        """3+ support -> raise partner's suit."""
+        # 43.K32.4.KQJ5432 = K3+K3+Q2+J1 = 9 HCP, 3 hearts
+        assert (
+            _rebid_select("43.K32.4.KQJ5432", "3C", "3H")
+            == "rebid.raise_after_new_suit_3_level"
+        )
+
+    def test_rebid_own_suit(self):
+        """No fit -> rebid own suit at 4-level."""
+        # 43.42.43.KQJ5432 = K3+Q2+J1 = 6 HCP, 2 hearts
+        assert (
+            _rebid_select("43.42.43.KQJ5432", "3C", "3H")
+            == "rebid.own_suit_after_new_suit_3_level"
+        )
+
+    def test_pass_after_raise(self):
+        """Raise is to play -> pass."""
+        # 43.43.43.KQJ5432 = K3+Q2+J1 = 6 HCP
+        assert (
+            _rebid_select("43.43.43.KQJ5432", "3C", "4C") == "rebid.pass_after_3_level"
+        )
+
+
+# ── 4-Level Preempt Rebid Integration ────────────────────────────────────
+
+
+class TestSAYC4LevelRebidIntegration:
+    """Smoke tests: correct rebid rule wins after 4-level preempt."""
+
+    def test_pass_after_raise(self):
+        """Partner raised -> pass."""
+        # 43.4.43.AKQJ5432 = A4+K3+Q2+J1 = 10 HCP
+        assert (
+            _rebid_select("43.4.43.AKQJ5432", "4C", "5C") == "rebid.pass_after_4_level"
+        )

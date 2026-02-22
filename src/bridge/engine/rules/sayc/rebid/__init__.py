@@ -29,6 +29,18 @@ from .nt import (
     RebidStayman2S,
     RebidSuperAccept,
 )
+from .preempt import (
+    Rebid3NTAfterFeatureAsk,
+    RebidOwnSuitAfterFeatureAsk,
+    RebidOwnSuitAfterNewSuit3Level,
+    RebidOwnSuitAfterNewSuitWeakTwo,
+    RebidPassAfter3Level,
+    RebidPassAfter4Level,
+    RebidPassAfterWeakTwo,
+    RebidRaiseAfterNewSuit3Level,
+    RebidRaiseNewSuitWeakTwo,
+    RebidShowFeature,
+)
 from .strong import (
     Rebid2NTAfter2C,
     Rebid3NTAfter2C,
@@ -172,4 +184,17 @@ __all__ = [
     "RebidRaiseAfterPositive2C",
     "RebidSuitAfter2C",
     "RebidSuitAfterPositive2C",
+    # Rebids after weak two opening
+    "Rebid3NTAfterFeatureAsk",
+    "RebidOwnSuitAfterFeatureAsk",
+    "RebidOwnSuitAfterNewSuitWeakTwo",
+    "RebidPassAfterWeakTwo",
+    "RebidRaiseNewSuitWeakTwo",
+    "RebidShowFeature",
+    # Rebids after 3-level preempt
+    "RebidOwnSuitAfterNewSuit3Level",
+    "RebidPassAfter3Level",
+    "RebidRaiseAfterNewSuit3Level",
+    # Rebids after 4-level preempt
+    "RebidPassAfter4Level",
 ]

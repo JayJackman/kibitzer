@@ -4,6 +4,7 @@ from bridge.evaluate import (
     bergen_points,
     controls,
     distribution_points,
+    has_stopper,
     hcp,
     length_points,
     losing_trick_count,
@@ -236,6 +237,42 @@ class TestLosingTrickCount:
         # D: Q32 (3+, Q only) = 2
         # C: K8 (doubleton, has K) = 1 → 9
         assert losing_trick_count(FLAT_WEAK) == 9
+
+
+class TestHasStopper:
+    def test_ace_is_stopper(self) -> None:
+        # Singleton ace still stops the suit
+        hand = Hand.from_pbn("A.KQJ54.AKQ32.73")
+        assert has_stopper(hand, Suit.SPADES)
+
+    def test_king_doubleton_is_stopper(self) -> None:
+        # Kx is a stopper
+        hand = Hand.from_pbn("K8.AQJ54.KQ32.A7")
+        assert has_stopper(hand, Suit.SPADES)
+
+    def test_king_singleton_not_stopper(self) -> None:
+        # Bare king is not a stopper
+        hand = Hand.from_pbn("K.AQJ54.KQ32.A73")
+        assert not has_stopper(hand, Suit.SPADES)
+
+    def test_queen_tripleton_is_stopper(self) -> None:
+        # Qxx is a stopper
+        hand = Hand.from_pbn("Q84.AKJ5.KQ3.A73")
+        assert has_stopper(hand, Suit.SPADES)
+
+    def test_queen_doubleton_not_stopper(self) -> None:
+        # Qx is not a stopper
+        hand = Hand.from_pbn("Q8.AKJ54.KQ3.A73")
+        assert not has_stopper(hand, Suit.SPADES)
+
+    def test_no_honor_not_stopper(self) -> None:
+        # Small cards, no stopper
+        hand = Hand.from_pbn("8754.AKQ.AKQ.A32")
+        assert not has_stopper(hand, Suit.SPADES)
+
+    def test_void_not_stopper(self) -> None:
+        hand = Hand.from_pbn(".AKQJ5.AKQ32.A73")
+        assert not has_stopper(hand, Suit.SPADES)
 
 
 class TestSupportPoints:
