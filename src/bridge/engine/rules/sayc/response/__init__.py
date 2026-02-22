@@ -1,5 +1,18 @@
-"""SAYC response rules — responses to 1-of-a-suit openings."""
+"""SAYC response rules — responses to 1-of-a-suit and 1NT openings."""
 
+from .nt import (
+    Respond2NTOver1NT,
+    Respond2SPuppet,
+    Respond3MajorOver1NT,
+    Respond3MinorOver1NT,
+    Respond3NTOver1NT,
+    Respond4NTOver1NT,
+    RespondGerber,
+    RespondJacobyTransfer,
+    RespondPassOver1NT,
+    RespondStayman,
+    RespondTexasTransfer,
+)
 from .suit import (
     Respond1NTOverMajor,
     Respond1NTOverMinor,
@@ -19,6 +32,7 @@ from .suit import (
 )
 
 __all__ = [
+    # Responses to 1-of-a-suit
     "Respond1NTOverMajor",
     "Respond1NTOverMinor",
     "Respond2NTOverMinor",
@@ -34,4 +48,16 @@ __all__ = [
     "RespondPass",
     "RespondSingleRaiseMajor",
     "RespondSingleRaiseMinor",
+    # Responses to 1NT
+    "Respond2NTOver1NT",
+    "Respond2SPuppet",
+    "Respond3MajorOver1NT",
+    "Respond3MinorOver1NT",
+    "Respond3NTOver1NT",
+    "Respond4NTOver1NT",
+    "RespondGerber",
+    "RespondJacobyTransfer",
+    "RespondPassOver1NT",
+    "RespondStayman",
+    "RespondTexasTransfer",
 ]

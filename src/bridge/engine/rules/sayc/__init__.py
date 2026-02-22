@@ -22,11 +22,22 @@ from .rebid import (
     Rebid3NTAfterRaiseMinor,
     Rebid3NTOver1NT,
     Rebid5mAfterLimitRaiseMinor,
+    RebidAccept2NTOver1NT,
+    RebidAccept3MinorOver1NT,
+    RebidAccept4NTOver1NT,
     RebidAcceptLimitRaiseMajor,
+    RebidComplete2SPuppet,
+    RebidCompleteTexas,
+    RebidCompleteTransfer,
+    RebidDecline2NTOver1NT,
+    RebidDecline3MajorOver1NT,
+    RebidDecline3MinorOver1NT,
+    RebidDecline4NTOver1NT,
     RebidDeclineLimitRaise,
     RebidDoubleJumpRaiseResponder,
     RebidDoubleJumpRebidOwnSuit,
     RebidGameAfterRaiseMajor,
+    RebidGerberResponse,
     RebidHelpSuitGameTry,
     RebidInviteAfterRaiseMajor,
     RebidJacoby3LevelShortness,
@@ -51,33 +62,50 @@ from .rebid import (
     RebidOwnSuit,
     RebidOwnSuitAfterJumpShift,
     RebidPassAfter3NT,
+    RebidPassAfter3NTOver1NT,
     RebidPassAfterGameRaise,
     RebidPassAfterRaise,
     RebidPassOver1NT,
     RebidRaise2Over1Responder,
+    RebidRaise3MajorOver1NT,
     RebidRaiseAfterJumpShift,
     RebidRaiseResponder,
     RebidReverse,
     RebidShowMajorAfter2NTMinor,
+    RebidStayman2D,
+    RebidStayman2H,
+    RebidStayman2S,
     RebidSuitAfter2Over1,
     RebidSuitOver1NT,
+    RebidSuperAccept,
 )
 from .response import (
     Respond1NTOverMajor,
     Respond1NTOverMinor,
+    Respond2NTOver1NT,
     Respond2NTOverMinor,
     Respond2Over1,
+    Respond2SPuppet,
+    Respond3MajorOver1NT,
+    Respond3MinorOver1NT,
+    Respond3NTOver1NT,
     Respond3NTOverMajor,
     Respond3NTOverMinor,
+    Respond4NTOver1NT,
     RespondGameRaiseMajor,
+    RespondGerber,
     RespondJacoby2NT,
+    RespondJacobyTransfer,
     RespondJumpShift,
     RespondLimitRaiseMajor,
     RespondLimitRaiseMinor,
     RespondNewSuit1Level,
     RespondPass,
+    RespondPassOver1NT,
     RespondSingleRaiseMajor,
     RespondSingleRaiseMinor,
+    RespondStayman,
+    RespondTexasTransfer,
 )
 
 
@@ -111,6 +139,19 @@ def create_sayc_registry() -> RuleRegistry:
     reg.register(Respond1NTOverMinor())
     reg.register(Respond1NTOverMajor())
     reg.register(RespondPass())
+
+    # ── Responses to 1NT ─────────────────────────────────────────
+    reg.register(RespondGerber())
+    reg.register(Respond4NTOver1NT())
+    reg.register(Respond3MajorOver1NT())
+    reg.register(RespondTexasTransfer())
+    reg.register(RespondStayman())
+    reg.register(RespondJacobyTransfer())
+    reg.register(Respond3NTOver1NT())
+    reg.register(Respond3MinorOver1NT())
+    reg.register(Respond2NTOver1NT())
+    reg.register(Respond2SPuppet())
+    reg.register(RespondPassOver1NT())
 
     # ── Opener rebids after jump shift ────────────────────────────
     reg.register(RebidRaiseAfterJumpShift())
@@ -176,4 +217,29 @@ def create_sayc_registry() -> RuleRegistry:
     reg.register(Rebid3NTAfter2Over1())
     reg.register(RebidSuitAfter2Over1())
     reg.register(Rebid2NTAfter2Over1())
+
+    # ── Opener rebids after 1NT opening (Stayman) ────────────────
+    reg.register(RebidStayman2H())
+    reg.register(RebidStayman2S())
+    reg.register(RebidStayman2D())
+
+    # ── Opener rebids after 1NT opening (transfers) ──────────────
+    reg.register(RebidSuperAccept())
+    reg.register(RebidCompleteTransfer())
+    reg.register(RebidComplete2SPuppet())
+
+    # ── Opener rebids after 1NT opening (conventions) ────────────
+    reg.register(RebidGerberResponse())
+    reg.register(RebidCompleteTexas())
+
+    # ── Opener rebids after 1NT opening (raises/declines) ────────
+    reg.register(RebidRaise3MajorOver1NT())
+    reg.register(RebidDecline3MajorOver1NT())
+    reg.register(RebidAccept2NTOver1NT())
+    reg.register(RebidDecline2NTOver1NT())
+    reg.register(RebidAccept3MinorOver1NT())
+    reg.register(RebidDecline3MinorOver1NT())
+    reg.register(RebidPassAfter3NTOver1NT())
+    reg.register(RebidAccept4NTOver1NT())
+    reg.register(RebidDecline4NTOver1NT())
     return reg
