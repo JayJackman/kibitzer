@@ -50,7 +50,7 @@ from bridge.engine.rules.sayc.rebid.suit import (
     RebidSuitOver1NT,
 )
 from bridge.model.auction import AuctionState, Seat
-from bridge.model.bid import Bid, parse_bid
+from bridge.model.bid import PASS, is_pass, parse_bid
 from bridge.model.board import Board
 from bridge.model.hand import Hand
 
@@ -59,9 +59,9 @@ def _ctx(pbn: str, opening: str, response: str) -> BiddingContext:
     """Build a BiddingContext where opener (North) rebids after a response."""
     auction = AuctionState(dealer=Seat.NORTH)
     auction.add_bid(parse_bid(opening))  # N opens
-    auction.add_bid(Bid.make_pass())  # E passes
+    auction.add_bid(PASS)  # E passes
     auction.add_bid(parse_bid(response))  # S responds
-    auction.add_bid(Bid.make_pass())  # W passes
+    auction.add_bid(PASS)  # W passes
     return BiddingContext(
         Board(hand=Hand.from_pbn(pbn), seat=Seat.NORTH, auction=auction)
     )
@@ -134,7 +134,7 @@ class TestPassAfterRaise:
         ctx = _ctx("KJ852.KQ3.84.A73", "1S", "2S")
         assert self.rule.applies(ctx)
         result = self.rule.select(ctx)
-        assert result.bid.is_pass
+        assert is_pass(result.bid)
 
     def test_strong_hand_does_not_pass(self) -> None:
         # AKJ52.KQ3.84.A73 — 17 HCP, bergen=17
@@ -179,7 +179,7 @@ class TestDeclineLimitRaise:
         ctx = _ctx("KJ852.Q73.84.A73", "1S", "3S")
         assert self.rule.applies(ctx)
         result = self.rule.select(ctx)
-        assert result.bid.is_pass
+        assert is_pass(result.bid)
 
     def test_strong_does_not_decline(self) -> None:
         # AKJ52.KQ3.84.A73 — 17 HCP, bergen=17
@@ -336,7 +336,7 @@ class TestPassOver1NT:
         ctx = _ctx("KJ852.KQ3.84.A73", "1S", "1NT")
         assert self.rule.applies(ctx)
         result = self.rule.select(ctx)
-        assert result.bid.is_pass
+        assert is_pass(result.bid)
 
 
 # ── After New Suit at 1-Level ───────────────────────────────────────
@@ -538,14 +538,14 @@ class TestPassAfter3NT:
         ctx = _ctx("AKJ52.KQ3.84.A73", "1S", "3NT")
         assert self.rule.applies(ctx)
         result = self.rule.select(ctx)
-        assert result.bid.is_pass
+        assert is_pass(result.bid)
 
     def test_pass_after_3nt_over_minor(self) -> None:
         # A73.KQ3.AKJ52.84 — partner bid 3NT over 1D
         ctx = _ctx("A73.KQ3.AKJ52.84", "1D", "3NT")
         assert self.rule.applies(ctx)
         result = self.rule.select(ctx)
-        assert result.bid.is_pass
+        assert is_pass(result.bid)
 
     def test_does_not_apply_after_2nt(self) -> None:
         # Different response — 2NT, not 3NT
@@ -561,7 +561,7 @@ class TestPassAfterGameRaise:
         ctx = _ctx("A73.AKJ52.84.KQ3", "1H", "4H")
         assert self.rule.applies(ctx)
         result = self.rule.select(ctx)
-        assert result.bid.is_pass
+        assert is_pass(result.bid)
 
     def test_pass_after_4s(self) -> None:
         # AKJ52.KQ3.84.A73 — partner bid 4S preemptively

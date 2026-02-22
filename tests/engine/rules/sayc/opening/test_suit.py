@@ -3,7 +3,7 @@
 from bridge.engine.context import BiddingContext
 from bridge.engine.rules.sayc.opening.suit import Open1Major, Open1Minor, OpenPass
 from bridge.model.auction import AuctionState, Seat
-from bridge.model.bid import Bid
+from bridge.model.bid import PASS, is_pass
 from bridge.model.board import Board
 from bridge.model.hand import Hand
 
@@ -20,7 +20,7 @@ def _ctx(
     auction = AuctionState(dealer=dealer)
     offset = (seat.value - dealer.value) % 4
     for _ in range(offset):
-        auction.add_bid(Bid.make_pass())
+        auction.add_bid(PASS)
     return BiddingContext(Board(hand=Hand.from_pbn(pbn), seat=seat, auction=auction))
 
 
@@ -205,7 +205,7 @@ class TestOpenPass:
         ctx = _ctx("8432.732.843.J84")
         assert self.rule.applies(ctx)
         result = self.rule.select(ctx)
-        assert result.bid.is_pass
+        assert is_pass(result.bid)
         assert result.rule_name == "opening.pass"
 
     def test_applies_to_any_hand(self):

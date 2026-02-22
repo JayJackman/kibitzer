@@ -3,123 +3,126 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import IntEnum, auto, unique
+from typing import TypeGuard
 
 from .card import Suit
 
-
-@unique
-class BidType(IntEnum):
-    """The type of bid action."""
-
-    PASS = auto()
-    SUIT = auto()
-    DOUBLE = auto()
-    REDOUBLE = auto()
+# ── Bid types ──────────────────────────────────────────────────────
 
 
 @dataclass(frozen=True)
-class Bid:
-    """A single bid in the auction.
+class PassBid:
+    """A pass bid."""
 
-    For suit bids, level (1-7) and suit are required.
-    For Pass/Double/Redouble, level and suit must be None.
+    def __str__(self) -> str:
+        return "Pass"
+
+    def __repr__(self) -> str:
+        return "Bid(Pass)"
+
+
+@dataclass(frozen=True)
+class DoubleBid:
+    """A double bid."""
+
+    def __str__(self) -> str:
+        return "X"
+
+    def __repr__(self) -> str:
+        return "Bid(X)"
+
+
+@dataclass(frozen=True)
+class RedoubleBid:
+    """A redouble bid."""
+
+    def __str__(self) -> str:
+        return "XX"
+
+    def __repr__(self) -> str:
+        return "Bid(XX)"
+
+
+@dataclass(frozen=True)
+class SuitBid:
+    """A suit bid (including notrump) at a specific level.
+
+    Level is 1-7, suit is any Suit (including NOTRUMP).
     """
 
-    bid_type: BidType
-    level: int | None = None
-    suit: Suit | None = None
+    level: int
+    suit: Suit
 
     def __post_init__(self) -> None:
-        if self.bid_type == BidType.SUIT:
-            if self.level is None or self.suit is None:
-                raise ValueError("Suit bids require level and suit")
-            if not 1 <= self.level <= 7:
-                raise ValueError(f"Bid level must be 1-7, got {self.level}")
-        else:
-            if self.level is not None or self.suit is not None:
-                raise ValueError(
-                    f"{self.bid_type.name} bids must not have level or suit"
-                )
-
-    @property
-    def is_pass(self) -> bool:
-        return self.bid_type == BidType.PASS
-
-    @property
-    def is_double(self) -> bool:
-        return self.bid_type == BidType.DOUBLE
-
-    @property
-    def is_redouble(self) -> bool:
-        return self.bid_type == BidType.REDOUBLE
+        if not 1 <= self.level <= 7:
+            raise ValueError(f"Bid level must be 1-7, got {self.level}")
 
     @property
     def _sort_key(self) -> int:
         """Numeric key for ordering suit bids.
 
         1C=11, 1D=12, ..., 1NT=15, 2C=21, ..., 7NT=75.
-        Non-suit bids are not orderable against suit bids.
         """
-        if self.bid_type != BidType.SUIT:
-            raise TypeError(f"Cannot compare {self.bid_type.name} with suit bids")
-        assert self.level is not None and self.suit is not None
         return self.level * 10 + self.suit.value
 
     def __lt__(self, other: object) -> bool:
         """Compare suit bids for auction legality."""
-        if not isinstance(other, Bid):
+        if not isinstance(other, SuitBid):
             return NotImplemented
         return self._sort_key < other._sort_key
 
     def __le__(self, other: object) -> bool:
-        if not isinstance(other, Bid):
+        if not isinstance(other, SuitBid):
             return NotImplemented
         return self._sort_key <= other._sort_key
 
     def __gt__(self, other: object) -> bool:
-        if not isinstance(other, Bid):
+        if not isinstance(other, SuitBid):
             return NotImplemented
         return self._sort_key > other._sort_key
 
     def __ge__(self, other: object) -> bool:
-        if not isinstance(other, Bid):
+        if not isinstance(other, SuitBid):
             return NotImplemented
         return self._sort_key >= other._sort_key
 
     def __str__(self) -> str:
-        if self.bid_type == BidType.PASS:
-            return "Pass"
-        if self.bid_type == BidType.DOUBLE:
-            return "X"
-        if self.bid_type == BidType.REDOUBLE:
-            return "XX"
-        assert self.level is not None and self.suit is not None
         return f"{self.level}{self.suit.letter}"
 
     def __repr__(self) -> str:
         return f"Bid({self})"
 
-    # --- Factory methods ---
 
-    @classmethod
-    def make_pass(cls) -> Bid:
-        return cls(BidType.PASS)
-
-    @classmethod
-    def double(cls) -> Bid:
-        return cls(BidType.DOUBLE)
-
-    @classmethod
-    def redouble(cls) -> Bid:
-        return cls(BidType.REDOUBLE)
-
-    @classmethod
-    def suit_bid(cls, level: int, suit: Suit) -> Bid:
-        return cls(BidType.SUIT, level, suit)
+Bid = SuitBid | PassBid | DoubleBid | RedoubleBid
 
 
-# --- Parsing ---
+# ── Singletons ─────────────────────────────────────────────────────
+
+PASS = PassBid()
+DOUBLE = DoubleBid()
+REDOUBLE = RedoubleBid()
+
+
+# ── Type guards ────────────────────────────────────────────────────
+
+
+def is_pass(bid: Bid) -> TypeGuard[PassBid]:
+    return isinstance(bid, PassBid)
+
+
+def is_double(bid: Bid) -> TypeGuard[DoubleBid]:
+    return isinstance(bid, DoubleBid)
+
+
+def is_redouble(bid: Bid) -> TypeGuard[RedoubleBid]:
+    return isinstance(bid, RedoubleBid)
+
+
+def is_suit_bid(bid: Bid) -> TypeGuard[SuitBid]:
+    return isinstance(bid, SuitBid)
+
+
+# ── Parsing ────────────────────────────────────────────────────────
 
 _SUIT_MAP = {
     "C": Suit.CLUBS,
@@ -140,11 +143,11 @@ def parse_bid(text: str) -> Bid:
     text = text.strip().upper()
 
     if text in ("PASS", "P"):
-        return Bid.make_pass()
+        return PASS
     if text == "XX":
-        return Bid.redouble()
+        return REDOUBLE
     if text == "X":
-        return Bid.double()
+        return DOUBLE
 
     if len(text) < 2 or not text[0].isdigit():
         raise ValueError(f"Invalid bid: {text!r}")
@@ -155,4 +158,4 @@ def parse_bid(text: str) -> Bid:
     if suit_str not in _SUIT_MAP:
         raise ValueError(f"Invalid suit in bid: {text!r}")
 
-    return Bid.suit_bid(level, _SUIT_MAP[suit_str])
+    return SuitBid(level, _SUIT_MAP[suit_str])

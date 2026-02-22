@@ -8,7 +8,7 @@ from bridge.model.auction import (
     Seat,
     Vulnerability,
 )
-from bridge.model.bid import Bid, parse_bid
+from bridge.model.bid import DOUBLE, PASS, REDOUBLE, SuitBid, parse_bid
 from bridge.model.card import Suit
 
 
@@ -99,15 +99,15 @@ class TestAuctionState:
 
     def test_current_seat_advances(self) -> None:
         auction = AuctionState(dealer=Seat.NORTH)
-        auction.add_bid(Bid.make_pass())
+        auction.add_bid(PASS)
         assert auction.current_seat == Seat.EAST
-        auction.add_bid(Bid.make_pass())
+        auction.add_bid(PASS)
         assert auction.current_seat == Seat.SOUTH
 
     def test_opening_bid(self) -> None:
         auction = AuctionState(dealer=Seat.NORTH)
-        auction.add_bid(Bid.make_pass())
-        auction.add_bid(Bid.suit_bid(1, Suit.HEARTS))
+        auction.add_bid(PASS)
+        auction.add_bid(SuitBid(1, Suit.HEARTS))
         opening = auction.opening_bid
         assert opening is not None
         assert opening[0] == Seat.EAST
@@ -118,113 +118,113 @@ class TestAuctionCompletion:
     def test_four_passes(self) -> None:
         auction = AuctionState(dealer=Seat.NORTH)
         for _ in range(3):
-            auction.add_bid(Bid.make_pass())
+            auction.add_bid(PASS)
             assert not auction.is_complete
-        auction.add_bid(Bid.make_pass())
+        auction.add_bid(PASS)
         assert auction.is_complete
 
     def test_three_passes_after_bid(self) -> None:
         auction = AuctionState(dealer=Seat.NORTH)
-        auction.add_bid(Bid.suit_bid(1, Suit.HEARTS))
-        auction.add_bid(Bid.make_pass())
-        auction.add_bid(Bid.make_pass())
+        auction.add_bid(SuitBid(1, Suit.HEARTS))
+        auction.add_bid(PASS)
+        auction.add_bid(PASS)
         assert not auction.is_complete
-        auction.add_bid(Bid.make_pass())
+        auction.add_bid(PASS)
         assert auction.is_complete
 
     def test_not_complete_with_bids_ongoing(self) -> None:
         auction = AuctionState(dealer=Seat.NORTH)
-        auction.add_bid(Bid.suit_bid(1, Suit.HEARTS))
-        auction.add_bid(Bid.make_pass())
-        auction.add_bid(Bid.suit_bid(2, Suit.HEARTS))
-        auction.add_bid(Bid.make_pass())
+        auction.add_bid(SuitBid(1, Suit.HEARTS))
+        auction.add_bid(PASS)
+        auction.add_bid(SuitBid(2, Suit.HEARTS))
+        auction.add_bid(PASS)
         assert not auction.is_complete
 
     def test_bid_after_complete_raises(self) -> None:
         auction = AuctionState(dealer=Seat.NORTH)
         for _ in range(4):
-            auction.add_bid(Bid.make_pass())
+            auction.add_bid(PASS)
         with pytest.raises(IllegalBidError, match="already complete"):
-            auction.add_bid(Bid.make_pass())
+            auction.add_bid(PASS)
 
 
 class TestAuctionLegality:
     def test_lower_bid_raises(self) -> None:
         auction = AuctionState(dealer=Seat.NORTH)
-        auction.add_bid(Bid.suit_bid(2, Suit.CLUBS))
+        auction.add_bid(SuitBid(2, Suit.CLUBS))
         with pytest.raises(IllegalBidError, match="not higher"):
-            auction.add_bid(Bid.suit_bid(1, Suit.HEARTS))
+            auction.add_bid(SuitBid(1, Suit.HEARTS))
 
     def test_same_bid_raises(self) -> None:
         auction = AuctionState(dealer=Seat.NORTH)
-        auction.add_bid(Bid.suit_bid(1, Suit.HEARTS))
+        auction.add_bid(SuitBid(1, Suit.HEARTS))
         with pytest.raises(IllegalBidError, match="not higher"):
-            auction.add_bid(Bid.suit_bid(1, Suit.HEARTS))
+            auction.add_bid(SuitBid(1, Suit.HEARTS))
 
     def test_higher_bid_ok(self) -> None:
         auction = AuctionState(dealer=Seat.NORTH)
-        auction.add_bid(Bid.suit_bid(1, Suit.HEARTS))
-        auction.add_bid(Bid.suit_bid(1, Suit.SPADES))  # should not raise
+        auction.add_bid(SuitBid(1, Suit.HEARTS))
+        auction.add_bid(SuitBid(1, Suit.SPADES))  # should not raise
 
     def test_double_opponents_bid(self) -> None:
         # N opens 1H, E doubles (opponent doubling)
         auction = AuctionState(dealer=Seat.NORTH)
-        auction.add_bid(Bid.suit_bid(1, Suit.HEARTS))
-        auction.add_bid(Bid.double())  # East doubles North's bid — legal
+        auction.add_bid(SuitBid(1, Suit.HEARTS))
+        auction.add_bid(DOUBLE)  # East doubles North's bid — legal
 
     def test_cannot_double_own_bid(self) -> None:
         # N opens 1H, E passes, S tries to double partner's bid
         auction = AuctionState(dealer=Seat.NORTH)
-        auction.add_bid(Bid.suit_bid(1, Suit.HEARTS))
-        auction.add_bid(Bid.make_pass())
+        auction.add_bid(SuitBid(1, Suit.HEARTS))
+        auction.add_bid(PASS)
         with pytest.raises(IllegalBidError, match="own side"):
-            auction.add_bid(Bid.double())
+            auction.add_bid(DOUBLE)
 
     def test_cannot_double_nothing(self) -> None:
         auction = AuctionState(dealer=Seat.NORTH)
         with pytest.raises(IllegalBidError, match="no bid to double"):
-            auction.add_bid(Bid.double())
+            auction.add_bid(DOUBLE)
 
     def test_cannot_double_twice(self) -> None:
         # N opens 1H, E doubles, S passes, W tries to double again
         auction = AuctionState(dealer=Seat.NORTH)
-        auction.add_bid(Bid.suit_bid(1, Suit.HEARTS))
-        auction.add_bid(Bid.double())
-        auction.add_bid(Bid.make_pass())
+        auction.add_bid(SuitBid(1, Suit.HEARTS))
+        auction.add_bid(DOUBLE)
+        auction.add_bid(PASS)
         with pytest.raises(IllegalBidError, match="already doubled"):
-            auction.add_bid(Bid.double())
+            auction.add_bid(DOUBLE)
 
     def test_redouble_after_double(self) -> None:
         # N opens 1H, E doubles, S redoubles
         auction = AuctionState(dealer=Seat.NORTH)
-        auction.add_bid(Bid.suit_bid(1, Suit.HEARTS))
-        auction.add_bid(Bid.double())
-        auction.add_bid(Bid.redouble())  # should not raise
+        auction.add_bid(SuitBid(1, Suit.HEARTS))
+        auction.add_bid(DOUBLE)
+        auction.add_bid(REDOUBLE)  # should not raise
 
     def test_cannot_double_after_redouble(self) -> None:
         # N opens 1H, E doubles, S redoubles, W tries to double again
         auction = AuctionState(dealer=Seat.NORTH)
-        auction.add_bid(Bid.suit_bid(1, Suit.HEARTS))
-        auction.add_bid(Bid.double())
-        auction.add_bid(Bid.redouble())
+        auction.add_bid(SuitBid(1, Suit.HEARTS))
+        auction.add_bid(DOUBLE)
+        auction.add_bid(REDOUBLE)
         with pytest.raises(IllegalBidError, match="already doubled"):
-            auction.add_bid(Bid.double())
+            auction.add_bid(DOUBLE)
 
     def test_cannot_redouble_without_double(self) -> None:
         auction = AuctionState(dealer=Seat.NORTH)
-        auction.add_bid(Bid.suit_bid(1, Suit.HEARTS))
-        auction.add_bid(Bid.make_pass())
+        auction.add_bid(SuitBid(1, Suit.HEARTS))
+        auction.add_bid(PASS)
         with pytest.raises(IllegalBidError, match="not doubled"):
-            auction.add_bid(Bid.redouble())
+            auction.add_bid(REDOUBLE)
 
 
 class TestAuctionQueries:
     def test_bids_by(self) -> None:
         auction = AuctionState(dealer=Seat.NORTH)
-        auction.add_bid(Bid.suit_bid(1, Suit.HEARTS))  # N
-        auction.add_bid(Bid.make_pass())  # E
-        auction.add_bid(Bid.suit_bid(2, Suit.HEARTS))  # S
-        auction.add_bid(Bid.make_pass())  # W
+        auction.add_bid(SuitBid(1, Suit.HEARTS))  # N
+        auction.add_bid(PASS)  # E
+        auction.add_bid(SuitBid(2, Suit.HEARTS))  # S
+        auction.add_bid(PASS)  # W
 
         north_bids = auction.bids_by(Seat.NORTH)
         assert len(north_bids) == 1
@@ -232,28 +232,28 @@ class TestAuctionQueries:
 
     def test_partner_last_bid(self) -> None:
         auction = AuctionState(dealer=Seat.NORTH)
-        auction.add_bid(Bid.suit_bid(1, Suit.HEARTS))  # N
-        auction.add_bid(Bid.make_pass())  # E
+        auction.add_bid(SuitBid(1, Suit.HEARTS))  # N
+        auction.add_bid(PASS)  # E
         # South's partner is North, who bid 1H
         assert auction.partner_last_bid(Seat.SOUTH) is not None
         assert str(auction.partner_last_bid(Seat.SOUTH)) == "1H"
 
     def test_rho_last_bid(self) -> None:
         auction = AuctionState(dealer=Seat.NORTH)
-        auction.add_bid(Bid.suit_bid(1, Suit.HEARTS))  # N
-        auction.add_bid(Bid.suit_bid(1, Suit.SPADES))  # E
+        auction.add_bid(SuitBid(1, Suit.HEARTS))  # N
+        auction.add_bid(SuitBid(1, Suit.SPADES))  # E
         # South's RHO is East, who bid 1S
         assert auction.rho_last_bid(Seat.SOUTH) is not None
         assert str(auction.rho_last_bid(Seat.SOUTH)) == "1S"
 
     def test_is_competitive(self) -> None:
         auction = AuctionState(dealer=Seat.NORTH)
-        auction.add_bid(Bid.suit_bid(1, Suit.HEARTS))  # N opens
-        auction.add_bid(Bid.make_pass())  # E passes
+        auction.add_bid(SuitBid(1, Suit.HEARTS))  # N opens
+        auction.add_bid(PASS)  # E passes
         assert not auction.is_competitive()
 
-        auction.add_bid(Bid.suit_bid(2, Suit.HEARTS))  # S raises
-        auction.add_bid(Bid.suit_bid(2, Suit.SPADES))  # W overcalls
+        auction.add_bid(SuitBid(2, Suit.HEARTS))  # S raises
+        auction.add_bid(SuitBid(2, Suit.SPADES))  # W overcalls
         assert auction.is_competitive()
 
     def test_bids_property(self) -> None:

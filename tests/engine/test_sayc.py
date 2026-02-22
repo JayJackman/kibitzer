@@ -4,7 +4,7 @@ from bridge.engine.context import BiddingContext
 from bridge.engine.sayc import create_sayc_registry
 from bridge.engine.selector import BidSelector
 from bridge.model.auction import AuctionState, Seat
-from bridge.model.bid import Bid, parse_bid
+from bridge.model.bid import PASS, parse_bid
 from bridge.model.board import Board
 from bridge.model.hand import Hand
 
@@ -32,7 +32,7 @@ def _response_select(pbn: str, opening: str = "1H") -> str:
     selector = BidSelector(reg)
     auction = AuctionState(dealer=Seat.NORTH)
     auction.add_bid(parse_bid(opening))
-    auction.add_bid(Bid.make_pass())
+    auction.add_bid(PASS)
     board = Board(hand=Hand.from_pbn(pbn), seat=Seat.SOUTH, auction=auction)
     ctx = BiddingContext(board)
     result = selector.select(ctx)
@@ -219,9 +219,9 @@ def _rebid_select(pbn: str, opening: str, response: str) -> str:
     selector = BidSelector(reg)
     auction = AuctionState(dealer=Seat.NORTH)
     auction.add_bid(parse_bid(opening))
-    auction.add_bid(Bid.make_pass())
+    auction.add_bid(PASS)
     auction.add_bid(parse_bid(response))
-    auction.add_bid(Bid.make_pass())
+    auction.add_bid(PASS)
     board = Board(hand=Hand.from_pbn(pbn), seat=Seat.NORTH, auction=auction)
     ctx = BiddingContext(board)
     result = selector.select(ctx)

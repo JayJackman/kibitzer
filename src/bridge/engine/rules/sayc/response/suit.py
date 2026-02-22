@@ -10,7 +10,7 @@ from __future__ import annotations
 from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.evaluate import support_points
-from bridge.model.bid import Bid
+from bridge.model.bid import PASS, Bid, SuitBid, is_suit_bid
 from bridge.model.card import Suit
 
 # ── Helpers ─────────────────────────────────────────────────────────
@@ -33,26 +33,26 @@ def _opener_suit(ctx: BiddingContext) -> Suit:
     is guaranteed non-None.
     """
     bid = _opening_bid(ctx)
-    assert bid.suit is not None
+    assert is_suit_bid(bid)
     return bid.suit
 
 
 def _opened_1_suit(ctx: BiddingContext) -> bool:
     """Whether partner opened 1 of any suit (not NT)."""
     bid = _opening_bid(ctx)
-    return bid.level == 1 and bid.suit is not None and bid.suit != Suit.NOTRUMP
+    return is_suit_bid(bid) and bid.level == 1 and bid.suit != Suit.NOTRUMP
 
 
 def _opened_1_major(ctx: BiddingContext) -> bool:
     """Whether partner opened 1H or 1S."""
     bid = _opening_bid(ctx)
-    return bid.level == 1 and bid.suit is not None and bid.suit.is_major
+    return is_suit_bid(bid) and bid.level == 1 and bid.suit.is_major
 
 
 def _opened_1_minor(ctx: BiddingContext) -> bool:
     """Whether partner opened 1C or 1D."""
     bid = _opening_bid(ctx)
-    return bid.level == 1 and bid.suit is not None and bid.suit.is_minor
+    return is_suit_bid(bid) and bid.level == 1 and bid.suit.is_minor
 
 
 def _has_4_card_major(ctx: BiddingContext) -> bool:
@@ -175,7 +175,7 @@ class RespondJumpShift(Rule):
         assert suit is not None
         level = _jump_level(_opener_suit(ctx), suit)
         return RuleResult(
-            bid=Bid.suit_bid(level, suit),
+            bid=SuitBid(level, suit),
             rule_name=self.name,
             explanation=(
                 f"19+ HCP, {suit.letter} suit — SAYC jump shift, slam invitational"
@@ -218,7 +218,7 @@ class RespondNewSuit1Level(Rule):
         suit = _find_new_suit_1_level(ctx)
         assert suit is not None
         return RuleResult(
-            bid=Bid.suit_bid(1, suit),
+            bid=SuitBid(1, suit),
             rule_name=self.name,
             explanation=(
                 f"4+ card {suit.letter}, 6+ HCP — SAYC new suit at 1-level, forcing"
@@ -257,7 +257,7 @@ class Respond2Over1(Rule):
         suit = _find_2_over_1_suit(ctx)
         assert suit is not None
         return RuleResult(
-            bid=Bid.suit_bid(2, suit),
+            bid=SuitBid(2, suit),
             rule_name=self.name,
             explanation=(
                 f"10+ HCP, 4+ card {suit.letter} — SAYC 2-over-1, forcing one round"
@@ -289,7 +289,7 @@ class RespondPass(Rule):
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
-            bid=Bid.make_pass(),
+            bid=PASS,
             rule_name=self.name,
             explanation="Fewer than 6 HCP — pass",
         )
@@ -326,7 +326,7 @@ class RespondJacoby2NT(Rule):
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
-            bid=Bid.suit_bid(2, Suit.NOTRUMP),
+            bid=SuitBid(2, Suit.NOTRUMP),
             rule_name=self.name,
             explanation=(
                 "4+ card support, 13+ support points — SAYC Jacoby 2NT, game forcing"
@@ -370,7 +370,7 @@ class RespondGameRaiseMajor(Rule):
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
-            bid=Bid.suit_bid(4, _opener_suit(ctx)),
+            bid=SuitBid(4, _opener_suit(ctx)),
             rule_name=self.name,
             explanation=(
                 "5+ card support, singleton/void, <10 HCP — SAYC preemptive game raise"
@@ -406,7 +406,7 @@ class Respond3NTOverMajor(Rule):
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
-            bid=Bid.suit_bid(3, Suit.NOTRUMP),
+            bid=SuitBid(3, Suit.NOTRUMP),
             rule_name=self.name,
             explanation=("15-17 HCP, balanced, 2-card support — SAYC 3NT over major"),
         )
@@ -440,7 +440,7 @@ class RespondLimitRaiseMajor(Rule):
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
-            bid=Bid.suit_bid(3, _opener_suit(ctx)),
+            bid=SuitBid(3, _opener_suit(ctx)),
             rule_name=self.name,
             explanation=(
                 "3+ card support, 10-12 support points — SAYC limit raise, invitational"
@@ -476,7 +476,7 @@ class RespondSingleRaiseMajor(Rule):
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
-            bid=Bid.suit_bid(2, _opener_suit(ctx)),
+            bid=SuitBid(2, _opener_suit(ctx)),
             rule_name=self.name,
             explanation=("3+ card support, 6-10 support points — SAYC single raise"),
         )
@@ -510,7 +510,7 @@ class Respond1NTOverMajor(Rule):
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
-            bid=Bid.suit_bid(1, Suit.NOTRUMP),
+            bid=SuitBid(1, Suit.NOTRUMP),
             rule_name=self.name,
             explanation=("6-10 HCP, no 3+ support — SAYC 1NT response, non-forcing"),
         )
@@ -548,7 +548,7 @@ class Respond3NTOverMinor(Rule):
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
-            bid=Bid.suit_bid(3, Suit.NOTRUMP),
+            bid=SuitBid(3, Suit.NOTRUMP),
             rule_name=self.name,
             explanation=("16-18 HCP, balanced, no 4-card major — SAYC 3NT over minor"),
         )
@@ -583,7 +583,7 @@ class Respond2NTOverMinor(Rule):
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
-            bid=Bid.suit_bid(2, Suit.NOTRUMP),
+            bid=SuitBid(2, Suit.NOTRUMP),
             rule_name=self.name,
             explanation=(
                 "13-15 HCP, balanced, no 4-card major"
@@ -623,7 +623,7 @@ class RespondLimitRaiseMinor(Rule):
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
-            bid=Bid.suit_bid(3, _opener_suit(ctx)),
+            bid=SuitBid(3, _opener_suit(ctx)),
             rule_name=self.name,
             explanation=(
                 "10-12 HCP, adequate support — SAYC limit raise of minor, invitational"
@@ -661,7 +661,7 @@ class RespondSingleRaiseMinor(Rule):
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
-            bid=Bid.suit_bid(2, _opener_suit(ctx)),
+            bid=SuitBid(2, _opener_suit(ctx)),
             rule_name=self.name,
             explanation=(
                 "6-10 HCP, adequate support, no 4-card major"
@@ -697,7 +697,7 @@ class Respond1NTOverMinor(Rule):
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
-            bid=Bid.suit_bid(1, Suit.NOTRUMP),
+            bid=SuitBid(1, Suit.NOTRUMP),
             rule_name=self.name,
             explanation=(
                 "6-10 HCP, no 4-card major — SAYC 1NT over minor, non-forcing"

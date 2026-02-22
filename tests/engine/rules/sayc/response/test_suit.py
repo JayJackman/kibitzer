@@ -19,7 +19,7 @@ from bridge.engine.rules.sayc.response.suit import (
     RespondSingleRaiseMinor,
 )
 from bridge.model.auction import AuctionState, Seat
-from bridge.model.bid import Bid, parse_bid
+from bridge.model.bid import PASS, is_pass, parse_bid
 from bridge.model.board import Board
 from bridge.model.hand import Hand
 
@@ -31,7 +31,7 @@ def _ctx(pbn: str, opening: str = "1H") -> BiddingContext:
     """
     auction = AuctionState(dealer=Seat.NORTH)
     auction.add_bid(parse_bid(opening))  # Partner (N) opens
-    auction.add_bid(Bid.make_pass())  # RHO (E) passes
+    auction.add_bid(PASS)  # RHO (E) passes
     return BiddingContext(
         Board(hand=Hand.from_pbn(pbn), seat=Seat.SOUTH, auction=auction)
     )
@@ -188,7 +188,7 @@ class TestRespondPass:
         ctx = _ctx("843.73.J842.9732", "1H")
         assert self.rule.applies(ctx)
         result = self.rule.select(ctx)
-        assert result.bid.is_pass
+        assert is_pass(result.bid)
         assert result.rule_name == "response.pass"
 
     def test_pass_over_1s(self):

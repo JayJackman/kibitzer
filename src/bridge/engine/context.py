@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from bridge import evaluate
 from bridge.model.auction import AuctionState, Seat, Vulnerability
-from bridge.model.bid import Bid, BidType
+from bridge.model.bid import Bid, is_pass
 from bridge.model.board import Board
 from bridge.model.card import Suit
 from bridge.model.hand import Hand
@@ -21,9 +21,7 @@ class BiddingContext:
         seat = board.seat
         auction = board.auction
 
-        my_non_pass = tuple(
-            b for b in auction.bids_by(seat) if b.bid_type != BidType.PASS
-        )
+        my_non_pass = tuple(b for b in auction.bids_by(seat) if not is_pass(b))
 
         # From Board
         self.hand: Hand = hand

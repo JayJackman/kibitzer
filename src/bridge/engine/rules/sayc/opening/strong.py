@@ -2,7 +2,7 @@
 
 from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
-from bridge.model.bid import Bid
+from bridge.model.bid import SuitBid
 from bridge.model.card import Suit
 
 
@@ -33,7 +33,7 @@ class Open2C(Rule):
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
-            bid=Bid.suit_bid(2, Suit.CLUBS),
+            bid=SuitBid(2, Suit.CLUBS),
             rule_name=self.name,
             explanation="22+ total points — SAYC strong artificial 2C",
             alerts=("Artificial, strong, forcing",),

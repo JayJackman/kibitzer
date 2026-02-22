@@ -5,7 +5,7 @@ from __future__ import annotations
 from bridge.engine.context import BiddingContext
 from bridge.engine.registry import RuleRegistry
 from bridge.engine.rule import Category, Rule, RuleResult
-from bridge.model.bid import Bid
+from bridge.model.bid import PASS
 
 # Overlay categories are always checked alongside the detected phase.
 _OVERLAY_CATEGORIES = (Category.CONVENTION, Category.SLAM)
@@ -56,7 +56,7 @@ class BidSelector:
                 return rule.select(ctx)
 
         return RuleResult(
-            bid=Bid.make_pass(),
+            bid=PASS,
             rule_name="fallback.pass",
             explanation="No applicable rule",
         )

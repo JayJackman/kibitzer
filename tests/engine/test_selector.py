@@ -5,7 +5,7 @@ from bridge.engine.registry import RuleRegistry
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.engine.selector import BidSelector
 from bridge.model.auction import AuctionState, Seat
-from bridge.model.bid import Bid
+from bridge.model.bid import PASS, Bid, SuitBid, is_pass
 from bridge.model.board import Board
 from bridge.model.card import Suit
 from bridge.model.hand import Hand
@@ -27,7 +27,7 @@ class MockRule(Rule):
         self._name = name
         self._category = category
         self._priority = priority
-        self._bid = bid or Bid.make_pass()
+        self._bid = bid or PASS
         self._should_apply = should_apply
 
     @property
@@ -67,8 +67,8 @@ class TestPhaseDetection:
 
     def test_opening_after_passes(self) -> None:
         auction = AuctionState(dealer=Seat.NORTH)
-        auction.add_bid(Bid.make_pass())  # N
-        auction.add_bid(Bid.make_pass())  # E
+        auction.add_bid(PASS)  # N
+        auction.add_bid(PASS)  # E
 
         ctx = _make_ctx(Seat.SOUTH, auction)
         selector = BidSelector(RuleRegistry())
@@ -78,8 +78,8 @@ class TestPhaseDetection:
     def test_response(self) -> None:
         # Partner (N) opens 1H, opponent (E) passes, my turn (S)
         auction = AuctionState(dealer=Seat.NORTH)
-        auction.add_bid(Bid.suit_bid(1, Suit.HEARTS))  # N opens
-        auction.add_bid(Bid.make_pass())  # E passes
+        auction.add_bid(SuitBid(1, Suit.HEARTS))  # N opens
+        auction.add_bid(PASS)  # E passes
 
         ctx = _make_ctx(Seat.SOUTH, auction)
         selector = BidSelector(RuleRegistry())
@@ -89,8 +89,8 @@ class TestPhaseDetection:
     def test_competitive_response(self) -> None:
         # Partner (N) opens 1H, opponent (E) overcalls 1S, my turn (S)
         auction = AuctionState(dealer=Seat.NORTH)
-        auction.add_bid(Bid.suit_bid(1, Suit.HEARTS))  # N opens
-        auction.add_bid(Bid.suit_bid(1, Suit.SPADES))  # E overcalls
+        auction.add_bid(SuitBid(1, Suit.HEARTS))  # N opens
+        auction.add_bid(SuitBid(1, Suit.SPADES))  # E overcalls
 
         ctx = _make_ctx(Seat.SOUTH, auction)
         selector = BidSelector(RuleRegistry())
@@ -100,10 +100,10 @@ class TestPhaseDetection:
     def test_rebid_opener(self) -> None:
         # I (N) opened 1H, E passes, partner (S) responds 2H, W passes
         auction = AuctionState(dealer=Seat.NORTH)
-        auction.add_bid(Bid.suit_bid(1, Suit.HEARTS))  # N opens
-        auction.add_bid(Bid.make_pass())  # E
-        auction.add_bid(Bid.suit_bid(2, Suit.HEARTS))  # S responds
-        auction.add_bid(Bid.make_pass())  # W
+        auction.add_bid(SuitBid(1, Suit.HEARTS))  # N opens
+        auction.add_bid(PASS)  # E
+        auction.add_bid(SuitBid(2, Suit.HEARTS))  # S responds
+        auction.add_bid(PASS)  # W
 
         ctx = _make_ctx(Seat.NORTH, auction)
         selector = BidSelector(RuleRegistry())
@@ -114,12 +114,12 @@ class TestPhaseDetection:
         # Partner (N) opened 1H, E passes, I (S) responded 1S,
         # W passes, partner (N) rebids 2H, E passes, my turn (S)
         auction = AuctionState(dealer=Seat.NORTH)
-        auction.add_bid(Bid.suit_bid(1, Suit.HEARTS))  # N opens
-        auction.add_bid(Bid.make_pass())  # E
-        auction.add_bid(Bid.suit_bid(1, Suit.SPADES))  # S responds
-        auction.add_bid(Bid.make_pass())  # W
-        auction.add_bid(Bid.suit_bid(2, Suit.HEARTS))  # N rebids
-        auction.add_bid(Bid.make_pass())  # E
+        auction.add_bid(SuitBid(1, Suit.HEARTS))  # N opens
+        auction.add_bid(PASS)  # E
+        auction.add_bid(SuitBid(1, Suit.SPADES))  # S responds
+        auction.add_bid(PASS)  # W
+        auction.add_bid(SuitBid(2, Suit.HEARTS))  # N rebids
+        auction.add_bid(PASS)  # E
 
         ctx = _make_ctx(Seat.SOUTH, auction)
         selector = BidSelector(RuleRegistry())
@@ -129,7 +129,7 @@ class TestPhaseDetection:
     def test_competitive(self) -> None:
         # Opponent (N) opens 1H, my turn (E)
         auction = AuctionState(dealer=Seat.NORTH)
-        auction.add_bid(Bid.suit_bid(1, Suit.HEARTS))  # N opens
+        auction.add_bid(SuitBid(1, Suit.HEARTS))  # N opens
 
         ctx = _make_ctx(Seat.EAST, auction)
         selector = BidSelector(RuleRegistry())
@@ -145,7 +145,7 @@ class TestBidSelector:
                 "opening.1suit",
                 Category.OPENING,
                 100,
-                bid=Bid.suit_bid(1, Suit.SPADES),
+                bid=SuitBid(1, Suit.SPADES),
             )
         )
         reg.register(
@@ -153,7 +153,7 @@ class TestBidSelector:
                 "opening.1nt",
                 Category.OPENING,
                 200,
-                bid=Bid.suit_bid(1, Suit.NOTRUMP),
+                bid=SuitBid(1, Suit.NOTRUMP),
             )
         )
 
@@ -172,7 +172,7 @@ class TestBidSelector:
                 "opening.2c",
                 Category.OPENING,
                 400,
-                bid=Bid.suit_bid(2, Suit.CLUBS),
+                bid=SuitBid(2, Suit.CLUBS),
                 should_apply=False,
             )
         )
@@ -181,7 +181,7 @@ class TestBidSelector:
                 "opening.1suit",
                 Category.OPENING,
                 100,
-                bid=Bid.suit_bid(1, Suit.SPADES),
+                bid=SuitBid(1, Suit.SPADES),
             )
         )
 
@@ -202,7 +202,7 @@ class TestBidSelector:
         result = selector.select(ctx)
 
         assert result.rule_name == "fallback.pass"
-        assert result.bid.is_pass
+        assert is_pass(result.bid)
 
     def test_empty_registry_returns_pass(self) -> None:
         reg = RuleRegistry()
@@ -211,7 +211,7 @@ class TestBidSelector:
         selector = BidSelector(reg)
         result = selector.select(ctx)
 
-        assert result.bid.is_pass
+        assert is_pass(result.bid)
         assert result.rule_name == "fallback.pass"
 
     def test_overlay_rules_checked(self) -> None:
@@ -222,7 +222,7 @@ class TestBidSelector:
                 "opening.1suit",
                 Category.OPENING,
                 100,
-                bid=Bid.suit_bid(1, Suit.SPADES),
+                bid=SuitBid(1, Suit.SPADES),
             )
         )
         # High-priority convention overlay
@@ -231,7 +231,7 @@ class TestBidSelector:
                 "convention.stayman",
                 Category.CONVENTION,
                 350,
-                bid=Bid.suit_bid(2, Suit.CLUBS),
+                bid=SuitBid(2, Suit.CLUBS),
             )
         )
 
@@ -250,7 +250,7 @@ class TestBidSelector:
                 "opening.1suit",
                 Category.OPENING,
                 100,
-                bid=Bid.suit_bid(1, Suit.SPADES),
+                bid=SuitBid(1, Suit.SPADES),
             )
         )
         reg.register(
@@ -258,7 +258,7 @@ class TestBidSelector:
                 "slam.blackwood",
                 Category.SLAM,
                 500,
-                bid=Bid.suit_bid(4, Suit.NOTRUMP),
+                bid=SuitBid(4, Suit.NOTRUMP),
             )
         )
 
@@ -278,7 +278,7 @@ class TestCandidates:
                 "opening.1suit",
                 Category.OPENING,
                 100,
-                bid=Bid.suit_bid(1, Suit.SPADES),
+                bid=SuitBid(1, Suit.SPADES),
             )
         )
         reg.register(
@@ -286,7 +286,7 @@ class TestCandidates:
                 "opening.1nt",
                 Category.OPENING,
                 200,
-                bid=Bid.suit_bid(1, Suit.NOTRUMP),
+                bid=SuitBid(1, Suit.NOTRUMP),
             )
         )
         reg.register(

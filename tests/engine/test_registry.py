@@ -5,7 +5,7 @@ import pytest
 from bridge.engine.context import BiddingContext
 from bridge.engine.registry import DuplicateRuleError, RuleRegistry
 from bridge.engine.rule import Category, Rule, RuleResult
-from bridge.model.bid import Bid
+from bridge.model.bid import PASS, Bid
 
 
 class MockRule(Rule):
@@ -22,7 +22,7 @@ class MockRule(Rule):
         self._name = name
         self._category = category
         self._priority = priority
-        self._bid = bid or Bid.make_pass()
+        self._bid = bid or PASS
         self._should_apply = should_apply
 
     @property

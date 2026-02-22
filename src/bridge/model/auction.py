@@ -5,7 +5,16 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import IntEnum, unique
 
-from .bid import Bid, BidType
+from .bid import (
+    Bid,
+    DoubleBid,
+    RedoubleBid,
+    SuitBid,
+    is_double,
+    is_pass,
+    is_redouble,
+    is_suit_bid,
+)
 
 
 @unique
@@ -115,16 +124,16 @@ class AuctionState:
         if n < 4:
             return False
         # Four initial passes = passed out
-        if all(b.is_pass for b in self._bids):
+        if all(is_pass(b) for b in self._bids):
             return True
         # Three consecutive passes after at least one non-pass bid
-        return all(b.is_pass for b in self._bids[-3:])
+        return all(is_pass(b) for b in self._bids[-3:])
 
     @property
     def last_contract_bid(self) -> Bid | None:
         """Most recent suit bid (not pass/double/redouble)."""
         for bid in reversed(self._bids):
-            if bid.bid_type == BidType.SUIT:
+            if is_suit_bid(bid):
                 return bid
         return None
 
@@ -132,20 +141,20 @@ class AuctionState:
     def opening_bid(self) -> tuple[Seat, Bid] | None:
         """First non-pass bid and who made it."""
         for seat, bid in self.bids:
-            if bid.bid_type == BidType.SUIT:
+            if is_suit_bid(bid):
                 return (seat, bid)
         return None
 
     @property
     def has_opened(self) -> bool:
         """True if someone has made a non-pass bid."""
-        return any(not b.is_pass for b in self._bids)
+        return any(not is_pass(b) for b in self._bids)
 
     def partner_last_bid(self, seat: Seat) -> Bid | None:
         """Most recent non-pass bid by seat's partner."""
         partner = seat.partner
         for s, b in reversed(self.bids):
-            if s == partner and not b.is_pass:
+            if s == partner and not is_pass(b):
                 return b
         return None
 
@@ -153,7 +162,7 @@ class AuctionState:
         """Most recent non-pass bid by right-hand opponent."""
         rho = seat.rho
         for s, b in reversed(self.bids):
-            if s == rho and not b.is_pass:
+            if s == rho and not is_pass(b):
                 return b
         return None
 
@@ -168,7 +177,7 @@ class AuctionState:
             return False
         opening_seat = opening[0]
         opponents = {opening_seat.lho, opening_seat.rho}
-        return any(s in opponents and b.bid_type == BidType.SUIT for s, b in self.bids)
+        return any(s in opponents and is_suit_bid(b) for s, b in self.bids)
 
     def add_bid(self, bid: Bid) -> None:
         """Add a bid, validating legality.
@@ -180,21 +189,21 @@ class AuctionState:
 
         last_contract = self.last_contract_bid
 
-        if bid.bid_type == BidType.SUIT:
+        if is_suit_bid(bid):
             # Suit bid must be higher than the current contract
             if last_contract is not None and bid <= last_contract:
                 raise IllegalBidError(
                     f"Bid {bid} is not higher than current contract {last_contract}"
                 )
 
-        elif bid.bid_type == BidType.DOUBLE:
+        elif is_double(bid):
             # Can only double an opponent's last suit bid
             if last_contract is None:
                 raise IllegalBidError("Cannot double: no bid to double")
             # Find who made the last contract bid
             last_bidder: Seat | None = None
             for s, b in reversed(self.bids):
-                if b.bid_type == BidType.SUIT:
+                if is_suit_bid(b):
                     last_bidder = s
                     break
             if last_bidder is None:
@@ -205,7 +214,7 @@ class AuctionState:
             if self._is_doubled() or self._is_redoubled():
                 raise IllegalBidError("Bid is already doubled")
 
-        elif bid.bid_type == BidType.REDOUBLE:
+        elif is_redouble(bid):
             # Can only redouble a doubled bid by the opponents
             if not self._is_doubled():
                 raise IllegalBidError("Cannot redouble: bid is not doubled")
@@ -217,17 +226,17 @@ class AuctionState:
     def _is_doubled(self) -> bool:
         """Check if the current contract is doubled (not redoubled)."""
         for bid in reversed(self._bids):
-            if bid.bid_type in (BidType.SUIT, BidType.REDOUBLE):
+            if isinstance(bid, (SuitBid, RedoubleBid)):
                 return False
-            if bid.bid_type == BidType.DOUBLE:
+            if is_double(bid):
                 return True
         return False
 
     def _is_redoubled(self) -> bool:
         """Check if the current contract is redoubled."""
         for bid in reversed(self._bids):
-            if bid.bid_type in (BidType.SUIT, BidType.DOUBLE):
+            if isinstance(bid, (SuitBid, DoubleBid)):
                 return False
-            if bid.bid_type == BidType.REDOUBLE:
+            if is_redouble(bid):
                 return True
         return False

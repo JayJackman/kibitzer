@@ -3,7 +3,7 @@
 from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.evaluate import best_major, best_minor, rule_of_15, rule_of_20
-from bridge.model.bid import Bid
+from bridge.model.bid import PASS, SuitBid
 
 
 def _meets_opening_strength(ctx: BiddingContext) -> bool:
@@ -52,7 +52,7 @@ class Open1Major(Rule):
         suit = best_major(ctx.hand)
         assert suit is not None
         return RuleResult(
-            bid=Bid.suit_bid(1, suit),
+            bid=SuitBid(1, suit),
             rule_name=self.name,
             explanation=f"5+ card {suit.letter}, opening strength — SAYC 1-major",
         )
@@ -94,7 +94,7 @@ class Open1Minor(Rule):
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = best_minor(ctx.hand)
         return RuleResult(
-            bid=Bid.suit_bid(1, suit),
+            bid=SuitBid(1, suit),
             rule_name=self.name,
             explanation=(
                 f"Opening strength, no 5+ major, best minor {suit.letter}"
@@ -126,7 +126,7 @@ class OpenPass(Rule):
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
-            bid=Bid.make_pass(),
+            bid=PASS,
             rule_name=self.name,
             explanation="Hand does not meet opening requirements",
         )

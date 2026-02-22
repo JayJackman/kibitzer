@@ -1,67 +1,92 @@
-"""Tests for Bid, BidType, and parse_bid."""
+"""Tests for bid types, singletons, type guards, and parse_bid."""
 
 import pytest
 
-from bridge.model.bid import Bid, BidType, parse_bid
+from bridge.model.bid import (
+    DOUBLE,
+    PASS,
+    REDOUBLE,
+    DoubleBid,
+    PassBid,
+    RedoubleBid,
+    SuitBid,
+    is_double,
+    is_pass,
+    is_redouble,
+    is_suit_bid,
+    parse_bid,
+)
 from bridge.model.card import Suit
 
 
-class TestBidCreation:
-    def test_suit_bid(self) -> None:
-        bid = Bid.suit_bid(1, Suit.HEARTS)
-        assert bid.bid_type == BidType.SUIT
+class TestSuitBid:
+    def test_creation(self) -> None:
+        bid = SuitBid(1, Suit.HEARTS)
         assert bid.level == 1
         assert bid.suit == Suit.HEARTS
 
-    def test_pass(self) -> None:
-        bid = Bid.make_pass()
-        assert bid.is_pass
-        assert bid.level is None
-        assert bid.suit is None
-
-    def test_double(self) -> None:
-        bid = Bid.double()
-        assert bid.is_double
-
-    def test_redouble(self) -> None:
-        bid = Bid.redouble()
-        assert bid.is_redouble
-
     def test_invalid_level(self) -> None:
         with pytest.raises(ValueError, match="level must be 1-7"):
-            Bid.suit_bid(0, Suit.CLUBS)
+            SuitBid(0, Suit.CLUBS)
         with pytest.raises(ValueError, match="level must be 1-7"):
-            Bid.suit_bid(8, Suit.CLUBS)
+            SuitBid(8, Suit.CLUBS)
 
-    def test_pass_with_level_raises(self) -> None:
-        with pytest.raises(ValueError, match="must not have level"):
-            Bid(BidType.PASS, level=1)
-
-
-class TestBidStr:
-    def test_suit_bids(self) -> None:
-        assert str(Bid.suit_bid(1, Suit.CLUBS)) == "1C"
-        assert str(Bid.suit_bid(3, Suit.HEARTS)) == "3H"
-        assert str(Bid.suit_bid(1, Suit.NOTRUMP)) == "1NT"
-        assert str(Bid.suit_bid(7, Suit.NOTRUMP)) == "7NT"
-
-    def test_special_bids(self) -> None:
-        assert str(Bid.make_pass()) == "Pass"
-        assert str(Bid.double()) == "X"
-        assert str(Bid.redouble()) == "XX"
+    def test_str(self) -> None:
+        assert str(SuitBid(1, Suit.CLUBS)) == "1C"
+        assert str(SuitBid(3, Suit.HEARTS)) == "3H"
+        assert str(SuitBid(1, Suit.NOTRUMP)) == "1NT"
+        assert str(SuitBid(7, Suit.NOTRUMP)) == "7NT"
 
     def test_repr(self) -> None:
-        assert repr(Bid.suit_bid(1, Suit.HEARTS)) == "Bid(1H)"
-        assert repr(Bid.make_pass()) == "Bid(Pass)"
+        assert repr(SuitBid(1, Suit.HEARTS)) == "Bid(1H)"
+
+
+class TestSingletons:
+    def test_pass(self) -> None:
+        assert str(PASS) == "Pass"
+        assert repr(PASS) == "Bid(Pass)"
+
+    def test_double(self) -> None:
+        assert str(DOUBLE) == "X"
+        assert repr(DOUBLE) == "Bid(X)"
+
+    def test_redouble(self) -> None:
+        assert str(REDOUBLE) == "XX"
+        assert repr(REDOUBLE) == "Bid(XX)"
+
+    def test_singleton_identity(self) -> None:
+        assert PassBid() == PASS
+        assert DoubleBid() == DOUBLE
+        assert RedoubleBid() == REDOUBLE
+
+
+class TestTypeGuards:
+    def test_is_pass(self) -> None:
+        assert is_pass(PASS)
+        assert not is_pass(DOUBLE)
+        assert not is_pass(SuitBid(1, Suit.CLUBS))
+
+    def test_is_double(self) -> None:
+        assert is_double(DOUBLE)
+        assert not is_double(PASS)
+
+    def test_is_redouble(self) -> None:
+        assert is_redouble(REDOUBLE)
+        assert not is_redouble(PASS)
+
+    def test_is_suit_bid(self) -> None:
+        assert is_suit_bid(SuitBid(1, Suit.HEARTS))
+        assert not is_suit_bid(PASS)
+        assert not is_suit_bid(DOUBLE)
 
 
 class TestBidOrdering:
     def test_suit_bids_order(self) -> None:
-        one_club = Bid.suit_bid(1, Suit.CLUBS)
-        one_diamond = Bid.suit_bid(1, Suit.DIAMONDS)
-        one_nt = Bid.suit_bid(1, Suit.NOTRUMP)
-        two_clubs = Bid.suit_bid(2, Suit.CLUBS)
-        seven_nt = Bid.suit_bid(7, Suit.NOTRUMP)
+        one_club = SuitBid(1, Suit.CLUBS)
+        one_diamond = SuitBid(1, Suit.DIAMONDS)
+        one_nt = SuitBid(1, Suit.NOTRUMP)
+        two_clubs = SuitBid(2, Suit.CLUBS)
+        seven_nt = SuitBid(7, Suit.NOTRUMP)
 
         assert one_club < one_diamond
         assert one_diamond < one_nt
@@ -69,8 +94,8 @@ class TestBidOrdering:
         assert two_clubs < seven_nt
 
     def test_non_suit_bid_ordering_raises(self) -> None:
-        with pytest.raises(TypeError, match="Cannot compare"):
-            _ = Bid.make_pass() < Bid.suit_bid(1, Suit.CLUBS)
+        with pytest.raises(TypeError):
+            _ = SuitBid(1, Suit.CLUBS) > PASS  # type: ignore[operator]
 
 
 class TestParseBid:
