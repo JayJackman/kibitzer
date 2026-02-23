@@ -1,5 +1,6 @@
 """NT opening bid rules — SAYC 1NT (15-17) and 2NT (20-21)."""
 
+from bridge.engine.condition import All, Balanced, Condition, HcpRange
 from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.model.bid import SuitBid
@@ -24,8 +25,9 @@ class Open1NT(Rule):
     def priority(self) -> int:
         return 250
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        return 15 <= ctx.hcp <= 17 and ctx.is_balanced
+    @property
+    def conditions(self) -> Condition:
+        return All(HcpRange(15, 17), Balanced(strict=True))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -53,8 +55,9 @@ class Open2NT(Rule):
     def priority(self) -> int:
         return 270
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        return 20 <= ctx.hcp <= 21 and ctx.is_balanced
+    @property
+    def conditions(self) -> Condition:
+        return All(HcpRange(20, 21), Balanced(strict=True))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(

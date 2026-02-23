@@ -1,5 +1,6 @@
 """Strong 2C opening bid rule — SAYC."""
 
+from bridge.engine.condition import Condition, TotalPtsRange
 from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.model.bid import SuitBid
@@ -28,8 +29,9 @@ class Open2C(Rule):
     def priority(self) -> int:
         return 450
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        return ctx.total_pts >= 22
+    @property
+    def conditions(self) -> Condition:
+        return TotalPtsRange(min_pts=22)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(

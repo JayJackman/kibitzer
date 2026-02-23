@@ -1,10 +1,48 @@
 """Preemptive opening bid rules — SAYC weak twos and 3/4-level preempts."""
 
+from bridge.engine.condition import All, Computed, Condition, HcpRange, NoVoid
 from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.evaluate import has_outside_four_card_major, quality_suit
 from bridge.model.bid import SuitBid
 from bridge.model.card import SUITS_SHDC, Suit
+
+
+def _find_weak_two_suit(ctx: BiddingContext) -> Suit | None:
+    """Find the suit for a weak two, or None if requirements aren't met."""
+    hand = ctx.hand
+    for suit in (Suit.SPADES, Suit.HEARTS, Suit.DIAMONDS):
+        if (
+            hand.suit_length(suit) == 6
+            and quality_suit(hand, suit)
+            and not has_outside_four_card_major(hand, suit)
+        ):
+            return suit
+    return None
+
+
+def _find_preempt3_suit(ctx: BiddingContext) -> Suit | None:
+    """Find a 7-card suit suitable for a 3-level preempt."""
+    hand = ctx.hand
+    for suit in SUITS_SHDC:
+        if (
+            hand.suit_length(suit) == 7
+            and quality_suit(hand, suit)
+            and not has_outside_four_card_major(hand, suit)
+        ):
+            return suit
+    return None
+
+
+def _find_preempt4_suit(ctx: BiddingContext) -> Suit | None:
+    """Find a suit suitable for a 4-level preempt."""
+    hand = ctx.hand
+    for suit in SUITS_SHDC:
+        length = hand.suit_length(suit)
+        min_length = 7 if suit.is_major else 8
+        if length >= min_length and quality_suit(hand, suit):
+            return suit
+    return None
 
 
 class OpenWeakTwo(Rule):
@@ -15,6 +53,9 @@ class OpenWeakTwo(Rule):
 
     2C is reserved for the strong artificial opening.
     """
+
+    def __init__(self) -> None:
+        self._suit = Computed(_find_weak_two_suit, "6-card suit for weak two")
 
     @property
     def name(self) -> str:
@@ -28,33 +69,17 @@ class OpenWeakTwo(Rule):
     def priority(self) -> int:
         return 200
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not (5 <= ctx.hcp <= 11):
-            return False
-        if 0 in ctx.shape:
-            return False
-        return self._find_suit(ctx) is not None
+    @property
+    def conditions(self) -> Condition:
+        return All(HcpRange(5, 11), NoVoid(), self._suit)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
-        suit = self._find_suit(ctx)
-        assert suit is not None
+        suit = self._suit.value
         return RuleResult(
             bid=SuitBid(2, suit),
             rule_name=self.name,
             explanation=f"5-11 HCP, 6-card {suit.letter} — SAYC weak two",
         )
-
-    def _find_suit(self, ctx: BiddingContext) -> Suit | None:
-        """Find the suit for a weak two, or None if requirements aren't met."""
-        hand = ctx.hand
-        for suit in (Suit.SPADES, Suit.HEARTS, Suit.DIAMONDS):
-            if (
-                hand.suit_length(suit) == 6
-                and quality_suit(hand, suit)
-                and not has_outside_four_card_major(hand, suit)
-            ):
-                return suit
-        return None
 
 
 class OpenPreempt3(Rule):
@@ -62,6 +87,9 @@ class OpenPreempt3(Rule):
 
     SAYC: "7-card suit, too weak to open at the 1-level."
     """
+
+    def __init__(self) -> None:
+        self._suit = Computed(_find_preempt3_suit, "7-card suit for preempt")
 
     @property
     def name(self) -> str:
@@ -75,31 +103,17 @@ class OpenPreempt3(Rule):
     def priority(self) -> int:
         return 170
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if ctx.hcp >= 12:
-            return False
-        return self._find_suit(ctx) is not None
+    @property
+    def conditions(self) -> Condition:
+        return All(HcpRange(max_hcp=11), self._suit)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
-        suit = self._find_suit(ctx)
-        assert suit is not None
+        suit = self._suit.value
         return RuleResult(
             bid=SuitBid(3, suit),
             rule_name=self.name,
-            explanation=(f"7-card {suit.letter}, preemptive — SAYC 3-level preempt"),
+            explanation=f"7-card {suit.letter}, preemptive — SAYC 3-level preempt",
         )
-
-    def _find_suit(self, ctx: BiddingContext) -> Suit | None:
-        """Find a 7-card suit suitable for a 3-level preempt."""
-        hand = ctx.hand
-        for suit in SUITS_SHDC:
-            if (
-                hand.suit_length(suit) == 7
-                and quality_suit(hand, suit)
-                and not has_outside_four_card_major(hand, suit)
-            ):
-                return suit
-        return None
 
 
 class OpenPreempt4(Rule):
@@ -108,6 +122,9 @@ class OpenPreempt4(Rule):
     SAYC: "8+ card suit (4H/4S may be opened with 7+), less than
     opening strength."
     """
+
+    def __init__(self) -> None:
+        self._suit = Computed(_find_preempt4_suit, "long suit for 4-level preempt")
 
     @property
     def name(self) -> str:
@@ -121,14 +138,12 @@ class OpenPreempt4(Rule):
     def priority(self) -> int:
         return 180
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if ctx.hcp >= 12:
-            return False
-        return self._find_suit(ctx) is not None
+    @property
+    def conditions(self) -> Condition:
+        return All(HcpRange(max_hcp=11), self._suit)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
-        suit = self._find_suit(ctx)
-        assert suit is not None
+        suit = self._suit.value
         min_length = "7" if suit.is_major else "8"
         return RuleResult(
             bid=SuitBid(4, suit),
@@ -137,13 +152,3 @@ class OpenPreempt4(Rule):
                 f"{min_length}+ card {suit.letter}, preemptive — SAYC 4-level preempt"
             ),
         )
-
-    def _find_suit(self, ctx: BiddingContext) -> Suit | None:
-        """Find a suit suitable for a 4-level preempt."""
-        hand = ctx.hand
-        for suit in SUITS_SHDC:
-            length = hand.suit_length(suit)
-            min_length = 7 if suit.is_major else 8
-            if length >= min_length and quality_suit(hand, suit):
-                return suit
-        return None

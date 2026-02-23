@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from enum import StrEnum, unique
 from typing import TYPE_CHECKING
 
+from bridge.engine.condition import All, Any, CheckResult, Condition
 from bridge.model.bid import Bid
 
 if TYPE_CHECKING:
@@ -49,10 +50,9 @@ class Rule(ABC):
 
     The engine evaluates rules through a two-step lifecycle:
 
-    1. ``applies(ctx)`` — a cheap boolean filter that checks whether this rule
-       is even relevant. Most rules gate on HCP range, shape, or auction state.
-       This keeps evaluation fast: rules that can't possibly match are skipped
-       without computing a full bid.
+    1. ``applies(ctx)`` — a boolean filter that checks whether this rule is
+       relevant. Rules can implement this imperatively, or declare a
+       ``conditions`` property and get ``applies()`` for free.
 
     2. ``select(ctx)`` — called only when ``applies()`` returned True. This
        method produces the concrete bid along with metadata (explanation text,
@@ -85,9 +85,33 @@ class Rule(ABC):
         Must be unique within a category.
         """
 
-    @abstractmethod
+    @property
+    def conditions(self) -> Condition | None:
+        """Declarative preconditions. When defined, applies() is automatic."""
+        return None
+
     def applies(self, ctx: BiddingContext) -> bool:
-        """Fast boolean pre-filter. Should be cheap (HCP range, shape, etc.)."""
+        """Check whether this rule is relevant.
+
+        Override for imperative logic, or define ``conditions`` instead.
+        """
+        conds = self.conditions
+        if conds is not None:
+            return self.check(ctx).passed
+        raise NotImplementedError(
+            f"{type(self).__name__} must override applies() or define conditions"
+        )
+
+    def check(self, ctx: BiddingContext) -> CheckResult:
+        """Full condition evaluation with per-condition pass/fail details."""
+        conds = self.conditions
+        if conds is None:
+            passed = self.applies(ctx)
+            return CheckResult(passed=passed, results=())
+        if isinstance(conds, (All, Any)):
+            return conds.check_all(ctx)
+        r = conds.check(ctx)
+        return CheckResult(passed=r.passed, results=(r,))
 
     @abstractmethod
     def select(self, ctx: BiddingContext) -> RuleResult:

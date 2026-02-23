@@ -1,21 +1,34 @@
 """1-level suit opening bid rules — SAYC."""
 
+from bridge.engine.condition import (
+    All,
+    Balanced,
+    Computed,
+    Condition,
+    HcpRange,
+    MeetsOpeningStrength,
+    Not,
+    TotalPtsRange,
+    condition,
+)
 from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
-from bridge.evaluate import best_major, best_minor, rule_of_15, rule_of_20
+from bridge.evaluate import best_major, best_minor
 from bridge.model.bid import PASS, SuitBid
+from bridge.model.card import Suit
+
+_not_1nt_range = Not(All(HcpRange(15, 17), Balanced(strict=True)), label="in 1NT range")
+_not_2nt_range = Not(All(HcpRange(20, 21), Balanced(strict=True)), label="in 2NT range")
+_not_2c_range = Not(TotalPtsRange(min_pts=22), label="in 2C range")
 
 
-def _meets_opening_strength(ctx: BiddingContext) -> bool:
-    """Whether the hand meets opening strength for 1-level suit bids.
+def _best_major(ctx: BiddingContext) -> Suit | None:
+    return best_major(ctx.hand)
 
-    - 1st/2nd/3rd seat: hcp >= 12 or Rule of 20.
-    - 4th seat: Rule of 15 (HCP + spades >= 15).
-    """
-    seat_offset = (ctx.seat.value - ctx.auction.dealer.value) % 4
-    if seat_offset == 3:
-        return rule_of_15(ctx.hand, ctx.hcp)
-    return ctx.hcp >= 12 or rule_of_20(ctx.hand, ctx.hcp)
+
+@condition("no 5+ card major")
+def _no_major(ctx: BiddingContext) -> bool:
+    return best_major(ctx.hand) is None
 
 
 class Open1Major(Rule):
@@ -24,6 +37,9 @@ class Open1Major(Rule):
     SAYC: "12-21 HCP, 5+ card major. Five-card majors required in
     all seats."
     """
+
+    def __init__(self) -> None:
+        self._best_major = Computed(_best_major, "5+ card major")
 
     @property
     def name(self) -> str:
@@ -37,20 +53,18 @@ class Open1Major(Rule):
     def priority(self) -> int:
         return 130
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _meets_opening_strength(ctx):
-            return False
-        if ctx.is_balanced and 15 <= ctx.hcp <= 17:
-            return False
-        if ctx.is_balanced and 20 <= ctx.hcp <= 21:
-            return False
-        if ctx.total_pts >= 22:
-            return False
-        return best_major(ctx.hand) is not None
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            MeetsOpeningStrength(),
+            _not_1nt_range,
+            _not_2nt_range,
+            _not_2c_range,
+            self._best_major,
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
-        suit = best_major(ctx.hand)
-        assert suit is not None
+        suit = self._best_major.value
         return RuleResult(
             bid=SuitBid(1, suit),
             rule_name=self.name,
@@ -80,16 +94,15 @@ class Open1Minor(Rule):
     def priority(self) -> int:
         return 120
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _meets_opening_strength(ctx):
-            return False
-        if ctx.is_balanced and 15 <= ctx.hcp <= 17:
-            return False
-        if ctx.is_balanced and 20 <= ctx.hcp <= 21:
-            return False
-        if ctx.total_pts >= 22:
-            return False
-        return best_major(ctx.hand) is None
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            MeetsOpeningStrength(),
+            _not_1nt_range,
+            _not_2nt_range,
+            _not_2c_range,
+            _no_major,
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = best_minor(ctx.hand)
