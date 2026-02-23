@@ -3,6 +3,10 @@
 import pytest
 
 from bridge.model.auction import (
+    BOTH_VULNERABLE,
+    EW_VULNERABLE,
+    NO_VULNERABILITY,
+    NS_VULNERABLE,
     AuctionState,
     IllegalBidError,
     Seat,
@@ -48,40 +52,32 @@ class TestSeat:
 
 class TestVulnerability:
     def test_none(self) -> None:
-        vul = Vulnerability()
-        assert not vul.is_vulnerable(Seat.NORTH)
-        assert not vul.is_vulnerable(Seat.EAST)
-        assert str(vul) == "None"
+        assert not NO_VULNERABILITY.is_vulnerable(Seat.NORTH)
+        assert not NO_VULNERABILITY.is_vulnerable(Seat.EAST)
+        assert str(NO_VULNERABILITY) == "None"
 
     def test_ns(self) -> None:
-        vul = Vulnerability(ns_vulnerable=True)
-        assert vul.is_vulnerable(Seat.NORTH)
-        assert vul.is_vulnerable(Seat.SOUTH)
-        assert not vul.is_vulnerable(Seat.EAST)
-        assert str(vul) == "NS"
+        assert NS_VULNERABLE.is_vulnerable(Seat.NORTH)
+        assert NS_VULNERABLE.is_vulnerable(Seat.SOUTH)
+        assert not NS_VULNERABLE.is_vulnerable(Seat.EAST)
+        assert str(NS_VULNERABLE) == "NS"
 
     def test_ew(self) -> None:
-        vul = Vulnerability(ew_vulnerable=True)
-        assert not vul.is_vulnerable(Seat.NORTH)
-        assert vul.is_vulnerable(Seat.EAST)
-        assert str(vul) == "EW"
+        assert not EW_VULNERABLE.is_vulnerable(Seat.NORTH)
+        assert EW_VULNERABLE.is_vulnerable(Seat.EAST)
+        assert str(EW_VULNERABLE) == "EW"
 
     def test_both(self) -> None:
-        vul = Vulnerability(ns_vulnerable=True, ew_vulnerable=True)
-        assert vul.is_vulnerable(Seat.NORTH)
-        assert vul.is_vulnerable(Seat.EAST)
-        assert str(vul) == "Both"
+        assert BOTH_VULNERABLE.is_vulnerable(Seat.NORTH)
+        assert BOTH_VULNERABLE.is_vulnerable(Seat.EAST)
+        assert str(BOTH_VULNERABLE) == "Both"
 
     def test_from_str(self) -> None:
-        assert Vulnerability.from_str("None") == Vulnerability()
-        assert Vulnerability.from_str("NS") == Vulnerability(ns_vulnerable=True)
-        assert Vulnerability.from_str("EW") == Vulnerability(ew_vulnerable=True)
-        assert Vulnerability.from_str("Both") == Vulnerability(
-            ns_vulnerable=True, ew_vulnerable=True
-        )
-        assert Vulnerability.from_str("All") == Vulnerability(
-            ns_vulnerable=True, ew_vulnerable=True
-        )
+        assert Vulnerability.from_str("None") == NO_VULNERABILITY
+        assert Vulnerability.from_str("NS") == NS_VULNERABLE
+        assert Vulnerability.from_str("EW") == EW_VULNERABLE
+        assert Vulnerability.from_str("Both") == BOTH_VULNERABLE
+        assert Vulnerability.from_str("All") == BOTH_VULNERABLE
 
     def test_from_str_invalid(self) -> None:
         with pytest.raises(ValueError, match="Invalid vulnerability"):

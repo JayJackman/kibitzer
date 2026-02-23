@@ -11,7 +11,9 @@ from .bid import (
     is_pass,
     is_redouble,
     is_suit_bid,
+    parse_bid,
 )
+from .card import Suit
 
 
 @unique
@@ -76,14 +78,32 @@ class Vulnerability:
         """Parse vulnerability: 'None', 'NS', 'EW', 'Both', 'All'."""
         text = text.strip().upper()
         if text in ("NONE", "-"):
-            return cls()
+            return NO_VULNERABILITY
         if text == "NS":
-            return cls(ns_vulnerable=True)
+            return NS_VULNERABLE
         if text == "EW":
-            return cls(ew_vulnerable=True)
+            return EW_VULNERABLE
         if text in ("BOTH", "ALL"):
-            return cls(ns_vulnerable=True, ew_vulnerable=True)
+            return BOTH_VULNERABLE
         raise ValueError(f"Invalid vulnerability: {text!r}")
+
+
+NO_VULNERABILITY = Vulnerability()
+NS_VULNERABLE = Vulnerability(ns_vulnerable=True)
+EW_VULNERABLE = Vulnerability(ew_vulnerable=True)
+BOTH_VULNERABLE = Vulnerability(ns_vulnerable=True, ew_vulnerable=True)
+
+
+@dataclass(frozen=True)
+class Contract:
+    """Result of a completed auction."""
+
+    level: int
+    suit: Suit
+    declarer: Seat
+    doubled: bool = False
+    redoubled: bool = False
+    passed_out: bool = False
 
 
 class IllegalBidError(Exception):
@@ -99,7 +119,7 @@ class AuctionState:
     """
 
     dealer: Seat
-    vulnerability: Vulnerability = field(default_factory=Vulnerability)
+    vulnerability: Vulnerability = field(default=NO_VULNERABILITY)
     _bids: list[Bid] = field(default_factory=list)
 
     @property
@@ -221,6 +241,40 @@ class AuctionState:
         self._bids.append(bid)
 
     @property
+    def contract(self) -> Contract | None:
+        """The contract if auction is complete, None otherwise."""
+        if not self.is_complete:
+            return None
+
+        # All passes = passed out
+        if all(is_pass(b) for b in self._bids):
+            return Contract(
+                level=0, suit=Suit.CLUBS, declarer=self.dealer, passed_out=True
+            )
+
+        last_bidder, last_bid = next(
+            (seat, bid) for seat, bid in reversed(self.bids) if is_suit_bid(bid)
+        )
+
+        # Declarer: first player on the declaring side who bid this suit
+        declaring_side = {last_bidder, last_bidder.partner}
+        for seat, bid in self.bids:
+            if (
+                seat in declaring_side
+                and is_suit_bid(bid)
+                and bid.suit == last_bid.suit
+            ):
+                return Contract(
+                    level=last_bid.level,
+                    suit=last_bid.suit,
+                    declarer=seat,
+                    doubled=self.is_doubled,
+                    redoubled=self.is_redoubled,
+                )
+
+        raise AssertionError("Could not determine declarer")  # pragma: no cover
+
+    @property
     def is_doubled(self) -> bool:
         """Check if the current contract is doubled (not redoubled)."""
         for bid in reversed(self._bids):
@@ -239,3 +293,28 @@ class AuctionState:
             if is_redouble(bid):
                 return True
         return False
+
+
+def parse_auction(
+    text: str,
+    dealer: Seat = Seat.NORTH,
+    vulnerability: Vulnerability = NO_VULNERABILITY,
+) -> AuctionState:
+    """Parse an auction string into an AuctionState.
+
+    Args:
+        text: Space-separated bid strings, e.g. "1H P 2H P"
+        dealer: Who dealt (default North)
+        vulnerability: Vulnerability state
+
+    Returns:
+        AuctionState with all bids added.
+
+    Raises:
+        ValueError: If any bid string is invalid
+        IllegalBidError: If any bid is illegal in sequence
+    """
+    auction = AuctionState(dealer=dealer, vulnerability=vulnerability)
+    for token in text.split():
+        auction.add_bid(parse_bid(token))
+    return auction

@@ -1,7 +1,7 @@
 """Tests for BiddingContext."""
 
 from bridge.engine.context import BiddingContext
-from bridge.model.auction import AuctionState, Seat, Vulnerability
+from bridge.model.auction import NS_VULNERABLE, AuctionState, Seat
 from bridge.model.bid import PASS, SuitBid
 from bridge.model.board import Board
 from bridge.model.card import Suit
@@ -44,11 +44,10 @@ class TestBiddingContextFromBoard:
         assert ctx.longest_suit == Suit.SPADES
 
     def test_seat_and_vulnerability(self) -> None:
-        vul = Vulnerability(ns_vulnerable=True)
         board = Board(
             hand=BALANCED,
             seat=Seat.NORTH,
-            auction=AuctionState(dealer=Seat.NORTH, vulnerability=vul),
+            auction=AuctionState(dealer=Seat.NORTH, vulnerability=NS_VULNERABLE),
         )
         ctx = BiddingContext(board)
 
@@ -61,7 +60,7 @@ class TestBiddingContextFromBoard:
             seat=Seat.EAST,
             auction=AuctionState(
                 dealer=Seat.NORTH,
-                vulnerability=Vulnerability(ns_vulnerable=True),
+                vulnerability=NS_VULNERABLE,
             ),
         )
         ctx = BiddingContext(board)
