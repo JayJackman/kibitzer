@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from enum import StrEnum, unique
 
 from bridge.engine.rule import Category, RuleResult
+from bridge.engine.selector import ThoughtProcess
 from bridge.model.auction import Contract, Seat
 from bridge.model.bid import Bid
 from bridge.model.card import Suit
@@ -54,6 +55,7 @@ class BiddingAdvice:
     alternatives: list[RuleResult]
     hand_evaluation: HandEvaluation
     phase: Category
+    thought_process: ThoughtProcess
 
 
 @dataclass(frozen=True)

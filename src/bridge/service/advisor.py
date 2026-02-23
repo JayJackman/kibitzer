@@ -27,7 +27,8 @@ class BiddingAdvisor:
         board = Board(hand=hand, seat=auction.current_seat, auction=auction)
         ctx = BiddingContext(board)
 
-        recommended = self._selector.select(ctx)
+        thought_process = self._selector.think(ctx)
+        recommended = thought_process.selected
         all_candidates = self._selector.candidates(ctx)
         alternatives = [
             c for c in all_candidates if c.rule_name != recommended.rule_name
@@ -54,4 +55,5 @@ class BiddingAdvisor:
             alternatives=alternatives,
             hand_evaluation=hand_evaluation,
             phase=phase,
+            thought_process=thought_process,
         )

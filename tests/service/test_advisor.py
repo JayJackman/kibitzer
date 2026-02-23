@@ -1,6 +1,7 @@
 """Tests for BiddingAdvisor."""
 
 from bridge.engine.rule import Category
+from bridge.engine.selector import ThoughtProcess
 from bridge.model.auction import AuctionState, Seat
 from bridge.model.bid import PASS, SuitBid, parse_bid
 from bridge.model.card import Suit
@@ -77,3 +78,15 @@ class TestBiddingAdvisor:
         assert auction.current_seat == Seat.SOUTH
         advice = advisor.advise(hand, auction)
         assert advice.phase == Category.OPENING
+
+    def test_advise_includes_thought_process(self) -> None:
+        """Thought process is populated with steps and selected result."""
+        advisor = BiddingAdvisor()
+        hand = Hand.from_pbn("AK32.KQ3.J84.A73")
+        auction = AuctionState(dealer=Seat.NORTH)
+        advice = advisor.advise(hand, auction)
+        tp = advice.thought_process
+        assert isinstance(tp, ThoughtProcess)
+        assert tp.selected.bid == SuitBid(1, Suit.NOTRUMP)
+        assert tp.selected.rule_name == advice.recommended.rule_name
+        assert len(tp.steps) > 0
