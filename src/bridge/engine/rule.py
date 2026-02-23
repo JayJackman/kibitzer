@@ -50,9 +50,9 @@ class Rule(ABC):
 
     The engine evaluates rules through a two-step lifecycle:
 
-    1. ``applies(ctx)`` — a boolean filter that checks whether this rule is
-       relevant. Rules can implement this imperatively, or declare a
-       ``conditions`` property and get ``applies()`` for free.
+    1. ``conditions`` — a declarative ``Condition`` tree that determines
+       whether this rule is relevant. The ``applies(ctx)`` method evaluates
+       these conditions and returns a boolean.
 
     2. ``select(ctx)`` — called only when ``applies()`` returned True. This
        method produces the concrete bid along with metadata (explanation text,
@@ -86,28 +86,17 @@ class Rule(ABC):
         """
 
     @property
-    def conditions(self) -> Condition | None:
-        """Declarative preconditions. When defined, applies() is automatic."""
-        return None
+    @abstractmethod
+    def conditions(self) -> Condition:
+        """Declarative preconditions checked before ``select()``."""
 
     def applies(self, ctx: BiddingContext) -> bool:
-        """Check whether this rule is relevant.
-
-        Override for imperative logic, or define ``conditions`` instead.
-        """
-        conds = self.conditions
-        if conds is not None:
-            return self.check(ctx).passed
-        raise NotImplementedError(
-            f"{type(self).__name__} must override applies() or define conditions"
-        )
+        """Check whether this rule is relevant for the given context."""
+        return self.check(ctx).passed
 
     def check(self, ctx: BiddingContext) -> CheckResult:
         """Full condition evaluation with per-condition pass/fail details."""
         conds = self.conditions
-        if conds is None:
-            passed = self.applies(ctx)
-            return CheckResult(passed=passed, results=())
         if isinstance(conds, (All, Any)):
             return conds.check_all(ctx)
         r = conds.check(ctx)

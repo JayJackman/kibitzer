@@ -2,10 +2,21 @@
 
 import pytest
 
+from bridge.engine.condition import Condition, condition
 from bridge.engine.context import BiddingContext
 from bridge.engine.registry import DuplicateRuleError, RuleRegistry
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.model.bid import PASS, Bid
+
+
+@condition("always")
+def _always(ctx: BiddingContext) -> bool:
+    return True
+
+
+@condition("never")
+def _never(ctx: BiddingContext) -> bool:
+    return False
 
 
 class MockRule(Rule):
@@ -37,8 +48,9 @@ class MockRule(Rule):
     def priority(self) -> int:
         return self._priority
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        return self._should_apply
+    @property
+    def conditions(self) -> Condition:
+        return _always if self._should_apply else _never
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(

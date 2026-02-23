@@ -17,6 +17,12 @@ from bridge.evaluate import best_major, best_minor
 from bridge.model.bid import PASS, SuitBid
 from bridge.model.card import Suit
 
+
+@condition("always applies")
+def _always(ctx: BiddingContext) -> bool:
+    return True
+
+
 _not_1nt_range = Not(All(HcpRange(15, 17), Balanced(strict=True)), label="in 1NT range")
 _not_2nt_range = Not(All(HcpRange(20, 21), Balanced(strict=True)), label="in 2NT range")
 _not_2c_range = Not(TotalPtsRange(min_pts=22), label="in 2C range")
@@ -134,8 +140,9 @@ class OpenPass(Rule):
     def priority(self) -> int:
         return 50
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        return True
+    @property
+    def conditions(self) -> Condition:
+        return _always
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
