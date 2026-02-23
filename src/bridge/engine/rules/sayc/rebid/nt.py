@@ -12,6 +12,14 @@ All rebid rules for when I opened 1NT (15-17 HCP balanced) or 2NT
 All rules belong to Category.REBID_OPENER.
 """
 
+from bridge.engine.condition import (
+    All,
+    Condition,
+    HasSuitFit,
+    HcpRange,
+    SuitLength,
+    condition,
+)
 from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.model.bid import PASS, SuitBid, is_suit_bid
@@ -20,6 +28,7 @@ from bridge.model.card import SUITS_SHDC, Rank, Suit
 # -- Helpers -----------------------------------------------------------------
 
 
+@condition("I opened 1NT")
 def _opened_1nt_self(ctx: BiddingContext) -> bool:
     """Whether I opened 1NT."""
     if not ctx.my_bids:
@@ -35,12 +44,14 @@ def _partner_bid(ctx: BiddingContext) -> SuitBid:
     return resp
 
 
+@condition("partner bid Stayman")
 def _partner_bid_stayman(ctx: BiddingContext) -> bool:
     """Partner bid 2C (Stayman)."""
     resp = _partner_bid(ctx)
     return resp.level == 2 and resp.suit == Suit.CLUBS
 
 
+@condition("partner transferred")
 def _partner_transferred(ctx: BiddingContext) -> bool:
     """Partner bid 2D (hearts) or 2H (spades) -- Jacoby transfer."""
     resp = _partner_bid(ctx)
@@ -55,18 +66,21 @@ def _transfer_suit(ctx: BiddingContext) -> Suit:
     return Suit.SPADES
 
 
+@condition("partner bid 2S puppet")
 def _partner_bid_2s_puppet(ctx: BiddingContext) -> bool:
     """Partner bid 2S (puppet to 3C)."""
     resp = _partner_bid(ctx)
     return resp.level == 2 and resp.suit == Suit.SPADES
 
 
+@condition("partner bid Gerber")
 def _partner_bid_gerber(ctx: BiddingContext) -> bool:
     """Partner bid 4C (Gerber)."""
     resp = _partner_bid(ctx)
     return resp.level == 4 and resp.suit == Suit.CLUBS
 
 
+@condition("partner bid Texas")
 def _partner_bid_texas(ctx: BiddingContext) -> bool:
     """Partner bid 4D or 4H (Texas transfer)."""
     resp = _partner_bid(ctx)
@@ -81,30 +95,35 @@ def _texas_suit(ctx: BiddingContext) -> Suit:
     return Suit.SPADES
 
 
+@condition("partner bid 3M")
 def _partner_bid_3_major(ctx: BiddingContext) -> bool:
     """Partner bid 3H or 3S (slam interest with 6+ card major)."""
     resp = _partner_bid(ctx)
     return resp.level == 3 and resp.suit.is_major
 
 
+@condition("partner bid 2NT")
 def _partner_bid_2nt(ctx: BiddingContext) -> bool:
     """Partner bid 2NT (invitational)."""
     resp = _partner_bid(ctx)
     return resp.level == 2 and resp.suit == Suit.NOTRUMP
 
 
+@condition("partner bid 3m")
 def _partner_bid_3_minor(ctx: BiddingContext) -> bool:
     """Partner bid 3C or 3D (6+ minor, invitational)."""
     resp = _partner_bid(ctx)
     return resp.level == 3 and resp.suit.is_minor
 
 
+@condition("partner bid 3NT")
 def _partner_bid_3nt(ctx: BiddingContext) -> bool:
     """Partner bid 3NT (to play)."""
     resp = _partner_bid(ctx)
     return resp.level == 3 and resp.suit == Suit.NOTRUMP
 
 
+@condition("partner bid 4NT")
 def _partner_bid_4nt(ctx: BiddingContext) -> bool:
     """Partner bid 4NT (quantitative slam invite)."""
     resp = _partner_bid(ctx)
@@ -119,6 +138,7 @@ def _ace_count(ctx: BiddingContext) -> int:
 # -- 2NT helpers -------------------------------------------------------------
 
 
+@condition("I opened 2NT")
 def _opened_2nt_self(ctx: BiddingContext) -> bool:
     """Whether I opened 2NT."""
     if not ctx.my_bids:
@@ -127,12 +147,14 @@ def _opened_2nt_self(ctx: BiddingContext) -> bool:
     return is_suit_bid(bid) and bid.level == 2 and bid.suit == Suit.NOTRUMP
 
 
+@condition("partner bid Stayman over 2NT")
 def _partner_bid_stayman_2nt(ctx: BiddingContext) -> bool:
     """Partner bid 3C (Stayman over 2NT)."""
     resp = _partner_bid(ctx)
     return resp.level == 3 and resp.suit == Suit.CLUBS
 
 
+@condition("partner transferred over 2NT")
 def _partner_transferred_2nt(ctx: BiddingContext) -> bool:
     """Partner bid 3D (hearts) or 3H (spades) -- transfer over 2NT."""
     resp = _partner_bid(ctx)
@@ -147,10 +169,16 @@ def _transfer_suit_2nt(ctx: BiddingContext) -> Suit:
     return Suit.SPADES
 
 
+@condition("partner bid 3S puppet")
 def _partner_bid_3s_puppet(ctx: BiddingContext) -> bool:
     """Partner bid 3S (puppet to 4C over 2NT)."""
     resp = _partner_bid(ctx)
     return resp.level == 3 and resp.suit == Suit.SPADES
+
+
+def _partner_bid_suit(ctx: BiddingContext) -> Suit:
+    """Partner's response suit (for HasSuitFit)."""
+    return _partner_bid(ctx).suit
 
 
 # -- After Stayman (2C) -----------------------------------------------------
@@ -176,12 +204,11 @@ class RebidStayman2H(Rule):
     def priority(self) -> int:
         return 575
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1nt_self(ctx):
-            return False
-        if not _partner_bid_stayman(ctx):
-            return False
-        return ctx.hand.num_hearts >= 4
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            _opened_1nt_self, _partner_bid_stayman, SuitLength(Suit.HEARTS, min_len=4)
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -211,12 +238,14 @@ class RebidStayman2S(Rule):
     def priority(self) -> int:
         return 570
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1nt_self(ctx):
-            return False
-        if not _partner_bid_stayman(ctx):
-            return False
-        return ctx.hand.num_spades >= 4 and ctx.hand.num_hearts < 4
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            _opened_1nt_self,
+            _partner_bid_stayman,
+            SuitLength(Suit.SPADES, min_len=4),
+            SuitLength(Suit.HEARTS, max_len=3),
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -246,12 +275,14 @@ class RebidStayman2D(Rule):
     def priority(self) -> int:
         return 565
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1nt_self(ctx):
-            return False
-        if not _partner_bid_stayman(ctx):
-            return False
-        return ctx.hand.num_hearts < 4 and ctx.hand.num_spades < 4
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            _opened_1nt_self,
+            _partner_bid_stayman,
+            SuitLength(Suit.HEARTS, max_len=3),
+            SuitLength(Suit.SPADES, max_len=3),
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -285,13 +316,14 @@ class RebidSuperAccept(Rule):
     def priority(self) -> int:
         return 560
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1nt_self(ctx):
-            return False
-        if not _partner_transferred(ctx):
-            return False
-        suit = _transfer_suit(ctx)
-        return ctx.hcp == 17 and ctx.hand.suit_length(suit) >= 4
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            _opened_1nt_self,
+            _partner_transferred,
+            HcpRange(17, 17),
+            HasSuitFit(_transfer_suit, min_len=4),
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _transfer_suit(ctx)
@@ -323,10 +355,9 @@ class RebidCompleteTransfer(Rule):
     def priority(self) -> int:
         return 555
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1nt_self(ctx):
-            return False
-        return _partner_transferred(ctx)
+    @property
+    def conditions(self) -> Condition:
+        return All(_opened_1nt_self, _partner_transferred)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _transfer_suit(ctx)
@@ -361,10 +392,9 @@ class RebidComplete2SPuppet(Rule):
     def priority(self) -> int:
         return 552
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1nt_self(ctx):
-            return False
-        return _partner_bid_2s_puppet(ctx)
+    @property
+    def conditions(self) -> Condition:
+        return All(_opened_1nt_self, _partner_bid_2s_puppet)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -398,10 +428,9 @@ class RebidGerberResponse(Rule):
     def priority(self) -> int:
         return 550
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1nt_self(ctx):
-            return False
-        return _partner_bid_gerber(ctx)
+    @property
+    def conditions(self) -> Condition:
+        return All(_opened_1nt_self, _partner_bid_gerber)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         aces = _ace_count(ctx)
@@ -445,10 +474,9 @@ class RebidCompleteTexas(Rule):
     def priority(self) -> int:
         return 545
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1nt_self(ctx):
-            return False
-        return _partner_bid_texas(ctx)
+    @property
+    def conditions(self) -> Condition:
+        return All(_opened_1nt_self, _partner_bid_texas)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _texas_suit(ctx)
@@ -482,13 +510,14 @@ class RebidRaise3MajorOver1NT(Rule):
     def priority(self) -> int:
         return 540
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1nt_self(ctx):
-            return False
-        if not _partner_bid_3_major(ctx):
-            return False
-        resp = _partner_bid(ctx)
-        return ctx.hcp >= 16 and ctx.hand.suit_length(resp.suit) >= 3
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            _opened_1nt_self,
+            _partner_bid_3_major,
+            HcpRange(min_hcp=16),
+            HasSuitFit(_partner_bid_suit, min_len=3),
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _partner_bid(ctx).suit
@@ -521,10 +550,9 @@ class RebidDecline3MajorOver1NT(Rule):
     def priority(self) -> int:
         return 535
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1nt_self(ctx):
-            return False
-        return _partner_bid_3_major(ctx)
+    @property
+    def conditions(self) -> Condition:
+        return All(_opened_1nt_self, _partner_bid_3_major)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -557,12 +585,9 @@ class RebidAccept2NTOver1NT(Rule):
     def priority(self) -> int:
         return 530
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1nt_self(ctx):
-            return False
-        if not _partner_bid_2nt(ctx):
-            return False
-        return ctx.hcp >= 16
+    @property
+    def conditions(self) -> Condition:
+        return All(_opened_1nt_self, _partner_bid_2nt, HcpRange(min_hcp=16))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -592,10 +617,9 @@ class RebidDecline2NTOver1NT(Rule):
     def priority(self) -> int:
         return 525
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1nt_self(ctx):
-            return False
-        return _partner_bid_2nt(ctx)
+    @property
+    def conditions(self) -> Condition:
+        return All(_opened_1nt_self, _partner_bid_2nt)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -628,12 +652,9 @@ class RebidAccept3MinorOver1NT(Rule):
     def priority(self) -> int:
         return 520
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1nt_self(ctx):
-            return False
-        if not _partner_bid_3_minor(ctx):
-            return False
-        return ctx.hcp >= 16
+    @property
+    def conditions(self) -> Condition:
+        return All(_opened_1nt_self, _partner_bid_3_minor, HcpRange(min_hcp=16))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -663,10 +684,9 @@ class RebidDecline3MinorOver1NT(Rule):
     def priority(self) -> int:
         return 515
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1nt_self(ctx):
-            return False
-        return _partner_bid_3_minor(ctx)
+    @property
+    def conditions(self) -> Condition:
+        return All(_opened_1nt_self, _partner_bid_3_minor)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -699,10 +719,9 @@ class RebidPassAfter3NTOver1NT(Rule):
     def priority(self) -> int:
         return 510
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1nt_self(ctx):
-            return False
-        return _partner_bid_3nt(ctx)
+    @property
+    def conditions(self) -> Condition:
+        return All(_opened_1nt_self, _partner_bid_3nt)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -735,12 +754,9 @@ class RebidAccept4NTOver1NT(Rule):
     def priority(self) -> int:
         return 505
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1nt_self(ctx):
-            return False
-        if not _partner_bid_4nt(ctx):
-            return False
-        return ctx.hcp >= 16
+    @property
+    def conditions(self) -> Condition:
+        return All(_opened_1nt_self, _partner_bid_4nt, HcpRange(min_hcp=16))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -770,10 +786,9 @@ class RebidDecline4NTOver1NT(Rule):
     def priority(self) -> int:
         return 500
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1nt_self(ctx):
-            return False
-        return _partner_bid_4nt(ctx)
+    @property
+    def conditions(self) -> Condition:
+        return All(_opened_1nt_self, _partner_bid_4nt)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -811,12 +826,13 @@ class Rebid2NTStayman3H(Rule):
     def priority(self) -> int:
         return 574
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_2nt_self(ctx):
-            return False
-        if not _partner_bid_stayman_2nt(ctx):
-            return False
-        return ctx.hand.num_hearts >= 4
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            _opened_2nt_self,
+            _partner_bid_stayman_2nt,
+            SuitLength(Suit.HEARTS, min_len=4),
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -846,12 +862,14 @@ class Rebid2NTStayman3S(Rule):
     def priority(self) -> int:
         return 569
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_2nt_self(ctx):
-            return False
-        if not _partner_bid_stayman_2nt(ctx):
-            return False
-        return ctx.hand.num_spades >= 4 and ctx.hand.num_hearts < 4
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            _opened_2nt_self,
+            _partner_bid_stayman_2nt,
+            SuitLength(Suit.SPADES, min_len=4),
+            SuitLength(Suit.HEARTS, max_len=3),
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -881,12 +899,14 @@ class Rebid2NTStayman3D(Rule):
     def priority(self) -> int:
         return 564
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_2nt_self(ctx):
-            return False
-        if not _partner_bid_stayman_2nt(ctx):
-            return False
-        return ctx.hand.num_hearts < 4 and ctx.hand.num_spades < 4
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            _opened_2nt_self,
+            _partner_bid_stayman_2nt,
+            SuitLength(Suit.HEARTS, max_len=3),
+            SuitLength(Suit.SPADES, max_len=3),
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -920,10 +940,9 @@ class Rebid2NTCompleteTransfer(Rule):
     def priority(self) -> int:
         return 554
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_2nt_self(ctx):
-            return False
-        return _partner_transferred_2nt(ctx)
+    @property
+    def conditions(self) -> Condition:
+        return All(_opened_2nt_self, _partner_transferred_2nt)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _transfer_suit_2nt(ctx)
@@ -957,10 +976,9 @@ class Rebid2NTComplete3SPuppet(Rule):
     def priority(self) -> int:
         return 551
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_2nt_self(ctx):
-            return False
-        return _partner_bid_3s_puppet(ctx)
+    @property
+    def conditions(self) -> Condition:
+        return All(_opened_2nt_self, _partner_bid_3s_puppet)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -994,10 +1012,9 @@ class Rebid2NTGerberResponse(Rule):
     def priority(self) -> int:
         return 549
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_2nt_self(ctx):
-            return False
-        return _partner_bid_gerber(ctx)
+    @property
+    def conditions(self) -> Condition:
+        return All(_opened_2nt_self, _partner_bid_gerber)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         aces = _ace_count(ctx)
@@ -1040,10 +1057,9 @@ class Rebid2NTCompleteTexas(Rule):
     def priority(self) -> int:
         return 544
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_2nt_self(ctx):
-            return False
-        return _partner_bid_texas(ctx)
+    @property
+    def conditions(self) -> Condition:
+        return All(_opened_2nt_self, _partner_bid_texas)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _texas_suit(ctx)
@@ -1077,10 +1093,9 @@ class Rebid2NTPassAfter3NT(Rule):
     def priority(self) -> int:
         return 509
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_2nt_self(ctx):
-            return False
-        return _partner_bid_3nt(ctx)
+    @property
+    def conditions(self) -> Condition:
+        return All(_opened_2nt_self, _partner_bid_3nt)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -1113,12 +1128,9 @@ class Rebid2NTAccept4NT(Rule):
     def priority(self) -> int:
         return 504
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_2nt_self(ctx):
-            return False
-        if not _partner_bid_4nt(ctx):
-            return False
-        return ctx.hcp >= 21
+    @property
+    def conditions(self) -> Condition:
+        return All(_opened_2nt_self, _partner_bid_4nt, HcpRange(min_hcp=21))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -1148,10 +1160,9 @@ class Rebid2NTDecline4NT(Rule):
     def priority(self) -> int:
         return 499
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_2nt_self(ctx):
-            return False
-        return _partner_bid_4nt(ctx)
+    @property
+    def conditions(self) -> Condition:
+        return All(_opened_2nt_self, _partner_bid_4nt)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(

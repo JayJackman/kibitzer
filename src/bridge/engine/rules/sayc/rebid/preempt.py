@@ -8,6 +8,14 @@ Rebid rules for when I opened a preemptive bid and partner has responded.
 All rules belong to Category.REBID_OPENER.
 """
 
+from bridge.engine.condition import (
+    All,
+    Computed,
+    Condition,
+    HasSuitFit,
+    HcpRange,
+    condition,
+)
 from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.model.bid import PASS, SuitBid, is_suit_bid
@@ -24,6 +32,7 @@ def _my_opened_suit(ctx: BiddingContext) -> Suit:
     return bid.suit
 
 
+@condition("I opened weak two")
 def _opened_weak_two_self(ctx: BiddingContext) -> bool:
     """Whether I opened a weak two (2D/2H/2S)."""
     if not ctx.my_bids:
@@ -41,6 +50,7 @@ def _opened_weak_two_self(ctx: BiddingContext) -> bool:
     )
 
 
+@condition("I opened 3-level")
 def _opened_3_level_self(ctx: BiddingContext) -> bool:
     """Whether I opened a 3-level preempt."""
     if not ctx.my_bids:
@@ -49,6 +59,7 @@ def _opened_3_level_self(ctx: BiddingContext) -> bool:
     return is_suit_bid(bid) and bid.level == 3 and bid.suit != Suit.NOTRUMP
 
 
+@condition("I opened 4-level")
 def _opened_4_level_self(ctx: BiddingContext) -> bool:
     """Whether I opened a 4-level preempt."""
     if not ctx.my_bids:
@@ -57,6 +68,7 @@ def _opened_4_level_self(ctx: BiddingContext) -> bool:
     return is_suit_bid(bid) and bid.level == 4 and bid.suit != Suit.NOTRUMP
 
 
+@condition("partner bid 2NT feature ask")
 def _partner_bid_2nt(ctx: BiddingContext) -> bool:
     """Whether partner responded 2NT (feature ask after weak two)."""
     resp = ctx.partner_last_bid
@@ -68,6 +80,7 @@ def _partner_bid_2nt(ctx: BiddingContext) -> bool:
     )
 
 
+@condition("partner bid new suit")
 def _partner_bid_new_suit(ctx: BiddingContext) -> bool:
     """Whether partner responded in a new suit (not my suit, not NT)."""
     resp = ctx.partner_last_bid
@@ -76,13 +89,6 @@ def _partner_bid_new_suit(ctx: BiddingContext) -> bool:
     if resp.suit == Suit.NOTRUMP:
         return False
     return resp.suit != _my_opened_suit(ctx)
-
-
-def _partner_suit(ctx: BiddingContext) -> Suit:
-    """Partner's response suit."""
-    resp = ctx.partner_last_bid
-    assert resp is not None and is_suit_bid(resp)
-    return resp.suit
 
 
 def _find_feature(ctx: BiddingContext) -> Suit | None:
@@ -100,6 +106,19 @@ def _find_feature(ctx: BiddingContext) -> Suit | None:
         if ctx.hand.has_card(suit, Rank.KING) and ctx.hand.suit_length(suit) >= 2:
             return suit
     return None
+
+
+@condition("no outside feature")
+def _no_feature(ctx: BiddingContext) -> bool:
+    """No outside ace or protected king."""
+    return _find_feature(ctx) is None
+
+
+def _partner_response_suit(ctx: BiddingContext) -> Suit:
+    """Partner's response suit (for HasSuitFit)."""
+    resp = ctx.partner_last_bid
+    assert resp is not None and is_suit_bid(resp)
+    return resp.suit
 
 
 # ===========================================================================
@@ -125,21 +144,21 @@ class RebidShowFeature(Rule):
     def category(self) -> Category:
         return Category.REBID_OPENER
 
+    def __init__(self) -> None:
+        self._feature = Computed(_find_feature, "outside feature (A or Kx+)")
+
     @property
     def priority(self) -> int:
         return 588
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        return (
-            _opened_weak_two_self(ctx)
-            and _partner_bid_2nt(ctx)
-            and ctx.hcp >= 9
-            and _find_feature(ctx) is not None
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            _opened_weak_two_self, _partner_bid_2nt, HcpRange(min_hcp=9), self._feature
         )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
-        suit = _find_feature(ctx)
-        assert suit is not None
+        suit = self._feature.value
         return RuleResult(
             bid=SuitBid(3, suit),
             rule_name=self.name,
@@ -171,12 +190,10 @@ class Rebid3NTAfterFeatureAsk(Rule):
     def priority(self) -> int:
         return 586
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        return (
-            _opened_weak_two_self(ctx)
-            and _partner_bid_2nt(ctx)
-            and ctx.hcp >= 9
-            and _find_feature(ctx) is None
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            _opened_weak_two_self, _partner_bid_2nt, HcpRange(min_hcp=9), _no_feature
         )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -208,8 +225,9 @@ class RebidOwnSuitAfterFeatureAsk(Rule):
     def priority(self) -> int:
         return 584
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        return _opened_weak_two_self(ctx) and _partner_bid_2nt(ctx) and ctx.hcp <= 8
+    @property
+    def conditions(self) -> Condition:
+        return All(_opened_weak_two_self, _partner_bid_2nt, HcpRange(max_hcp=8))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _my_opened_suit(ctx)
@@ -244,10 +262,13 @@ class RebidRaiseNewSuitWeakTwo(Rule):
     def priority(self) -> int:
         return 582
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_weak_two_self(ctx) or not _partner_bid_new_suit(ctx):
-            return False
-        return ctx.hand.suit_length(_partner_suit(ctx)) >= 3
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            _opened_weak_two_self,
+            _partner_bid_new_suit,
+            HasSuitFit(_partner_response_suit, min_len=3),
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         resp = ctx.partner_last_bid
@@ -282,8 +303,9 @@ class RebidOwnSuitAfterNewSuitWeakTwo(Rule):
     def priority(self) -> int:
         return 579
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        return _opened_weak_two_self(ctx) and _partner_bid_new_suit(ctx)
+    @property
+    def conditions(self) -> Condition:
+        return All(_opened_weak_two_self, _partner_bid_new_suit)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _my_opened_suit(ctx)
@@ -319,8 +341,9 @@ class RebidPassAfterWeakTwo(Rule):
     def priority(self) -> int:
         return 577
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        return _opened_weak_two_self(ctx)
+    @property
+    def conditions(self) -> Condition:
+        return _opened_weak_two_self
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -356,10 +379,13 @@ class RebidRaiseAfterNewSuit3Level(Rule):
     def priority(self) -> int:
         return 576
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_3_level_self(ctx) or not _partner_bid_new_suit(ctx):
-            return False
-        return ctx.hand.suit_length(_partner_suit(ctx)) >= 3
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            _opened_3_level_self,
+            _partner_bid_new_suit,
+            HasSuitFit(_partner_response_suit, min_len=3),
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         resp = ctx.partner_last_bid
@@ -394,8 +420,9 @@ class RebidOwnSuitAfterNewSuit3Level(Rule):
     def priority(self) -> int:
         return 573
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        return _opened_3_level_self(ctx) and _partner_bid_new_suit(ctx)
+    @property
+    def conditions(self) -> Condition:
+        return All(_opened_3_level_self, _partner_bid_new_suit)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _my_opened_suit(ctx)
@@ -428,8 +455,9 @@ class RebidPassAfter3Level(Rule):
     def priority(self) -> int:
         return 571
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        return _opened_3_level_self(ctx)
+    @property
+    def conditions(self) -> Condition:
+        return _opened_3_level_self
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -463,8 +491,9 @@ class RebidPassAfter4Level(Rule):
     def priority(self) -> int:
         return 568
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        return _opened_4_level_self(ctx)
+    @property
+    def conditions(self) -> Condition:
+        return _opened_4_level_self
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
