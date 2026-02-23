@@ -5,38 +5,21 @@ Response rules for when partner opens 1NT (15-17 HCP balanced) or
 Texas Transfers, Gerber, puppet to minor sign-off.
 """
 
+from bridge.engine.condition import (
+    All,
+    Any,
+    Balanced,
+    Condition,
+    HcpRange,
+    Not,
+    condition,
+)
 from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.model.bid import PASS, SuitBid, is_suit_bid
 from bridge.model.card import Suit
 
 # -- Helpers -----------------------------------------------------------------
-
-
-def _opened_1nt(ctx: BiddingContext) -> bool:
-    """Whether partner opened 1NT."""
-    if ctx.opening_bid is None:
-        return False
-    _, bid = ctx.opening_bid
-    return is_suit_bid(bid) and bid.level == 1 and bid.suit == Suit.NOTRUMP
-
-
-def _opened_2nt(ctx: BiddingContext) -> bool:
-    """Whether partner opened 2NT."""
-    if ctx.opening_bid is None:
-        return False
-    _, bid = ctx.opening_bid
-    return is_suit_bid(bid) and bid.level == 2 and bid.suit == Suit.NOTRUMP
-
-
-def _has_5_plus_major(ctx: BiddingContext) -> bool:
-    """Whether responder has a 5+ card major."""
-    return ctx.hand.num_hearts >= 5 or ctx.hand.num_spades >= 5
-
-
-def _is_4333(ctx: BiddingContext) -> bool:
-    """Whether responder has 4-3-3-3 flat shape."""
-    return ctx.sorted_shape == (4, 3, 3, 3)
 
 
 def _longest_major(ctx: BiddingContext) -> Suit:
@@ -52,6 +35,62 @@ def _longest_minor(ctx: BiddingContext) -> Suit:
         return Suit.CLUBS
     return Suit.DIAMONDS
 
+
+# -- Conditions --------------------------------------------------------------
+
+
+@condition("partner opened 1NT")
+def opened_1nt(ctx: BiddingContext) -> bool:
+    if ctx.opening_bid is None:
+        return False
+    _, bid = ctx.opening_bid
+    return is_suit_bid(bid) and bid.level == 1 and bid.suit == Suit.NOTRUMP
+
+
+@condition("partner opened 2NT")
+def opened_2nt(ctx: BiddingContext) -> bool:
+    if ctx.opening_bid is None:
+        return False
+    _, bid = ctx.opening_bid
+    return is_suit_bid(bid) and bid.level == 2 and bid.suit == Suit.NOTRUMP
+
+
+@condition("has 5+ card major")
+def has_5_plus_major(ctx: BiddingContext) -> bool:
+    return ctx.hand.num_hearts >= 5 or ctx.hand.num_spades >= 5
+
+
+@condition("has 6+ card major")
+def _has_6_plus_major(ctx: BiddingContext) -> bool:
+    return ctx.hand.num_hearts >= 6 or ctx.hand.num_spades >= 6
+
+
+@condition("has 6+ card minor")
+def _has_6_plus_minor(ctx: BiddingContext) -> bool:
+    return ctx.hand.num_clubs >= 6 or ctx.hand.num_diamonds >= 6
+
+
+@condition("has 4+ hearts")
+def _has_4h(ctx: BiddingContext) -> bool:
+    return ctx.hand.num_hearts >= 4
+
+
+@condition("has 4+ spades")
+def _has_4s(ctx: BiddingContext) -> bool:
+    return ctx.hand.num_spades >= 4
+
+
+@condition("has 4+ card major")
+def _has_4_card_major(ctx: BiddingContext) -> bool:
+    return ctx.hand.num_hearts >= 4 or ctx.hand.num_spades >= 4
+
+
+@condition("not 4-3-3-3 flat shape")
+def _not_4333(ctx: BiddingContext) -> bool:
+    return ctx.sorted_shape != (4, 3, 3, 3)
+
+
+_balanced_or_semi = All(Balanced(strict=False))
 
 # -- Slam-level responses ---------------------------------------------------
 
@@ -75,12 +114,14 @@ class RespondGerber(Rule):
     def priority(self) -> int:
         return 495
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1nt(ctx):
-            return False
-        if _has_5_plus_major(ctx):
-            return False
-        return ctx.hcp >= 18 and (ctx.is_balanced or ctx.is_semi_balanced)
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            opened_1nt,
+            HcpRange(min_hcp=18),
+            Not(has_5_plus_major),
+            Balanced(strict=False),
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -110,10 +151,9 @@ class Respond4NTOver1NT(Rule):
     def priority(self) -> int:
         return 485
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1nt(ctx):
-            return False
-        return 15 <= ctx.hcp <= 17 and (ctx.is_balanced or ctx.is_semi_balanced)
+    @property
+    def conditions(self) -> Condition:
+        return All(opened_1nt, HcpRange(15, 17), Balanced(strict=False))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -142,12 +182,9 @@ class Respond3MajorOver1NT(Rule):
     def priority(self) -> int:
         return 475
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1nt(ctx):
-            return False
-        if ctx.hcp < 16:
-            return False
-        return ctx.hand.num_hearts >= 6 or ctx.hand.num_spades >= 6
+    @property
+    def conditions(self) -> Condition:
+        return All(opened_1nt, HcpRange(min_hcp=16), _has_6_plus_major)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _longest_major(ctx)
@@ -178,16 +215,12 @@ class RespondTexasTransfer(Rule):
     def priority(self) -> int:
         return 465
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1nt(ctx):
-            return False
-        if not (10 <= ctx.hcp <= 15):
-            return False
-        return ctx.hand.num_hearts >= 6 or ctx.hand.num_spades >= 6
+    @property
+    def conditions(self) -> Condition:
+        return All(opened_1nt, HcpRange(10, 15), _has_6_plus_major)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _longest_major(ctx)
-        # Transfer one step below: 4D -> hearts, 4H -> spades
         transfer_suit = Suit.DIAMONDS if suit == Suit.HEARTS else Suit.HEARTS
         return RuleResult(
             bid=SuitBid(4, transfer_suit),
@@ -223,20 +256,22 @@ class RespondStayman(Rule):
     def priority(self) -> int:
         return 445
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1nt(ctx):
-            return False
-        has_4h = ctx.hand.num_hearts >= 4
-        has_4s = ctx.hand.num_spades >= 4
-        # Garbage Stayman: 4-4+ in majors, any HCP
-        if has_4h and has_4s:
-            return True
-        # Regular Stayman: 8+ HCP, 4-card major, no 5+ major, not 4-3-3-3
-        if ctx.hcp >= 8 and (has_4h or has_4s):
-            if _has_5_plus_major(ctx):
-                return False
-            return not _is_4333(ctx)
-        return False
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            opened_1nt,
+            Any(
+                # Garbage Stayman: 4-4+ in majors, any HCP
+                All(_has_4h, _has_4s),
+                # Regular Stayman: 8+ HCP, 4-card major, no 5+ major, not 4-3-3-3
+                All(
+                    HcpRange(min_hcp=8),
+                    _has_4_card_major,
+                    Not(has_5_plus_major),
+                    _not_4333,
+                ),
+            ),
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -266,14 +301,12 @@ class RespondJacobyTransfer(Rule):
     def priority(self) -> int:
         return 435
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1nt(ctx):
-            return False
-        return _has_5_plus_major(ctx)
+    @property
+    def conditions(self) -> Condition:
+        return All(opened_1nt, has_5_plus_major)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _longest_major(ctx)
-        # Transfer one step below: 2D -> hearts, 2H -> spades
         transfer_suit = Suit.DIAMONDS if suit == Suit.HEARTS else Suit.HEARTS
         return RuleResult(
             bid=SuitBid(2, transfer_suit),
@@ -306,10 +339,9 @@ class Respond3NTOver1NT(Rule):
     def priority(self) -> int:
         return 425
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1nt(ctx):
-            return False
-        return 10 <= ctx.hcp <= 15
+    @property
+    def conditions(self) -> Condition:
+        return All(opened_1nt, HcpRange(10, 15))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -341,12 +373,9 @@ class Respond3MinorOver1NT(Rule):
     def priority(self) -> int:
         return 415
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1nt(ctx):
-            return False
-        if not (8 <= ctx.hcp <= 9):
-            return False
-        return ctx.hand.num_clubs >= 6 or ctx.hand.num_diamonds >= 6
+    @property
+    def conditions(self) -> Condition:
+        return All(opened_1nt, HcpRange(8, 9), _has_6_plus_minor)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _longest_minor(ctx)
@@ -378,10 +407,9 @@ class Respond2NTOver1NT(Rule):
     def priority(self) -> int:
         return 405
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1nt(ctx):
-            return False
-        return 8 <= ctx.hcp <= 9
+    @property
+    def conditions(self) -> Condition:
+        return All(opened_1nt, HcpRange(8, 9))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -414,12 +442,9 @@ class Respond2SPuppet(Rule):
     def priority(self) -> int:
         return 395
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1nt(ctx):
-            return False
-        if ctx.hcp > 7:
-            return False
-        return ctx.hand.num_clubs >= 6 or ctx.hand.num_diamonds >= 6
+    @property
+    def conditions(self) -> Condition:
+        return All(opened_1nt, HcpRange(max_hcp=7), _has_6_plus_minor)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -449,10 +474,9 @@ class RespondPassOver1NT(Rule):
     def priority(self) -> int:
         return 45
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1nt(ctx):
-            return False
-        return ctx.hcp <= 7
+    @property
+    def conditions(self) -> Condition:
+        return All(opened_1nt, HcpRange(max_hcp=7))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -488,12 +512,14 @@ class RespondGerberOver2NT(Rule):
     def priority(self) -> int:
         return 494
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_2nt(ctx):
-            return False
-        if _has_5_plus_major(ctx):
-            return False
-        return ctx.hcp >= 13 and (ctx.is_balanced or ctx.is_semi_balanced)
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            opened_2nt,
+            HcpRange(min_hcp=13),
+            Not(has_5_plus_major),
+            Balanced(strict=False),
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -525,10 +551,9 @@ class Respond4NTOver2NT(Rule):
     def priority(self) -> int:
         return 484
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_2nt(ctx):
-            return False
-        return 11 <= ctx.hcp <= 12 and (ctx.is_balanced or ctx.is_semi_balanced)
+    @property
+    def conditions(self) -> Condition:
+        return All(opened_2nt, HcpRange(11, 12), Balanced(strict=False))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -559,12 +584,9 @@ class RespondTexasOver2NT(Rule):
     def priority(self) -> int:
         return 464
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_2nt(ctx):
-            return False
-        if not (4 <= ctx.hcp <= 10):
-            return False
-        return ctx.hand.num_hearts >= 6 or ctx.hand.num_spades >= 6
+    @property
+    def conditions(self) -> Condition:
+        return All(opened_2nt, HcpRange(4, 10), _has_6_plus_major)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _longest_major(ctx)
@@ -601,18 +623,15 @@ class RespondStaymanOver2NT(Rule):
     def priority(self) -> int:
         return 444
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_2nt(ctx):
-            return False
-        if ctx.hcp < 4:
-            return False
-        has_4h = ctx.hand.num_hearts >= 4
-        has_4s = ctx.hand.num_spades >= 4
-        if not (has_4h or has_4s):
-            return False
-        if _has_5_plus_major(ctx):
-            return False
-        return not _is_4333(ctx)
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            opened_2nt,
+            HcpRange(min_hcp=4),
+            _has_4_card_major,
+            Not(has_5_plus_major),
+            _not_4333,
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -644,10 +663,9 @@ class RespondTransferOver2NT(Rule):
     def priority(self) -> int:
         return 434
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_2nt(ctx):
-            return False
-        return _has_5_plus_major(ctx)
+    @property
+    def conditions(self) -> Condition:
+        return All(opened_2nt, has_5_plus_major)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _longest_major(ctx)
@@ -682,10 +700,9 @@ class Respond3NTOver2NT(Rule):
     def priority(self) -> int:
         return 424
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_2nt(ctx):
-            return False
-        return 4 <= ctx.hcp <= 10
+    @property
+    def conditions(self) -> Condition:
+        return All(opened_2nt, HcpRange(4, 10))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -717,12 +734,9 @@ class Respond3SPuppetOver2NT(Rule):
     def priority(self) -> int:
         return 394
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_2nt(ctx):
-            return False
-        if ctx.hcp > 3:
-            return False
-        return ctx.hand.num_clubs >= 6 or ctx.hand.num_diamonds >= 6
+    @property
+    def conditions(self) -> Condition:
+        return All(opened_2nt, HcpRange(max_hcp=3), _has_6_plus_minor)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -753,10 +767,9 @@ class RespondPassOver2NT(Rule):
     def priority(self) -> int:
         return 44
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_2nt(ctx):
-            return False
-        return ctx.hcp <= 3
+    @property
+    def conditions(self) -> Condition:
+        return All(opened_2nt, HcpRange(max_hcp=3))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(

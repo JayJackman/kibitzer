@@ -774,23 +774,31 @@ class HasSuitFit(Condition):
         self,
         suit_fn: Callable[[BiddingContext], Suit],
         min_len: int,
+        max_len: int | None = None,
     ) -> None:
         self._suit_fn = suit_fn
         self._min_len = min_len
+        self._max_len = max_len
 
     @property
     def label(self) -> str:
+        if self._max_len is not None and self._max_len == self._min_len:
+            return f"exactly {self._min_len}-card fit"
+        if self._max_len is not None:
+            return f"{self._min_len}-{self._max_len} card fit"
         return f"{self._min_len}+ card fit"
 
     def check(self, ctx: BiddingContext) -> ConditionResult:
         suit = self._suit_fn(ctx)
         length = ctx.hand.suit_length(suit)
         passed = length >= self._min_len
+        if self._max_len is not None:
+            passed = passed and length <= self._max_len
         suit_name = suit.letter
         if passed:
-            detail = f"{length} {suit_name} ({self._min_len}+ required)"
+            detail = f"{length} {suit_name} ({self.label})"
         else:
-            detail = f"{length} {suit_name} (need {self._min_len}+)"
+            detail = f"{length} {suit_name} (need {self.label})"
         return ConditionResult(passed=passed, label=self.label, detail=detail)
 
 

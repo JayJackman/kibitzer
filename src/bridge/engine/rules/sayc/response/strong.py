@@ -5,6 +5,14 @@ Responses: 2D (waiting, default), 2NT (8+ balanced, positive),
 or a natural positive suit bid (8+ HCP, 5+ cards, 2 of top 3 honors).
 """
 
+from bridge.engine.condition import (
+    All,
+    Balanced,
+    Computed,
+    Condition,
+    HcpRange,
+    condition,
+)
 from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.model.bid import SuitBid, is_suit_bid
@@ -14,14 +22,6 @@ from bridge.model.hand import Hand
 # -- Helpers -----------------------------------------------------------------
 
 
-def _opened_2c(ctx: BiddingContext) -> bool:
-    """Whether partner opened 2C."""
-    if ctx.opening_bid is None:
-        return False
-    _, bid = ctx.opening_bid
-    return is_suit_bid(bid) and bid.level == 2 and bid.suit == Suit.CLUBS
-
-
 def _has_two_top_three(hand: Hand, suit: Suit) -> bool:
     """Whether a suit has 2+ of {A, K, Q}."""
     return (
@@ -29,17 +29,9 @@ def _has_two_top_three(hand: Hand, suit: Suit) -> bool:
     )
 
 
-def _has_positive_suit(ctx: BiddingContext) -> bool:
-    """Whether responder has a 5+ card suit with 2 of top 3 honors."""
-    return any(
-        ctx.hand.suit_length(s) >= 5 and _has_two_top_three(ctx.hand, s)
-        for s in SUITS_SHDC
-    )
-
-
-def _best_positive_suit(ctx: BiddingContext) -> Suit:
-    """Longest qualifying suit (5+, 2 of top 3). Higher rank breaks ties."""
-    best_suit = Suit.CLUBS
+def _find_positive_suit(ctx: BiddingContext) -> Suit | None:
+    """Longest 5+ card suit with 2 of top 3 honors, or None."""
+    best_suit: Suit | None = None
     best_length = 0
     for suit in SUITS_SHDC:
         length = ctx.hand.suit_length(suit)
@@ -47,6 +39,17 @@ def _best_positive_suit(ctx: BiddingContext) -> Suit:
             best_suit = suit
             best_length = length
     return best_suit
+
+
+# -- Conditions --------------------------------------------------------------
+
+
+@condition("partner opened 2C")
+def opened_2c(ctx: BiddingContext) -> bool:
+    if ctx.opening_bid is None:
+        return False
+    _, bid = ctx.opening_bid
+    return is_suit_bid(bid) and bid.level == 2 and bid.suit == Suit.CLUBS
 
 
 # -- Responses ---------------------------------------------------------------
@@ -70,8 +73,9 @@ class Respond2NTOver2C(Rule):
     def priority(self) -> int:
         return 490
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        return _opened_2c(ctx) and ctx.hcp >= 8 and ctx.is_balanced
+    @property
+    def conditions(self) -> Condition:
+        return All(opened_2c, HcpRange(min_hcp=8), Balanced(strict=True))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -89,6 +93,9 @@ class RespondPositiveSuitOver2C(Rule):
     2 of top 3 honors (A, K, Q)."  Game forcing.
     """
 
+    def __init__(self) -> None:
+        self._suit = Computed(_find_positive_suit, "5+ card suit with 2 of top 3")
+
     @property
     def name(self) -> str:
         return "response.positive_suit_2c"
@@ -101,11 +108,12 @@ class RespondPositiveSuitOver2C(Rule):
     def priority(self) -> int:
         return 480
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        return _opened_2c(ctx) and ctx.hcp >= 8 and _has_positive_suit(ctx)
+    @property
+    def conditions(self) -> Condition:
+        return All(opened_2c, HcpRange(min_hcp=8), self._suit)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
-        suit = _best_positive_suit(ctx)
+        suit = self._suit.value
         level = 2 if suit.is_major else 3
         return RuleResult(
             bid=SuitBid(level, suit),
@@ -137,8 +145,9 @@ class Respond2DWaiting(Rule):
     def priority(self) -> int:
         return 470
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        return _opened_2c(ctx)
+    @property
+    def conditions(self) -> Condition:
+        return opened_2c
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(

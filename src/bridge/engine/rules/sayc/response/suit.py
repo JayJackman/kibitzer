@@ -7,9 +7,19 @@ rules, and minor-specific rules.
 
 from __future__ import annotations
 
+from bridge.engine.condition import (
+    All,
+    Balanced,
+    Computed,
+    Condition,
+    HasSuitFit,
+    HcpRange,
+    Not,
+    SupportPtsRange,
+    condition,
+)
 from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
-from bridge.evaluate import support_points
 from bridge.model.bid import PASS, Bid, SuitBid, is_suit_bid
 from bridge.model.card import SUITS_SHDC, Suit
 
@@ -37,47 +47,48 @@ def _opener_suit(ctx: BiddingContext) -> Suit:
     return bid.suit
 
 
-def _opened_1_suit(ctx: BiddingContext) -> bool:
-    """Whether partner opened 1 of any suit (not NT)."""
+# ── Conditions ─────────────────────────────────────────────────────
+
+
+@condition("partner opened 1 of a suit")
+def opened_1_suit(ctx: BiddingContext) -> bool:
     bid = _opening_bid(ctx)
     return is_suit_bid(bid) and bid.level == 1 and bid.suit != Suit.NOTRUMP
 
 
-def _opened_1_major(ctx: BiddingContext) -> bool:
-    """Whether partner opened 1H or 1S."""
+@condition("partner opened 1 of a major")
+def opened_1_major(ctx: BiddingContext) -> bool:
     bid = _opening_bid(ctx)
     return is_suit_bid(bid) and bid.level == 1 and bid.suit.is_major
 
 
-def _opened_1_minor(ctx: BiddingContext) -> bool:
-    """Whether partner opened 1C or 1D."""
+@condition("partner opened 1 of a minor")
+def opened_1_minor(ctx: BiddingContext) -> bool:
     bid = _opening_bid(ctx)
     return is_suit_bid(bid) and bid.level == 1 and bid.suit.is_minor
 
 
-def _has_4_card_major(ctx: BiddingContext) -> bool:
-    """Whether responder has a 4+ card major."""
-    hand = ctx.hand
-    return hand.num_spades >= 4 or hand.num_hearts >= 4
+@condition("has 4+ card major")
+def has_4_card_major(ctx: BiddingContext) -> bool:
+    return ctx.hand.num_spades >= 4 or ctx.hand.num_hearts >= 4
 
 
-def _adequate_minor_support(ctx: BiddingContext) -> bool:
-    """Whether responder has adequate support for opener's minor.
-
-    SAYC: 4+ for diamonds, 5+ for clubs.
-    """
+@condition("adequate minor support")
+def adequate_minor_support(ctx: BiddingContext) -> bool:
+    """SAYC: 4+ for diamonds, 5+ for clubs."""
     suit = _opener_suit(ctx)
     length = ctx.hand.suit_length(suit)
-    if suit == Suit.DIAMONDS:
-        return length >= 4
-    return length >= 5  # clubs
+    return length >= 4 if suit == Suit.DIAMONDS else length >= 5
+
+
+@condition("has singleton or void in side suit")
+def _has_side_shortness(ctx: BiddingContext) -> bool:
+    suit = _opener_suit(ctx)
+    return any(s != suit and ctx.hand.suit_length(s) <= 1 for s in SUITS_SHDC)
 
 
 def _find_new_suit_1_level(ctx: BiddingContext) -> Suit | None:
-    """Find cheapest 4+ card suit biddable at the 1-level above opener's bid.
-
-    Searches up the line from just above opener's suit.
-    """
+    """Find cheapest 4+ card suit biddable at the 1-level above opener's bid."""
     opener = _opener_suit(ctx)
     hand = ctx.hand
     for suit in (Suit.DIAMONDS, Suit.HEARTS, Suit.SPADES):
@@ -92,11 +103,6 @@ def _find_2_over_1_suit(ctx: BiddingContext) -> Suit | None:
     A 2-over-1 bid is a new suit that ranks LOWER than opener's suit,
     so it must be bid at the 2-level.  Bid the longest qualifying suit;
     with ties, bid the cheapest (up the line).
-
-    Over 1C: nothing (all suits are higher → 1-level).
-    Over 1D: 2C only.
-    Over 1H: 2C, 2D.
-    Over 1S: 2C, 2D, 2H.
     """
     opener = _opener_suit(ctx)
     hand = ctx.hand
@@ -151,6 +157,9 @@ class RespondJumpShift(Rule):
     Applies over both major and minor openings.
     """
 
+    def __init__(self) -> None:
+        self._suit = Computed(_find_jump_shift_suit, "4+ card new suit for jump shift")
+
     @property
     def name(self) -> str:
         return "response.jump_shift"
@@ -163,16 +172,12 @@ class RespondJumpShift(Rule):
     def priority(self) -> int:
         return 380
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1_suit(ctx):
-            return False
-        if ctx.hcp < 19:
-            return False
-        return _find_jump_shift_suit(ctx) is not None
+    @property
+    def conditions(self) -> Condition:
+        return All(opened_1_suit, HcpRange(min_hcp=19), self._suit)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
-        suit = _find_jump_shift_suit(ctx)
-        assert suit is not None
+        suit = self._suit.value
         level = _jump_level(_opener_suit(ctx), suit)
         return RuleResult(
             bid=SuitBid(level, suit),
@@ -195,6 +200,9 @@ class RespondNewSuit1Level(Rule):
     With multiple suits, bid up the line (cheapest first).
     """
 
+    def __init__(self) -> None:
+        self._suit = Computed(_find_new_suit_1_level, "4+ card suit at 1-level")
+
     @property
     def name(self) -> str:
         return "response.new_suit_1_level"
@@ -207,16 +215,12 @@ class RespondNewSuit1Level(Rule):
     def priority(self) -> int:
         return 260
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1_suit(ctx):
-            return False
-        if ctx.hcp < 6:
-            return False
-        return _find_new_suit_1_level(ctx) is not None
+    @property
+    def conditions(self) -> Condition:
+        return All(opened_1_suit, HcpRange(min_hcp=6), self._suit)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
-        suit = _find_new_suit_1_level(ctx)
-        assert suit is not None
+        suit = self._suit.value
         return RuleResult(
             bid=SuitBid(1, suit),
             rule_name=self.name,
@@ -234,6 +238,9 @@ class Respond2Over1(Rule):
     Applies over both major and minor openings.
     """
 
+    def __init__(self) -> None:
+        self._suit = Computed(_find_2_over_1_suit, "4+ card suit for 2-over-1")
+
     @property
     def name(self) -> str:
         return "response.2_over_1"
@@ -246,16 +253,12 @@ class Respond2Over1(Rule):
     def priority(self) -> int:
         return 240
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1_suit(ctx):
-            return False
-        if ctx.hcp < 10 or ctx.hcp >= 19:
-            return False
-        return _find_2_over_1_suit(ctx) is not None
+    @property
+    def conditions(self) -> Condition:
+        return All(opened_1_suit, HcpRange(min_hcp=10, max_hcp=18), self._suit)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
-        suit = _find_2_over_1_suit(ctx)
-        assert suit is not None
+        suit = self._suit.value
         return RuleResult(
             bid=SuitBid(2, suit),
             rule_name=self.name,
@@ -284,8 +287,9 @@ class RespondPass(Rule):
     def priority(self) -> int:
         return 50
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        return _opened_1_suit(ctx)
+    @property
+    def conditions(self) -> Condition:
+        return opened_1_suit
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -316,13 +320,13 @@ class RespondJacoby2NT(Rule):
     def priority(self) -> int:
         return 340
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1_major(ctx):
-            return False
-        suit = _opener_suit(ctx)
-        if ctx.hand.suit_length(suit) < 4:
-            return False
-        return support_points(ctx.hand, suit) >= 13
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            opened_1_major,
+            HasSuitFit(_opener_suit, min_len=4),
+            SupportPtsRange(_opener_suit, min_pts=13),
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -354,16 +358,14 @@ class RespondGameRaiseMajor(Rule):
     def priority(self) -> int:
         return 320
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1_major(ctx):
-            return False
-        suit = _opener_suit(ctx)
-        if ctx.hand.suit_length(suit) < 5:
-            return False
-        if ctx.hcp >= 10:
-            return False
-        # Must have singleton or void in a side suit
-        return any(s != suit and ctx.hand.suit_length(s) <= 1 for s in SUITS_SHDC)
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            opened_1_major,
+            HasSuitFit(_opener_suit, min_len=5),
+            HcpRange(max_hcp=9),
+            _has_side_shortness,
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -393,19 +395,20 @@ class Respond3NTOverMajor(Rule):
     def priority(self) -> int:
         return 300
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1_major(ctx):
-            return False
-        suit = _opener_suit(ctx)
-        if ctx.hand.suit_length(suit) != 2:
-            return False
-        return 15 <= ctx.hcp <= 17 and ctx.is_balanced
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            opened_1_major,
+            HasSuitFit(_opener_suit, min_len=2, max_len=2),
+            HcpRange(15, 17),
+            Balanced(strict=True),
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
             bid=SuitBid(3, Suit.NOTRUMP),
             rule_name=self.name,
-            explanation=("15-17 HCP, balanced, 2-card support — SAYC 3NT over major"),
+            explanation="15-17 HCP, balanced, 2-card support — SAYC 3NT over major",
         )
 
 
@@ -427,13 +430,13 @@ class RespondLimitRaiseMajor(Rule):
     def priority(self) -> int:
         return 280
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1_major(ctx):
-            return False
-        suit = _opener_suit(ctx)
-        if ctx.hand.suit_length(suit) < 3:
-            return False
-        return 10 <= support_points(ctx.hand, suit) <= 12
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            opened_1_major,
+            HasSuitFit(_opener_suit, min_len=3),
+            SupportPtsRange(_opener_suit, min_pts=10, max_pts=12),
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -463,19 +466,19 @@ class RespondSingleRaiseMajor(Rule):
     def priority(self) -> int:
         return 220
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1_major(ctx):
-            return False
-        suit = _opener_suit(ctx)
-        if ctx.hand.suit_length(suit) < 3:
-            return False
-        return 6 <= support_points(ctx.hand, suit) <= 10
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            opened_1_major,
+            HasSuitFit(_opener_suit, min_len=3),
+            SupportPtsRange(_opener_suit, min_pts=6, max_pts=10),
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
             bid=SuitBid(2, _opener_suit(ctx)),
             rule_name=self.name,
-            explanation=("3+ card support, 6-10 support points — SAYC single raise"),
+            explanation="3+ card support, 6-10 support points — SAYC single raise",
         )
 
 
@@ -498,18 +501,19 @@ class Respond1NTOverMajor(Rule):
     def priority(self) -> int:
         return 200
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1_major(ctx):
-            return False
-        if not (6 <= ctx.hcp <= 10):
-            return False
-        return ctx.hand.suit_length(_opener_suit(ctx)) < 3
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            opened_1_major,
+            HcpRange(6, 10),
+            HasSuitFit(_opener_suit, min_len=0, max_len=2),
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
             bid=SuitBid(1, Suit.NOTRUMP),
             rule_name=self.name,
-            explanation=("6-10 HCP, no 3+ support — SAYC 1NT response, non-forcing"),
+            explanation="6-10 HCP, no 3+ support — SAYC 1NT response, non-forcing",
         )
 
 
@@ -534,20 +538,20 @@ class Respond3NTOverMinor(Rule):
     def priority(self) -> int:
         return 310
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1_minor(ctx):
-            return False
-        if not (16 <= ctx.hcp <= 18):
-            return False
-        if not ctx.is_balanced:
-            return False
-        return not _has_4_card_major(ctx)
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            opened_1_minor,
+            HcpRange(16, 18),
+            Balanced(strict=True),
+            Not(has_4_card_major),
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
             bid=SuitBid(3, Suit.NOTRUMP),
             rule_name=self.name,
-            explanation=("16-18 HCP, balanced, no 4-card major — SAYC 3NT over minor"),
+            explanation="16-18 HCP, balanced, no 4-card major — SAYC 3NT over minor",
         )
 
 
@@ -569,14 +573,14 @@ class Respond2NTOverMinor(Rule):
     def priority(self) -> int:
         return 290
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1_minor(ctx):
-            return False
-        if not (13 <= ctx.hcp <= 15):
-            return False
-        if not ctx.is_balanced:
-            return False
-        return not _has_4_card_major(ctx)
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            opened_1_minor,
+            HcpRange(13, 15),
+            Balanced(strict=True),
+            Not(has_4_card_major),
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -609,14 +613,14 @@ class RespondLimitRaiseMinor(Rule):
     def priority(self) -> int:
         return 270
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1_minor(ctx):
-            return False
-        if not (10 <= ctx.hcp <= 12):
-            return False
-        if not _adequate_minor_support(ctx):
-            return False
-        return not _has_4_card_major(ctx)
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            opened_1_minor,
+            HcpRange(10, 12),
+            adequate_minor_support,
+            Not(has_4_card_major),
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -647,14 +651,14 @@ class RespondSingleRaiseMinor(Rule):
     def priority(self) -> int:
         return 230
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1_minor(ctx):
-            return False
-        if not (6 <= ctx.hcp <= 10):
-            return False
-        if not _adequate_minor_support(ctx):
-            return False
-        return not _has_4_card_major(ctx)
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            opened_1_minor,
+            HcpRange(6, 10),
+            adequate_minor_support,
+            Not(has_4_card_major),
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -685,12 +689,13 @@ class Respond1NTOverMinor(Rule):
     def priority(self) -> int:
         return 210
 
-    def applies(self, ctx: BiddingContext) -> bool:
-        if not _opened_1_minor(ctx):
-            return False
-        if not (6 <= ctx.hcp <= 10):
-            return False
-        return not _has_4_card_major(ctx)
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            opened_1_minor,
+            HcpRange(6, 10),
+            Not(has_4_card_major),
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
