@@ -2202,8 +2202,8 @@ class RebidHelpSuitGameTry(Rule):
             bid=bid,
             rule_name=self.name,
             explanation=(
-                f"16-18 Bergen pts, game try in {suit.letter}"
-                f" — asking responder for help"
+                f"16-18 Bergen pts, help suit game try"
+                f" — asking for help in {suit.letter}"
             ),
             forcing=True,
         )

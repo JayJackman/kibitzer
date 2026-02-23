@@ -362,37 +362,31 @@ Notes:
 
 ### Step 0B: Update Rule Base Class (`src/bridge/engine/rule.py`)
 
-Add optional `conditions` property (returns `None` by default). Add `check()` method. Existing rules keep working — they override `applies()` and don't define `conditions`.
+Make `conditions` an abstract property on `Rule`. Add `applies()` and `check()` methods that delegate to `conditions`.
 
 ```python
 class Rule(ABC):
     # ... existing name, category, priority, select ...
 
     @property
-    def conditions(self) -> Condition | None:
-        """Override to provide declarative conditions."""
-        return None
+    @abstractmethod
+    def conditions(self) -> Condition:
+        """Declarative preconditions checked before select()."""
 
     def applies(self, ctx: BiddingContext) -> bool:
-        conds = self.conditions
-        if conds is not None:
-            return self.check(ctx).passed
-        raise NotImplementedError  # Subclass must override
+        """Check whether this rule is relevant for the given context."""
+        return self.check(ctx).passed
 
     def check(self, ctx: BiddingContext) -> CheckResult:
-        """Full condition evaluation with individual results."""
+        """Full condition evaluation with per-condition pass/fail details."""
         conds = self.conditions
-        if conds is None:
-            # Legacy rule without conditions — minimal CheckResult
-            passed = self.applies(ctx)
-            return CheckResult(passed=passed, results=(), computed={})
         if isinstance(conds, (All, Any)):
             return conds.check_all(ctx)
         r = conds.check(ctx)
-        return CheckResult(passed=r.passed, results=(r,), computed={})
+        return CheckResult(passed=r.passed, results=(r,))
 ```
 
-**Zero breakage**: existing rules don't define `conditions`, so they hit the `NotImplementedError` path, which they avoid by overriding `applies()` directly. As rules are migrated, they define `conditions` and stop overriding `applies()`.
+Every rule must define `conditions`. Rules that always apply (like `OpenPass`) use an `_always` condition created with `@condition("always applies")`.
 
 ---
 
@@ -523,17 +517,18 @@ Add `think()` method and supporting types:
 class ThoughtStep:
     """One rule evaluated during the thought process."""
     rule_name: str
-    bid: Bid
-    explanation: str
     passed: bool
+    bid: Bid | None                            # from select() if passed, else None
     condition_results: tuple[ConditionResult, ...]
 
 @dataclass(frozen=True)
 class ThoughtProcess:
     """Full trace of how the engine reached its decision."""
     steps: tuple[ThoughtStep, ...]
-    selected_rule: str
+    selected: RuleResult                       # the winning rule's full result
 ```
+
+No `explanation` on `ThoughtStep` — for passing rules the bid is shown, for all rules the per-condition details tell the story. The selected rule's `RuleResult.explanation` is on `ThoughtProcess.selected`.
 
 ```python
 class BidSelector:
@@ -541,22 +536,24 @@ class BidSelector:
         """Evaluate all candidate rules and produce a structured trace."""
         rules = self._collect_rules(ctx)
         steps: list[ThoughtStep] = []
-        selected: str = "fallback.pass"
+        winner: RuleResult | None = None
 
         for rule in rules:
             check_result = rule.check(ctx)
-            result = rule.select(ctx) if check_result.passed else RuleResult(...)
+            bid = rule.select(ctx).bid if check_result.passed else None
             steps.append(ThoughtStep(
                 rule_name=rule.name,
-                bid=result.bid,
-                explanation=result.explanation,
                 passed=check_result.passed,
+                bid=bid,
                 condition_results=check_result.results,
             ))
-            if check_result.passed and selected == "fallback.pass":
-                selected = rule.name
+            if check_result.passed and winner is None:
+                winner = rule.select(ctx)
 
-        return ThoughtProcess(steps=tuple(steps), selected_rule=selected)
+        if winner is None:
+            winner = RuleResult(bid=PASS, rule_name="fallback.pass", explanation="No rule matched")
+
+        return ThoughtProcess(steps=tuple(steps), selected=winner)
 ```
 
 The existing `select()` and `candidates()` methods stay unchanged.
@@ -594,7 +591,7 @@ After each sub-step:
 - No existing test assertions changed
 
 After full Step 0:
-- Every rule (except fallback Pass rules) has a `conditions` property
+- Every rule has a `conditions` property (no `applies()` overrides)
 - `BidSelector.think()` produces a structured trace for any hand
 - `BiddingAdvice` includes `thought_process` field
 - Manual check: 16 HCP balanced hand shows Open1NT matching with "You have 16 HCP (in the 15-17 range)" and "Shape is 4-3-3-2 (balanced)"
@@ -677,8 +674,10 @@ Each alternative on one line: bid (formatted), dash, explanation. Skip if empty 
 
 #### `format_thought_process(thought_process: ThoughtProcess) -> Panel`
 
-Renders the structured `ThoughtProcess` from the condition system. Shows:
-1. The winning rule and why it matched (all passing conditions)
+Renders the structured `ThoughtProcess` from the condition system. Each `ThoughtStep` has `rule_name`, `passed`, `bid` (from `select()` if passed, else `None`), and `condition_results`. The winning rule's full `RuleResult` (including explanation) is on `ThoughtProcess.selected`.
+
+Shows:
+1. The winning rule with its bid and all passing conditions
 2. Key alternatives that were considered and the first condition that failed
 
 ```
@@ -689,12 +688,14 @@ Renders the structured `ThoughtProcess` from the condition system. Shows:
     ✓ Found spades (4+ card suit at 1-level)
 
   Also considered:
-    2♥ (response.single_raise_major)
+    response.single_raise_major
       ✗ You have 15 HCP (above the 10 maximum)
-    2NT (response.2nt_balanced)
+    response.2nt_balanced
       ✗ You have 5 spades (need no 4-card major)
 ---------------------------------------------
 ```
+
+Note: failing rules show `rule_name` only (no bid, since `select()` wasn't called). Passing alternatives show the bid alongside the rule name.
 
 #### `format_contract(contract: Contract) -> str`
 
@@ -925,7 +926,7 @@ The condition system replaces the template-based `thought_process.py` originally
 
 ### Fallback Pass Rules
 
-Rules like `OpenPass` that always apply (`applies() -> True`) don't need conditions. They keep their `applies()` override. The `check()` method returns an empty `CheckResult(passed=True, results=(), computed={})`.
+Rules like `OpenPass` that always apply use an `_always` condition created with `@condition("always applies")`. Every rule defines `conditions` — there are no `applies()` overrides.
 
 ---
 
