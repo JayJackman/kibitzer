@@ -4,7 +4,7 @@ from bridge.engine.condition import Condition, condition
 from bridge.engine.context import BiddingContext
 from bridge.engine.registry import RuleRegistry
 from bridge.engine.rule import Category, Rule, RuleResult
-from bridge.engine.selector import BidSelector
+from bridge.engine.selector import BidSelector, ThoughtProcess, ThoughtStep
 from bridge.model.auction import AuctionState, Seat
 from bridge.model.bid import PASS, Bid, SuitBid, is_pass
 from bridge.model.board import Board
@@ -330,3 +330,215 @@ class TestCandidates:
         selector = BidSelector(reg)
 
         assert selector.candidates(ctx) == []
+
+
+class TestThink:
+    def test_returns_thought_process(self) -> None:
+        reg = RuleRegistry()
+        reg.register(
+            MockRule(
+                "opening.1suit",
+                Category.OPENING,
+                100,
+                bid=SuitBid(1, Suit.SPADES),
+            )
+        )
+
+        auction = AuctionState(dealer=Seat.NORTH)
+        ctx = _make_ctx(Seat.NORTH, auction)
+        selector = BidSelector(reg)
+        tp = selector.think(ctx)
+
+        assert isinstance(tp, ThoughtProcess)
+        assert tp.selected.rule_name == "opening.1suit"
+        assert str(tp.selected.bid) == "1S"
+
+    def test_steps_include_all_rules(self) -> None:
+        reg = RuleRegistry()
+        reg.register(
+            MockRule(
+                "opening.2c",
+                Category.OPENING,
+                400,
+                bid=SuitBid(2, Suit.CLUBS),
+                should_apply=False,
+            )
+        )
+        reg.register(
+            MockRule(
+                "opening.1nt",
+                Category.OPENING,
+                200,
+                bid=SuitBid(1, Suit.NOTRUMP),
+            )
+        )
+        reg.register(
+            MockRule(
+                "opening.1suit",
+                Category.OPENING,
+                100,
+                bid=SuitBid(1, Suit.SPADES),
+            )
+        )
+
+        auction = AuctionState(dealer=Seat.NORTH)
+        ctx = _make_ctx(Seat.NORTH, auction)
+        selector = BidSelector(reg)
+        tp = selector.think(ctx)
+
+        assert len(tp.steps) == 3
+        # Steps are in priority order (highest first)
+        assert tp.steps[0].rule_name == "opening.2c"
+        assert tp.steps[1].rule_name == "opening.1nt"
+        assert tp.steps[2].rule_name == "opening.1suit"
+
+    def test_passing_steps_have_bid(self) -> None:
+        reg = RuleRegistry()
+        reg.register(
+            MockRule(
+                "opening.1nt",
+                Category.OPENING,
+                200,
+                bid=SuitBid(1, Suit.NOTRUMP),
+            )
+        )
+        reg.register(
+            MockRule(
+                "opening.1suit",
+                Category.OPENING,
+                100,
+                bid=SuitBid(1, Suit.SPADES),
+            )
+        )
+
+        auction = AuctionState(dealer=Seat.NORTH)
+        ctx = _make_ctx(Seat.NORTH, auction)
+        selector = BidSelector(reg)
+        tp = selector.think(ctx)
+
+        for step in tp.steps:
+            assert step.passed is True
+            assert step.bid is not None
+
+    def test_failing_steps_have_no_bid(self) -> None:
+        reg = RuleRegistry()
+        reg.register(
+            MockRule(
+                "opening.2c",
+                Category.OPENING,
+                400,
+                bid=SuitBid(2, Suit.CLUBS),
+                should_apply=False,
+            )
+        )
+        reg.register(
+            MockRule(
+                "opening.1suit",
+                Category.OPENING,
+                100,
+                bid=SuitBid(1, Suit.SPADES),
+            )
+        )
+
+        auction = AuctionState(dealer=Seat.NORTH)
+        ctx = _make_ctx(Seat.NORTH, auction)
+        selector = BidSelector(reg)
+        tp = selector.think(ctx)
+
+        failing = [s for s in tp.steps if not s.passed]
+        assert len(failing) == 1
+        assert failing[0].rule_name == "opening.2c"
+        assert failing[0].bid is None
+
+    def test_highest_priority_passing_rule_wins(self) -> None:
+        reg = RuleRegistry()
+        reg.register(
+            MockRule(
+                "opening.1nt",
+                Category.OPENING,
+                200,
+                bid=SuitBid(1, Suit.NOTRUMP),
+            )
+        )
+        reg.register(
+            MockRule(
+                "opening.1suit",
+                Category.OPENING,
+                100,
+                bid=SuitBid(1, Suit.SPADES),
+            )
+        )
+
+        auction = AuctionState(dealer=Seat.NORTH)
+        ctx = _make_ctx(Seat.NORTH, auction)
+        selector = BidSelector(reg)
+        tp = selector.think(ctx)
+
+        # 1NT has higher priority, so it's the selected rule
+        assert tp.selected.rule_name == "opening.1nt"
+        assert str(tp.selected.bid) == "1NT"
+
+    def test_fallback_pass_when_none_apply(self) -> None:
+        reg = RuleRegistry()
+        reg.register(MockRule("opening.2c", Category.OPENING, 400, should_apply=False))
+
+        auction = AuctionState(dealer=Seat.NORTH)
+        ctx = _make_ctx(Seat.NORTH, auction)
+        selector = BidSelector(reg)
+        tp = selector.think(ctx)
+
+        assert tp.selected.rule_name == "fallback.pass"
+        assert is_pass(tp.selected.bid)
+        assert len(tp.steps) == 1
+        assert tp.steps[0].passed is False
+
+    def test_empty_registry_fallback_pass(self) -> None:
+        reg = RuleRegistry()
+        auction = AuctionState(dealer=Seat.NORTH)
+        ctx = _make_ctx(Seat.NORTH, auction)
+        selector = BidSelector(reg)
+        tp = selector.think(ctx)
+
+        assert tp.selected.rule_name == "fallback.pass"
+        assert is_pass(tp.selected.bid)
+        assert len(tp.steps) == 0
+
+    def test_steps_have_condition_results(self) -> None:
+        reg = RuleRegistry()
+        reg.register(
+            MockRule(
+                "opening.1suit",
+                Category.OPENING,
+                100,
+                bid=SuitBid(1, Suit.SPADES),
+            )
+        )
+
+        auction = AuctionState(dealer=Seat.NORTH)
+        ctx = _make_ctx(Seat.NORTH, auction)
+        selector = BidSelector(reg)
+        tp = selector.think(ctx)
+
+        step = tp.steps[0]
+        assert isinstance(step, ThoughtStep)
+        assert len(step.condition_results) > 0
+        # The _always condition should produce a passing result
+        assert step.condition_results[0].passed is True
+
+    def test_selected_has_explanation(self) -> None:
+        reg = RuleRegistry()
+        reg.register(
+            MockRule(
+                "opening.1suit",
+                Category.OPENING,
+                100,
+                bid=SuitBid(1, Suit.SPADES),
+            )
+        )
+
+        auction = AuctionState(dealer=Seat.NORTH)
+        ctx = _make_ctx(Seat.NORTH, auction)
+        selector = BidSelector(reg)
+        tp = selector.think(ctx)
+
+        assert tp.selected.explanation == "Mock rule opening.1suit"

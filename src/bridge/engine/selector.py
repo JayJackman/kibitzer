@@ -2,13 +2,34 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
+from bridge.engine.condition import ConditionResult
 from bridge.engine.context import BiddingContext
 from bridge.engine.registry import RuleRegistry
 from bridge.engine.rule import Category, Rule, RuleResult
-from bridge.model.bid import PASS
+from bridge.model.bid import PASS, Bid
 
 # Overlay categories are always checked alongside the detected phase.
 _OVERLAY_CATEGORIES = (Category.CONVENTION, Category.SLAM)
+
+
+@dataclass(frozen=True)
+class ThoughtStep:
+    """One rule evaluated during the thought process."""
+
+    rule_name: str
+    passed: bool
+    bid: Bid | None
+    condition_results: tuple[ConditionResult, ...]
+
+
+@dataclass(frozen=True)
+class ThoughtProcess:
+    """Full trace of how the engine reached its decision."""
+
+    steps: tuple[ThoughtStep, ...]
+    selected: RuleResult
 
 
 class BidSelector:
@@ -68,6 +89,36 @@ class BidSelector:
         """
         rules = self._collect_rules(ctx)
         return [rule.select(ctx) for rule in rules if rule.applies(ctx)]
+
+    def think(self, ctx: BiddingContext) -> ThoughtProcess:
+        """Evaluate all candidate rules and produce a structured trace."""
+        rules = self._collect_rules(ctx)
+        steps: list[ThoughtStep] = []
+        winner: RuleResult | None = None
+
+        for rule in rules:
+            check_result = rule.check(ctx)
+            passed = check_result.passed
+            result = rule.select(ctx) if passed else None
+            steps.append(
+                ThoughtStep(
+                    rule_name=rule.name,
+                    passed=passed,
+                    bid=result.bid if result else None,
+                    condition_results=check_result.results,
+                )
+            )
+            if passed and winner is None:
+                winner = result
+
+        if winner is None:
+            winner = RuleResult(
+                bid=PASS,
+                rule_name="fallback.pass",
+                explanation="No rule matched",
+            )
+
+        return ThoughtProcess(steps=tuple(steps), selected=winner)
 
     def _collect_rules(self, ctx: BiddingContext) -> list[Rule]:
         """Gather phase rules + overlay rules, sorted by priority descending."""
