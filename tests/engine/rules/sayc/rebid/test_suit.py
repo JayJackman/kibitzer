@@ -17,6 +17,7 @@ from bridge.engine.rules.sayc.rebid.suit import (
     RebidDoubleJumpRebidOwnSuit,
     RebidGameAfterRaiseMajor,
     RebidGameAfterSingleRaiseMinor,
+    RebidGameOver1NT,
     RebidHelpSuitGameTry,
     RebidInviteAfterRaiseMajor,
     RebidInviteAfterRaiseMinor,
@@ -403,6 +404,39 @@ class TestJumpRebidOver1NT:
         assert not self.rule.applies(ctx)
 
 
+class TestGameOver1NT:
+    rule = RebidGameOver1NT()
+
+    def test_19_pts_6_card_major(self) -> None:
+        # KJT.AKT983.K4.K6 — 17 HCP, 3-6-2-2, total=19
+        ctx = _ctx("KJT.AKT983.K4.K6", "1H", "1NT")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "4H"
+
+    def test_19_pts_6_card_spades(self) -> None:
+        # AKT983.KJT.K4.K6 — 17 HCP, 6-3-2-2, total=19
+        ctx = _ctx("AKT983.KJT.K4.K6", "1S", "1NT")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "4S"
+
+    def test_18_pts_rejected(self) -> None:
+        # AKJ952.K73.84.A7 — 15 HCP, 6-3-2-2, total=17
+        ctx = _ctx("AKJ952.K73.84.A7", "1S", "1NT")
+        assert not self.rule.applies(ctx)
+
+    def test_5_card_suit_rejected(self) -> None:
+        # AKJ52.KQ3.84.AK3 — 19 HCP, 5-3-2-3, total=20
+        ctx = _ctx("AKJ52.KQ3.84.AK3", "1S", "1NT")
+        assert not self.rule.applies(ctx)
+
+    def test_minor_rejected(self) -> None:
+        # K4.K6.AKT983.KJT — 17 HCP, 2-2-6-3, total=19, but minor
+        ctx = _ctx("K4.K6.AKT983.KJT", "1D", "1NT")
+        assert not self.rule.applies(ctx)
+
+
 class TestNewLowerSuitOver1NT:
     rule = RebidNewLowerSuitOver1NT()
 
@@ -500,6 +534,12 @@ class TestReverse:
     def test_16_pts_too_low(self) -> None:
         # 73.KQ73.AKJ52.73 — 13 HCP, total=14
         ctx = _ctx("73.KQ73.AKJ52.73", "1D", "1S")
+        assert not self.rule.applies(ctx)
+
+    def test_not_reverse_when_biddable_at_1_level(self) -> None:
+        # A987.J4.AK654.KJ — 16 HCP, total=17, but 1S is available
+        # 1D→1H→1S is NOT a reverse; should use non-reverse rule
+        ctx = _ctx("A987.J4.AK654.KJ", "1D", "1H")
         assert not self.rule.applies(ctx)
 
 

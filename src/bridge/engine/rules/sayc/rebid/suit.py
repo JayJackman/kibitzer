@@ -259,13 +259,21 @@ def _find_reverse_suit(ctx: BiddingContext) -> Suit | None:
 
     A reverse is a new suit ranking higher than the opening suit, bid at
     the 2-level.  The opening suit must be strictly longer than the new suit.
+
+    Only suits that actually require a 2-level bid qualify.  If the suit
+    ranks above responder's suit, it can be bid at the 1-level and is NOT
+    a reverse (e.g. 1D-1H-1S is not a reverse).
     """
     opening_suit = _my_opening_suit(ctx)
     opening_len = ctx.hand.suit_length(opening_suit)
+    resp_suit = _partner_response(ctx).suit
     best: Suit | None = None
     best_len = 0
     for suit in (Suit.CLUBS, Suit.DIAMONDS, Suit.HEARTS, Suit.SPADES):
         if suit <= opening_suit:
+            continue
+        # Suit ranks above responder's -> biddable at 1-level, not a reverse
+        if suit > resp_suit:
             continue
         length = ctx.hand.suit_length(suit)
         if length >= 4 and opening_len > length and length > best_len:
@@ -1011,6 +1019,48 @@ class RebidJumpRebidOver1NT(Rule):
         )
 
 
+class RebidGameOver1NT(Rule):
+    """Bid 4M over 1NT — 6+ card major, 19-21 total pts.
+
+    e.g. 1H->1NT->4H, 1S->1NT->4S
+
+    Majors only -- with a long minor, prefer 3NT or a jump shift.
+
+    SAYC: "Double-jump rebid own suit; self-supporting 6+ cards, 19-21 pts."
+    """
+
+    @property
+    def name(self) -> str:
+        return "rebid.game_over_1nt"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_OPENER
+
+    @property
+    def priority(self) -> int:
+        return 275
+
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            _partner_bid_1nt,
+            _opening_suit_is_major,
+            _has_rebiddable_suit,
+            TotalPtsRange(19, 21),
+        )
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        suit = _my_opening_suit(ctx)
+        return RuleResult(
+            bid=SuitBid(4, suit),
+            rule_name=self.name,
+            explanation=(
+                f"19-21 pts, 6+ card {suit.letter} — SAYC double-jump rebid over 1NT"
+            ),
+        )
+
+
 class RebidNewLowerSuitOver1NT(Rule):
     """Bid 2 of a lower new suit over 1NT — 4+ cards, non-forcing.
 
@@ -1366,7 +1416,9 @@ class RebidNewSuitNonreverse(Rule):
         return Category.REBID_OPENER
 
     def __init__(self) -> None:
-        self._nonrev_suit = Computed(_find_nonreverse_new_suit, "non-reverse new suit")
+        self._nonrev_suit = Computed(
+            _find_nonreverse_new_suit, "non-reverse new suit (4+)"
+        )
 
     @property
     def priority(self) -> int:
@@ -1536,6 +1588,7 @@ class RebidNewSuitAfter2Over1(Rule):
             bid=bid,
             rule_name=self.name,
             explanation=f"4+ card {suit.letter} — SAYC new suit after 2-over-1",
+            forcing=True,
         )
 
 

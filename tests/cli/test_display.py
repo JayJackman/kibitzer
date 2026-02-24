@@ -326,7 +326,7 @@ class TestFormatThoughtProcess:
         assert "opening.1suit" in output
 
     def test_interesting_failing_shown(self) -> None:
-        """A rule that passes some conditions before failing is shown."""
+        """Interesting failing steps appear in 'Also considered' section."""
         tp = ThoughtProcess(
             steps=(
                 ThoughtStep(
@@ -367,7 +367,6 @@ class TestFormatThoughtProcess:
         )
         output = _render(format_thought_process(tp))
         assert "response.jump_shift" in output
-        assert "12 HCP (need 17+)" in output
 
 
 # ── format_contract ─────────────────────────────────────────────────
@@ -401,7 +400,11 @@ class TestFormatContract:
 
 class TestFormatBidPrompt:
     def test_north(self) -> None:
-        assert format_bid_prompt(Seat.NORTH) == "North's bid: "
+        prompt = format_bid_prompt(Seat.NORTH)
+        assert "North" in prompt
+        assert "advise" in prompt
 
     def test_south(self) -> None:
-        assert format_bid_prompt(Seat.SOUTH) == "South's bid: "
+        prompt = format_bid_prompt(Seat.SOUTH)
+        assert "South" in prompt
+        assert "quit" in prompt

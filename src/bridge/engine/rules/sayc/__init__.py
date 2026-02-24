@@ -53,6 +53,7 @@ from .rebid import (
     RebidDoubleJumpRebidOwnSuit,
     RebidGameAfterRaiseMajor,
     RebidGameAfterSingleRaiseMinor,
+    RebidGameOver1NT,
     RebidGerberResponse,
     RebidHelpSuitGameTry,
     RebidInviteAfterRaiseMajor,
@@ -248,6 +249,7 @@ def create_sayc_registry() -> RuleRegistry:
 
     # ── Opener rebids after 1NT response ──────────────────────────
     reg.register(Rebid3NTOver1NT())
+    reg.register(RebidGameOver1NT())
     reg.register(RebidJumpShiftOver1NT())
     reg.register(Rebid2NTOver1NT())
     reg.register(RebidJumpRebidOver1NT())

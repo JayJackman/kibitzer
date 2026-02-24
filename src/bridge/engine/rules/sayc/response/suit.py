@@ -289,7 +289,7 @@ class RespondPass(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return opened_1_suit
+        return All(opened_1_suit, HcpRange(max_hcp=5))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(

@@ -6,9 +6,10 @@ renderables. No I/O -- callers print the returned objects.
 
 from __future__ import annotations
 
+import re
+
 from rich.panel import Panel
 from rich.table import Table
-from rich.text import Text
 
 from bridge.engine.rule import RuleResult
 from bridge.engine.selector import ThoughtProcess, ThoughtStep
@@ -17,6 +18,8 @@ from bridge.model.bid import Bid, is_suit_bid
 from bridge.model.card import SUITS_SHDC, Suit
 from bridge.model.hand import Hand
 from bridge.service.models import BiddingAdvice, HandEvaluation
+
+_MARKUP_RE = re.compile(r"\[[/a-z]+\]")
 
 _SUIT_COLORS: dict[Suit, str] = {
     Suit.SPADES: "blue",
@@ -46,7 +49,10 @@ def _colored_suit(suit: Suit) -> str:
 
 
 def format_bid(bid: Bid) -> str:
-    """Format a bid with colored suit symbols for Rich output."""
+    """Format a bid with colored suit symbols for Rich output.
+
+    Example: ``1[blue]S[/blue]``, ``2NT``, ``Pass``
+    """
     if is_suit_bid(bid):
         suit = bid.suit
         level = bid.level
@@ -56,20 +62,116 @@ def format_bid(bid: Bid) -> str:
     return str(bid)
 
 
-def format_hand(hand: Hand) -> Panel:
-    """Display a hand with colored suit symbols."""
-    text = Text()
-    for i, suit in enumerate(SUITS_SHDC):
-        if i > 0:
-            text.append("\n")
-        text.append(f"  {_colored_suit(suit)}  ", style=None)
+def _format_hand_lines(hand: Hand) -> list[str]:
+    """Format a hand as a list of suit lines (no panel)."""
+    lines = []
+    for suit in SUITS_SHDC:
         cards = hand.suit_cards(suit)
-        text.append(" ".join(str(c.rank) for c in cards))
-    return Panel(text, title="Your Hand")
+        ranks = " ".join(str(c.rank) for c in cards)
+        lines.append(f"{_colored_suit(suit)}  {ranks}")
+    return lines
+
+
+def format_hand(hand: Hand) -> Panel:
+    """Display a hand with colored suit symbols.
+
+    Example::
+
+        +-- Your Hand ---+
+        |  S  A K J 5 2  |
+        |  H  K Q 3      |
+        |  D  8 4        |
+        |  C  A 7 3      |
+        +----------------+
+    """
+    return Panel(
+        "\n".join(f"  {line}" for line in _format_hand_lines(hand)),
+        title="Your Hand",
+    )
+
+
+def _visible_len(s: str) -> int:
+    """Length of a string after stripping Rich markup tags."""
+    return len(_MARKUP_RE.sub("", s))
+
+
+def _ljust(s: str, width: int) -> str:
+    """Left-justify accounting for invisible Rich markup."""
+    return s + " " * max(0, width - _visible_len(s))
+
+
+def _center_block(block: list[str], width: int) -> list[str]:
+    """Center a block of lines as a unit, preserving internal alignment."""
+    max_vis = max(_visible_len(line) for line in block)
+    pad = max(0, width - max_vis) // 2
+    prefix = " " * pad
+    return [prefix + line for line in block]
+
+
+def format_all_hands(hands: dict[Seat, Hand]) -> Panel:
+    """Display all four hands in bridge diagram layout.
+
+    Example::
+
+        +---------- All Hands -----------+
+        |          North                 |
+        |        S  A K 3 2              |
+        |        H  K Q 3                |
+        |        ...                     |
+        |                                |
+        | West                East       |
+        | S  8 4              S  Q J 5   |
+        | ...                 ...        |
+        |                                |
+        |          South                 |
+        |        S  T 9 7 6              |
+        |        ...                     |
+        +--------------------------------+
+    """
+    north = _format_hand_lines(hands[Seat.NORTH])
+    south = _format_hand_lines(hands[Seat.SOUTH])
+    west = _format_hand_lines(hands[Seat.WEST])
+    east = _format_hand_lines(hands[Seat.EAST])
+
+    col = 24  # visible width reserved for each hand (West / East)
+    gap = 4  # space between the West and East columns
+    total = col * 2 + gap  # full content width
+
+    lines: list[str] = []
+
+    # North/South are shifted slightly left of center to sit above West
+    ns_width = total - 14
+
+    # North (centered as a block so suit symbols stay aligned)
+    lines.append(f"{'North':^{ns_width}}")
+    lines.extend(_center_block(north, ns_width))
+    lines.append("")
+
+    # West and East side by side
+    lines.append(f"{'West':<{col}}{'':>{gap}}East")
+    for w, e in zip(west, east, strict=True):
+        lines.append(f"{_ljust(w, col)}{'':>{gap}}{e}")
+    lines.append("")
+
+    # South (centered as a block)
+    lines.append(f"{'South':^{ns_width}}")
+    lines.extend(_center_block(south, ns_width))
+
+    return Panel("\n".join(lines), title="All Hands")
 
 
 def format_hand_eval(ev: HandEvaluation) -> Panel:
-    """Display hand evaluation metrics."""
+    """Display hand evaluation metrics.
+
+    Example::
+
+        +---- Hand Evaluation -----------+
+        |  HCP: 17   Total Pts: 17.      |
+        |  Shape: 5-3-3-2 (balanced).    |
+        |  Quick Tricks: 3.5   Losers: 6 |
+        |  Controls: 6                   |
+        +--------------------------------+
+    """
     shape = "-".join(str(n) for n in ev.shape)
     if ev.is_balanced:
         shape += " (balanced)"
@@ -93,6 +195,14 @@ def format_auction(
     """Display the auction as a 4-column grid.
 
     Pass ``current_seat=None`` when the auction is complete.
+
+    Example::
+
+        +------- Auction --------+
+        |  W     N     E     S   |
+        |        1D   Pass   1H  |
+        |  Pass   ?              |
+        +------------------------+
     """
     table = Table(show_header=True, show_edge=False, pad_edge=False, box=None)
     for seat in _AUCTION_SEATS:
@@ -124,28 +234,57 @@ def format_auction(
 
 
 def format_advice(advice: BiddingAdvice) -> Panel:
-    """Display the recommended bid with explanation."""
+    """Display the recommended bid with explanation.
+
+    Example::
+
+        +---- Recommended Bid --------------------------+
+        |  1NT: 15-17 HCP, balanced -- SAYC 1NT opening |
+        +-----------------------------------------------+
+    """
     bid_str = format_bid(advice.recommended.bid)
     explanation = advice.recommended.explanation
     if advice.recommended.forcing:
         explanation += " (forcing)"
-    return Panel(f"  {explanation}", title=f"Recommended Bid: {bid_str}")
+    return Panel(f"  {bid_str}: {explanation}", title="Recommended Bid")
 
 
 def format_alternatives(alternatives: list[RuleResult]) -> Panel | None:
-    """Display alternative bids. Returns None if empty."""
+    """Display alternative bids. Returns None if empty.
+
+    Example::
+
+        +---- Alternatives -------------------------+
+        |  2H  (rebid.reverse) - 17+ pts, H reverse |
+        |  3D  (rebid.jump_rebid) - 6+ D, 17-18 pts |
+        +-------------------------------------------+
+    """
     if not alternatives:
         return None
     lines = []
     for alt in alternatives:
         bid_str = format_bid(alt.bid)
-        lines.append(f"  {bid_str}  - {alt.explanation}")
+        lines.append(f"  {bid_str}  ({alt.rule_name}) - {alt.explanation}")
     return Panel("\n".join(lines), title="Alternatives")
 
 
 def format_thought_process(tp: ThoughtProcess) -> Panel:
-    """Display the engine's reasoning trace."""
-    text = Text()
+    """Display the engine's reasoning trace.
+
+    Example::
+
+        +---- Thought Process ------------+
+        |  Recommended: 1NT (opening.1nt) |
+        |    V 15-17 HCP                  |
+        |    V Balanced shape             |
+        |                                 |
+        |  Also considered:               |
+        |    1S (opening.suit)            |
+        |    opening.2nt                  |
+        |      X 20-21 HCP                |
+        +---------------------------------+
+    """
+    lines: list[str] = []
 
     # Find the winning step (None when selected is fallback.pass)
     winning_step = next(
@@ -155,11 +294,11 @@ def format_thought_process(tp: ThoughtProcess) -> Panel:
 
     # Show the winning rule
     bid_str = format_bid(tp.selected.bid)
-    text.append(f"  Recommended: {bid_str} ({tp.selected.rule_name})\n")
+    lines.append(f"  Recommended: {bid_str} ({tp.selected.rule_name})")
     if winning_step:
         for cr in winning_step.condition_results:
             mark = "[green]✓[/green]" if cr.passed else "[red]✗[/red]"
-            text.append(f"    {mark} {cr.detail}\n")
+            lines.append(f"    {mark} {cr.detail}")
 
     # Collect alternatives: other passing steps + interesting failing steps
     other_passing = [
@@ -169,20 +308,21 @@ def format_thought_process(tp: ThoughtProcess) -> Panel:
 
     considered = other_passing + interesting_failing[:5]
     if considered:
-        text.append("\n  Also considered:\n")
+        lines.append("")
+        lines.append("  Also considered:")
         for step in considered:
             if step.passed:
                 assert step.bid is not None
-                text.append(f"    {format_bid(step.bid)} ({step.rule_name})\n")
+                lines.append(f"    {format_bid(step.bid)} ({step.rule_name})")
             else:
                 # Show rule name + first failing condition
-                text.append(f"    {step.rule_name}\n")
+                lines.append(f"    {step.rule_name}")
                 for cr in step.condition_results:
                     if not cr.passed:
-                        text.append(f"      [red]✗[/red] {cr.detail}\n")
+                        lines.append(f"      [red]✗[/red] {cr.detail}")
                         break
 
-    return Panel(text, title="Thought Process")
+    return Panel("\n".join(lines), title="Thought Process")
 
 
 def _is_interesting(step: ThoughtStep) -> bool:
@@ -191,7 +331,10 @@ def _is_interesting(step: ThoughtStep) -> bool:
 
 
 def format_contract(contract: Contract) -> str:
-    """Format a contract with colored suit symbols."""
+    """Format a contract with colored suit symbols.
+
+    Example: ``3NT by North``, ``4S by South doubled``, ``Passed out``
+    """
     if contract.passed_out:
         return "Passed out"
     suit = contract.suit
@@ -209,5 +352,9 @@ def format_contract(contract: Contract) -> str:
 
 
 def format_bid_prompt(current_seat: Seat) -> str:
-    """Return a prompt string like \"North's bid: \"."""
-    return f"{_SEAT_NAMES[current_seat]}'s bid: "
+    """Return a prompt with available commands.
+
+    Example: ``North's bid (a=advise, h=help, q=quit):``
+    """
+    name = _SEAT_NAMES[current_seat]
+    return f"{name}'s bid (a=advise, h=help, q=quit): "
