@@ -45,7 +45,7 @@ def _find_positive_suit(ctx: BiddingContext) -> Suit | None:
 
 
 @condition("partner opened 2C")
-def opened_2c(ctx: BiddingContext) -> bool:
+def _partner_opened_2c(ctx: BiddingContext) -> bool:
     if ctx.opening_bid is None:
         return False
     _, bid = ctx.opening_bid
@@ -75,7 +75,7 @@ class Respond2NTOver2C(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(opened_2c, HcpRange(min_hcp=8), Balanced(strict=True))
+        return All(_partner_opened_2c, HcpRange(min_hcp=8), Balanced(strict=True))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -110,7 +110,7 @@ class RespondPositiveSuitOver2C(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(opened_2c, HcpRange(min_hcp=8), self._suit)
+        return All(_partner_opened_2c, HcpRange(min_hcp=8), self._suit)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._suit.value
@@ -147,7 +147,7 @@ class Respond2DWaiting(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return opened_2c
+        return _partner_opened_2c
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(

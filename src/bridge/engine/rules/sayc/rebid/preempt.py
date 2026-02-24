@@ -33,7 +33,7 @@ def _my_opened_suit(ctx: BiddingContext) -> Suit:
 
 
 @condition("I opened weak two")
-def _opened_weak_two_self(ctx: BiddingContext) -> bool:
+def _i_opened_weak_two(ctx: BiddingContext) -> bool:
     """Whether I opened a weak two (2D/2H/2S)."""
     if not ctx.my_bids:
         return False
@@ -51,7 +51,7 @@ def _opened_weak_two_self(ctx: BiddingContext) -> bool:
 
 
 @condition("I opened 3-level")
-def _opened_3_level_self(ctx: BiddingContext) -> bool:
+def _i_opened_3_level(ctx: BiddingContext) -> bool:
     """Whether I opened a 3-level preempt."""
     if not ctx.my_bids:
         return False
@@ -60,7 +60,7 @@ def _opened_3_level_self(ctx: BiddingContext) -> bool:
 
 
 @condition("I opened 4-level")
-def _opened_4_level_self(ctx: BiddingContext) -> bool:
+def _i_opened_4_level(ctx: BiddingContext) -> bool:
     """Whether I opened a 4-level preempt."""
     if not ctx.my_bids:
         return False
@@ -154,7 +154,7 @@ class RebidShowFeature(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            _opened_weak_two_self, _partner_bid_2nt, HcpRange(min_hcp=9), self._feature
+            _i_opened_weak_two, _partner_bid_2nt, HcpRange(min_hcp=9), self._feature
         )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -193,7 +193,7 @@ class Rebid3NTAfterFeatureAsk(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            _opened_weak_two_self, _partner_bid_2nt, HcpRange(min_hcp=9), _no_feature
+            _i_opened_weak_two, _partner_bid_2nt, HcpRange(min_hcp=9), _no_feature
         )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -227,7 +227,7 @@ class RebidOwnSuitAfterFeatureAsk(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_opened_weak_two_self, _partner_bid_2nt, HcpRange(max_hcp=8))
+        return All(_i_opened_weak_two, _partner_bid_2nt, HcpRange(max_hcp=8))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _my_opened_suit(ctx)
@@ -265,7 +265,7 @@ class RebidRaiseNewSuitWeakTwo(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            _opened_weak_two_self,
+            _i_opened_weak_two,
             _partner_bid_new_suit,
             HasSuitFit(_partner_response_suit, min_len=3),
         )
@@ -305,7 +305,7 @@ class RebidOwnSuitAfterNewSuitWeakTwo(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_opened_weak_two_self, _partner_bid_new_suit)
+        return All(_i_opened_weak_two, _partner_bid_new_suit)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _my_opened_suit(ctx)
@@ -343,7 +343,7 @@ class RebidPassAfterWeakTwo(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return _opened_weak_two_self
+        return _i_opened_weak_two
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -382,7 +382,7 @@ class RebidRaiseAfterNewSuit3Level(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            _opened_3_level_self,
+            _i_opened_3_level,
             _partner_bid_new_suit,
             HasSuitFit(_partner_response_suit, min_len=3),
         )
@@ -422,7 +422,7 @@ class RebidOwnSuitAfterNewSuit3Level(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_opened_3_level_self, _partner_bid_new_suit)
+        return All(_i_opened_3_level, _partner_bid_new_suit)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _my_opened_suit(ctx)
@@ -457,7 +457,7 @@ class RebidPassAfter3Level(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return _opened_3_level_self
+        return _i_opened_3_level
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -493,7 +493,7 @@ class RebidPassAfter4Level(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return _opened_4_level_self
+        return _i_opened_4_level
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(

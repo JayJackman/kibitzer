@@ -29,7 +29,7 @@ from bridge.model.card import SUITS_SHDC, Rank, Suit
 
 
 @condition("I opened 1NT")
-def _opened_1nt_self(ctx: BiddingContext) -> bool:
+def _i_opened_1nt(ctx: BiddingContext) -> bool:
     """Whether I opened 1NT."""
     if not ctx.my_bids:
         return False
@@ -139,7 +139,7 @@ def _ace_count(ctx: BiddingContext) -> int:
 
 
 @condition("I opened 2NT")
-def _opened_2nt_self(ctx: BiddingContext) -> bool:
+def _i_opened_2nt(ctx: BiddingContext) -> bool:
     """Whether I opened 2NT."""
     if not ctx.my_bids:
         return False
@@ -207,7 +207,7 @@ class RebidStayman2H(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            _opened_1nt_self, _partner_bid_stayman, SuitLength(Suit.HEARTS, min_len=4)
+            _i_opened_1nt, _partner_bid_stayman, SuitLength(Suit.HEARTS, min_len=4)
         )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -241,7 +241,7 @@ class RebidStayman2S(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            _opened_1nt_self,
+            _i_opened_1nt,
             _partner_bid_stayman,
             SuitLength(Suit.SPADES, min_len=4),
             SuitLength(Suit.HEARTS, max_len=3),
@@ -278,7 +278,7 @@ class RebidStayman2D(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            _opened_1nt_self,
+            _i_opened_1nt,
             _partner_bid_stayman,
             SuitLength(Suit.HEARTS, max_len=3),
             SuitLength(Suit.SPADES, max_len=3),
@@ -319,7 +319,7 @@ class RebidSuperAccept(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            _opened_1nt_self,
+            _i_opened_1nt,
             _partner_transferred,
             HcpRange(17, 17),
             HasSuitFit(_transfer_suit, min_len=4),
@@ -357,7 +357,7 @@ class RebidCompleteTransfer(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_opened_1nt_self, _partner_transferred)
+        return All(_i_opened_1nt, _partner_transferred)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _transfer_suit(ctx)
@@ -394,7 +394,7 @@ class RebidComplete2SPuppet(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_opened_1nt_self, _partner_bid_2s_puppet)
+        return All(_i_opened_1nt, _partner_bid_2s_puppet)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -430,7 +430,7 @@ class RebidGerberResponse(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_opened_1nt_self, _partner_bid_gerber)
+        return All(_i_opened_1nt, _partner_bid_gerber)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         aces = _ace_count(ctx)
@@ -476,7 +476,7 @@ class RebidCompleteTexas(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_opened_1nt_self, _partner_bid_texas)
+        return All(_i_opened_1nt, _partner_bid_texas)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _texas_suit(ctx)
@@ -513,7 +513,7 @@ class RebidRaise3MajorOver1NT(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            _opened_1nt_self,
+            _i_opened_1nt,
             _partner_bid_3_major,
             HcpRange(min_hcp=16),
             HasSuitFit(_partner_bid_suit, min_len=3),
@@ -552,7 +552,7 @@ class RebidDecline3MajorOver1NT(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_opened_1nt_self, _partner_bid_3_major)
+        return All(_i_opened_1nt, _partner_bid_3_major)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -587,7 +587,7 @@ class RebidAccept2NTOver1NT(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_opened_1nt_self, _partner_bid_2nt, HcpRange(min_hcp=16))
+        return All(_i_opened_1nt, _partner_bid_2nt, HcpRange(min_hcp=16))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -619,7 +619,7 @@ class RebidDecline2NTOver1NT(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_opened_1nt_self, _partner_bid_2nt)
+        return All(_i_opened_1nt, _partner_bid_2nt)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -654,7 +654,7 @@ class RebidAccept3MinorOver1NT(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_opened_1nt_self, _partner_bid_3_minor, HcpRange(min_hcp=16))
+        return All(_i_opened_1nt, _partner_bid_3_minor, HcpRange(min_hcp=16))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -686,7 +686,7 @@ class RebidDecline3MinorOver1NT(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_opened_1nt_self, _partner_bid_3_minor)
+        return All(_i_opened_1nt, _partner_bid_3_minor)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -721,7 +721,7 @@ class RebidPassAfter3NTOver1NT(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_opened_1nt_self, _partner_bid_3nt)
+        return All(_i_opened_1nt, _partner_bid_3nt)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -756,7 +756,7 @@ class RebidAccept4NTOver1NT(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_opened_1nt_self, _partner_bid_4nt, HcpRange(min_hcp=16))
+        return All(_i_opened_1nt, _partner_bid_4nt, HcpRange(min_hcp=16))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -788,7 +788,7 @@ class RebidDecline4NTOver1NT(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_opened_1nt_self, _partner_bid_4nt)
+        return All(_i_opened_1nt, _partner_bid_4nt)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -829,7 +829,7 @@ class Rebid2NTStayman3H(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            _opened_2nt_self,
+            _i_opened_2nt,
             _partner_bid_stayman_2nt,
             SuitLength(Suit.HEARTS, min_len=4),
         )
@@ -865,7 +865,7 @@ class Rebid2NTStayman3S(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            _opened_2nt_self,
+            _i_opened_2nt,
             _partner_bid_stayman_2nt,
             SuitLength(Suit.SPADES, min_len=4),
             SuitLength(Suit.HEARTS, max_len=3),
@@ -902,7 +902,7 @@ class Rebid2NTStayman3D(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            _opened_2nt_self,
+            _i_opened_2nt,
             _partner_bid_stayman_2nt,
             SuitLength(Suit.HEARTS, max_len=3),
             SuitLength(Suit.SPADES, max_len=3),
@@ -942,7 +942,7 @@ class Rebid2NTCompleteTransfer(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_opened_2nt_self, _partner_transferred_2nt)
+        return All(_i_opened_2nt, _partner_transferred_2nt)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _transfer_suit_2nt(ctx)
@@ -978,7 +978,7 @@ class Rebid2NTComplete3SPuppet(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_opened_2nt_self, _partner_bid_3s_puppet)
+        return All(_i_opened_2nt, _partner_bid_3s_puppet)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -1014,7 +1014,7 @@ class Rebid2NTGerberResponse(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_opened_2nt_self, _partner_bid_gerber)
+        return All(_i_opened_2nt, _partner_bid_gerber)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         aces = _ace_count(ctx)
@@ -1059,7 +1059,7 @@ class Rebid2NTCompleteTexas(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_opened_2nt_self, _partner_bid_texas)
+        return All(_i_opened_2nt, _partner_bid_texas)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _texas_suit(ctx)
@@ -1095,7 +1095,7 @@ class Rebid2NTPassAfter3NT(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_opened_2nt_self, _partner_bid_3nt)
+        return All(_i_opened_2nt, _partner_bid_3nt)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -1130,7 +1130,7 @@ class Rebid2NTAccept4NT(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_opened_2nt_self, _partner_bid_4nt, HcpRange(min_hcp=21))
+        return All(_i_opened_2nt, _partner_bid_4nt, HcpRange(min_hcp=21))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -1162,7 +1162,7 @@ class Rebid2NTDecline4NT(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_opened_2nt_self, _partner_bid_4nt)
+        return All(_i_opened_2nt, _partner_bid_4nt)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(

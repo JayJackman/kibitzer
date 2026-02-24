@@ -62,6 +62,13 @@ def _partner_response(ctx: BiddingContext) -> SuitBid:
     return resp
 
 
+@condition("I opened 1 of a suit")
+def _i_opened_1_suit(ctx: BiddingContext) -> bool:
+    """Guard: opener's first bid was 1 of a suit (not NT)."""
+    bid = _my_opening_bid(ctx)
+    return bid.level == 1 and bid.suit != Suit.NOTRUMP
+
+
 # ── Response classifiers ────────────────────────────────────────────
 
 
@@ -439,6 +446,7 @@ class RebidGameAfterRaiseMajor(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
+            _i_opened_1_suit,
             _partner_single_raised,
             _opening_suit_is_major,
             BergenPtsRange(_my_opening_suit, min_pts=19),
@@ -478,6 +486,7 @@ class RebidInviteAfterRaiseMajor(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
+            _i_opened_1_suit,
             _partner_single_raised,
             _opening_suit_is_major,
             BergenPtsRange(_my_opening_suit, min_pts=16, max_pts=18),
@@ -514,7 +523,11 @@ class RebidPassAfterRaise(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_partner_single_raised, BergenPtsRange(_my_opening_suit, max_pts=15))
+        return All(
+            _i_opened_1_suit,
+            _partner_single_raised,
+            BergenPtsRange(_my_opening_suit, max_pts=15),
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -550,6 +563,7 @@ class RebidAcceptLimitRaiseMajor(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
+            _i_opened_1_suit,
             _partner_limit_raised,
             _opening_suit_is_major,
             BergenPtsRange(_my_opening_suit, min_pts=15),
@@ -586,7 +600,11 @@ class RebidDeclineLimitRaise(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_partner_limit_raised, BergenPtsRange(_my_opening_suit, max_pts=14))
+        return All(
+            _i_opened_1_suit,
+            _partner_limit_raised,
+            BergenPtsRange(_my_opening_suit, max_pts=14),
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -623,6 +641,7 @@ class Rebid3NTAfterRaiseMinor(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
+            _i_opened_1_suit,
             _opening_suit_is_minor,
             Balanced(),
             Any(
@@ -662,7 +681,11 @@ class Rebid2NTAfterRaiseMinor(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            _partner_single_raised, _opening_suit_is_minor, Balanced(), HcpRange(12, 14)
+            _i_opened_1_suit,
+            _partner_single_raised,
+            _opening_suit_is_minor,
+            Balanced(),
+            HcpRange(12, 14),
         )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -697,6 +720,7 @@ class RebidNewSuitAfterRaiseMinor(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
+            _i_opened_1_suit,
             _partner_single_raised,
             _opening_suit_is_minor,
             BergenPtsRange(_my_opening_suit, min_pts=15),
@@ -738,6 +762,7 @@ class RebidGameAfterSingleRaiseMinor(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
+            _i_opened_1_suit,
             _partner_single_raised,
             _opening_suit_is_minor,
             Not(Balanced(), label="balanced/semi-balanced"),
@@ -778,6 +803,7 @@ class RebidInviteAfterRaiseMinor(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
+            _i_opened_1_suit,
             _partner_single_raised,
             _opening_suit_is_minor,
             Not(Balanced(), label="balanced/semi-balanced"),
@@ -814,6 +840,7 @@ class Rebid5mAfterLimitRaiseMinor(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
+            _i_opened_1_suit,
             _partner_limit_raised,
             _opening_suit_is_minor,
             Not(Balanced(), label="balanced/semi-balanced"),
@@ -859,6 +886,7 @@ class RebidAcceptLimitRaiseMinor3NT(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
+            _i_opened_1_suit,
             _partner_limit_raised,
             _opening_suit_is_minor,
             Not(Balanced(), label="balanced/semi-balanced"),
@@ -898,7 +926,7 @@ class Rebid3NTOver1NT(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_partner_bid_1nt, Balanced(), HcpRange(19, 21))
+        return All(_i_opened_1_suit, _partner_bid_1nt, Balanced(), HcpRange(19, 21))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -934,6 +962,7 @@ class RebidJumpShiftOver1NT(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
+            _i_opened_1_suit,
             _partner_bid_1nt,
             TotalPtsRange(19, 21),
             Not(Balanced(), label="balanced/semi-balanced"),
@@ -974,7 +1003,7 @@ class Rebid2NTOver1NT(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_partner_bid_1nt, Balanced(), HcpRange(18, 19))
+        return All(_i_opened_1_suit, _partner_bid_1nt, Balanced(), HcpRange(18, 19))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -1006,7 +1035,12 @@ class RebidJumpRebidOver1NT(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_partner_bid_1nt, _has_rebiddable_suit, TotalPtsRange(17, 18))
+        return All(
+            _i_opened_1_suit,
+            _partner_bid_1nt,
+            _has_rebiddable_suit,
+            TotalPtsRange(17, 18),
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _my_opening_suit(ctx)
@@ -1044,6 +1078,7 @@ class RebidGameOver1NT(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
+            _i_opened_1_suit,
             _partner_bid_1nt,
             _opening_suit_is_major,
             _has_rebiddable_suit,
@@ -1086,7 +1121,12 @@ class RebidNewLowerSuitOver1NT(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_partner_bid_1nt, TotalPtsRange(max_pts=18), self._lower_suit)
+        return All(
+            _i_opened_1_suit,
+            _partner_bid_1nt,
+            TotalPtsRange(max_pts=18),
+            self._lower_suit,
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._lower_suit.value
@@ -1121,7 +1161,12 @@ class RebidSuitOver1NT(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_partner_bid_1nt, _has_rebiddable_suit, TotalPtsRange(max_pts=16))
+        return All(
+            _i_opened_1_suit,
+            _partner_bid_1nt,
+            _has_rebiddable_suit,
+            TotalPtsRange(max_pts=16),
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _my_opening_suit(ctx)
@@ -1156,7 +1201,7 @@ class RebidPassOver1NT(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return _partner_bid_1nt
+        return All(_i_opened_1_suit, _partner_bid_1nt)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -1191,7 +1236,12 @@ class RebidJumpTo2NT(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_partner_bid_new_suit_1_level, Balanced(), HcpRange(18, 19))
+        return All(
+            _i_opened_1_suit,
+            _partner_bid_new_suit_1_level,
+            Balanced(),
+            HcpRange(18, 19),
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -1227,6 +1277,7 @@ class RebidJumpShiftNewSuit(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
+            _i_opened_1_suit,
             _partner_bid_new_suit_1_level,
             TotalPtsRange(19, 21),
             Not(Balanced(), label="balanced/semi-balanced"),
@@ -1268,6 +1319,7 @@ class RebidJumpRaiseResponder(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
+            _i_opened_1_suit,
             _partner_bid_new_suit_1_level,
             HasSuitFit(_responder_suit, min_len=4),
             TotalPtsRange(17, 18),
@@ -1311,7 +1363,10 @@ class RebidReverse(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            _partner_bid_new_suit_1_level, TotalPtsRange(min_pts=17), self._reverse_suit
+            _i_opened_1_suit,
+            _partner_bid_new_suit_1_level,
+            TotalPtsRange(min_pts=17),
+            self._reverse_suit,
         )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -1347,7 +1402,10 @@ class RebidJumpRebidOwnSuit(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            _partner_bid_new_suit_1_level, _has_rebiddable_suit, TotalPtsRange(17, 18)
+            _i_opened_1_suit,
+            _partner_bid_new_suit_1_level,
+            _has_rebiddable_suit,
+            TotalPtsRange(17, 18),
         )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -1382,6 +1440,7 @@ class RebidRaiseResponder(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
+            _i_opened_1_suit,
             _partner_bid_new_suit_1_level,
             HasSuitFit(_responder_suit, min_len=4),
             TotalPtsRange(12, 16),
@@ -1427,7 +1486,10 @@ class RebidNewSuitNonreverse(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            _partner_bid_new_suit_1_level, TotalPtsRange(max_pts=18), self._nonrev_suit
+            _i_opened_1_suit,
+            _partner_bid_new_suit_1_level,
+            TotalPtsRange(max_pts=18),
+            self._nonrev_suit,
         )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -1465,6 +1527,7 @@ class RebidOwnSuit(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
+            _i_opened_1_suit,
             Any(_partner_bid_new_suit_1_level, _partner_bid_2_over_1),
             _has_rebiddable_suit,
             TotalPtsRange(max_pts=16),
@@ -1504,7 +1567,10 @@ class Rebid1NT(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            _partner_bid_new_suit_1_level, Balanced(strict=True), HcpRange(12, 14)
+            _i_opened_1_suit,
+            _partner_bid_new_suit_1_level,
+            Balanced(strict=True),
+            HcpRange(12, 14),
         )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -1540,7 +1606,11 @@ class RebidRaise2Over1Responder(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_partner_bid_2_over_1, HasSuitFit(_responder_suit, min_len=4))
+        return All(
+            _i_opened_1_suit,
+            _partner_bid_2_over_1,
+            HasSuitFit(_responder_suit, min_len=4),
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         resp_suit = _partner_response(ctx).suit
@@ -1578,7 +1648,7 @@ class RebidNewSuitAfter2Over1(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_partner_bid_2_over_1, self._new_suit)
+        return All(_i_opened_1_suit, _partner_bid_2_over_1, self._new_suit)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._new_suit.value
@@ -1614,7 +1684,7 @@ class RebidSuitAfter2Over1(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_partner_bid_2_over_1, _has_rebiddable_suit)
+        return All(_i_opened_1_suit, _partner_bid_2_over_1, _has_rebiddable_suit)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _my_opening_suit(ctx)
@@ -1649,7 +1719,12 @@ class Rebid2NTAfter2Over1(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_partner_bid_2_over_1, Balanced(), HcpRange(12, 14))
+        return All(
+            _i_opened_1_suit,
+            _partner_bid_2_over_1,
+            Balanced(),
+            HcpRange(12, 14),
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -1681,7 +1756,12 @@ class Rebid3NTAfter2Over1(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_partner_bid_2_over_1, Balanced(), HcpRange(18, 19))
+        return All(
+            _i_opened_1_suit,
+            _partner_bid_2_over_1,
+            Balanced(),
+            HcpRange(18, 19),
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -1717,7 +1797,7 @@ class RebidPassAfter3NT(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return _partner_bid_3nt
+        return All(_i_opened_1_suit, _partner_bid_3nt)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -1749,7 +1829,7 @@ class RebidPassAfterGameRaise(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return _partner_bid_game_raise
+        return All(_i_opened_1_suit, _partner_bid_game_raise)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -1790,7 +1870,7 @@ class RebidJacoby3LevelShortness(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_partner_bid_jacoby_2nt, self._shortness)
+        return All(_i_opened_1_suit, _partner_bid_jacoby_2nt, self._shortness)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._shortness.value
@@ -1829,7 +1909,7 @@ class RebidJacoby4LevelSource(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_partner_bid_jacoby_2nt, self._side_suit)
+        return All(_i_opened_1_suit, _partner_bid_jacoby_2nt, self._side_suit)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._side_suit.value
@@ -1864,6 +1944,7 @@ class RebidJacoby3Major(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
+            _i_opened_1_suit,
             _partner_bid_jacoby_2nt,
             Not(_has_shortness),
             Not(_has_side_suit),
@@ -1906,6 +1987,7 @@ class RebidJacoby3NT(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
+            _i_opened_1_suit,
             _partner_bid_jacoby_2nt,
             Not(_has_shortness),
             Not(_has_side_suit),
@@ -1944,6 +2026,7 @@ class RebidJacoby4Major(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
+            _i_opened_1_suit,
             _partner_bid_jacoby_2nt,
             Not(_has_shortness),
             Not(_has_side_suit),
@@ -1989,7 +2072,7 @@ class RebidShowMajorAfter2NTMinor(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_partner_bid_2nt_over_minor, _has_4_card_major)
+        return All(_i_opened_1_suit, _partner_bid_2nt_over_minor, _has_4_card_major)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         # With both 4-card majors, bid hearts first
@@ -2022,7 +2105,12 @@ class RebidMinorAfter2NTMinor(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_partner_bid_2nt_over_minor, _no_4_card_major, _has_rebiddable_suit)
+        return All(
+            _i_opened_1_suit,
+            _partner_bid_2nt_over_minor,
+            _no_4_card_major,
+            _has_rebiddable_suit,
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _my_opening_suit(ctx)
@@ -2057,7 +2145,7 @@ class RebidNTAfter2NTMinor(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return _partner_bid_2nt_over_minor
+        return All(_i_opened_1_suit, _partner_bid_2nt_over_minor)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -2090,7 +2178,11 @@ class RebidRaiseAfterJumpShift(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_partner_jump_shifted, HasSuitFit(_responder_suit, min_len=4))
+        return All(
+            _i_opened_1_suit,
+            _partner_jump_shifted,
+            HasSuitFit(_responder_suit, min_len=4),
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         resp = _partner_response(ctx)
@@ -2125,7 +2217,7 @@ class RebidOwnSuitAfterJumpShift(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_partner_jump_shifted, _has_rebiddable_suit)
+        return All(_i_opened_1_suit, _partner_jump_shifted, _has_rebiddable_suit)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _my_opening_suit(ctx)
@@ -2162,7 +2254,7 @@ class RebidNewSuitAfterJumpShift(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_partner_jump_shifted, self._new_suit)
+        return All(_i_opened_1_suit, _partner_jump_shifted, self._new_suit)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._new_suit.value
@@ -2196,7 +2288,7 @@ class RebidNTAfterJumpShift(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return _partner_jump_shifted
+        return All(_i_opened_1_suit, _partner_jump_shifted)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         resp = _partner_response(ctx)
@@ -2241,6 +2333,7 @@ class RebidHelpSuitGameTry(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
+            _i_opened_1_suit,
             _partner_single_raised,
             _opening_suit_is_major,
             BergenPtsRange(_my_opening_suit, min_pts=16, max_pts=18),
@@ -2289,6 +2382,7 @@ class RebidDoubleJumpRaiseResponder(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
+            _i_opened_1_suit,
             _partner_bid_new_suit_1_level,
             HasSuitFit(_responder_suit, min_len=4),
             TotalPtsRange(19, 21),
@@ -2329,7 +2423,10 @@ class RebidDoubleJumpRebidOwnSuit(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            _partner_bid_new_suit_1_level, _has_rebiddable_suit, TotalPtsRange(19, 21)
+            _i_opened_1_suit,
+            _partner_bid_new_suit_1_level,
+            _has_rebiddable_suit,
+            TotalPtsRange(19, 21),
         )
 
     def select(self, ctx: BiddingContext) -> RuleResult:

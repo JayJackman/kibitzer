@@ -51,19 +51,19 @@ def _opener_suit(ctx: BiddingContext) -> Suit:
 
 
 @condition("partner opened 1 of a suit")
-def opened_1_suit(ctx: BiddingContext) -> bool:
+def _partner_opened_1_suit(ctx: BiddingContext) -> bool:
     bid = _opening_bid(ctx)
     return is_suit_bid(bid) and bid.level == 1 and bid.suit != Suit.NOTRUMP
 
 
 @condition("partner opened 1 of a major")
-def opened_1_major(ctx: BiddingContext) -> bool:
+def _partner_opened_1_major(ctx: BiddingContext) -> bool:
     bid = _opening_bid(ctx)
     return is_suit_bid(bid) and bid.level == 1 and bid.suit.is_major
 
 
 @condition("partner opened 1 of a minor")
-def opened_1_minor(ctx: BiddingContext) -> bool:
+def _partner_opened_1_minor(ctx: BiddingContext) -> bool:
     bid = _opening_bid(ctx)
     return is_suit_bid(bid) and bid.level == 1 and bid.suit.is_minor
 
@@ -174,7 +174,7 @@ class RespondJumpShift(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(opened_1_suit, HcpRange(min_hcp=19), self._suit)
+        return All(_partner_opened_1_suit, HcpRange(min_hcp=19), self._suit)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._suit.value
@@ -217,7 +217,7 @@ class RespondNewSuit1Level(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(opened_1_suit, HcpRange(min_hcp=6), self._suit)
+        return All(_partner_opened_1_suit, HcpRange(min_hcp=6), self._suit)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._suit.value
@@ -255,7 +255,7 @@ class Respond2Over1(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(opened_1_suit, HcpRange(min_hcp=10, max_hcp=18), self._suit)
+        return All(_partner_opened_1_suit, HcpRange(min_hcp=10, max_hcp=18), self._suit)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._suit.value
@@ -289,7 +289,7 @@ class RespondPass(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(opened_1_suit, HcpRange(max_hcp=5))
+        return All(_partner_opened_1_suit, HcpRange(max_hcp=5))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -323,7 +323,7 @@ class RespondJacoby2NT(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            opened_1_major,
+            _partner_opened_1_major,
             HasSuitFit(_opener_suit, min_len=4),
             SupportPtsRange(_opener_suit, min_pts=13),
         )
@@ -361,7 +361,7 @@ class RespondGameRaiseMajor(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            opened_1_major,
+            _partner_opened_1_major,
             HasSuitFit(_opener_suit, min_len=5),
             HcpRange(max_hcp=9),
             _has_side_shortness,
@@ -398,7 +398,7 @@ class Respond3NTOverMajor(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            opened_1_major,
+            _partner_opened_1_major,
             HasSuitFit(_opener_suit, min_len=2, max_len=2),
             HcpRange(15, 17),
             Balanced(strict=True),
@@ -433,7 +433,7 @@ class RespondLimitRaiseMajor(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            opened_1_major,
+            _partner_opened_1_major,
             HasSuitFit(_opener_suit, min_len=3),
             SupportPtsRange(_opener_suit, min_pts=10, max_pts=12),
         )
@@ -469,7 +469,7 @@ class RespondSingleRaiseMajor(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            opened_1_major,
+            _partner_opened_1_major,
             HasSuitFit(_opener_suit, min_len=3),
             SupportPtsRange(_opener_suit, min_pts=6, max_pts=10),
         )
@@ -504,7 +504,7 @@ class Respond1NTOverMajor(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            opened_1_major,
+            _partner_opened_1_major,
             HcpRange(6, 10),
             HasSuitFit(_opener_suit, min_len=0, max_len=2),
         )
@@ -541,7 +541,7 @@ class Respond3NTOverMinor(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            opened_1_minor,
+            _partner_opened_1_minor,
             HcpRange(16, 18),
             Balanced(strict=True),
             Not(has_4_card_major),
@@ -576,7 +576,7 @@ class Respond2NTOverMinor(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            opened_1_minor,
+            _partner_opened_1_minor,
             HcpRange(13, 15),
             Balanced(strict=True),
             Not(has_4_card_major),
@@ -616,7 +616,7 @@ class RespondLimitRaiseMinor(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            opened_1_minor,
+            _partner_opened_1_minor,
             HcpRange(10, 12),
             adequate_minor_support,
             Not(has_4_card_major),
@@ -654,7 +654,7 @@ class RespondSingleRaiseMinor(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            opened_1_minor,
+            _partner_opened_1_minor,
             HcpRange(6, 10),
             adequate_minor_support,
             Not(has_4_card_major),
@@ -692,7 +692,7 @@ class Respond1NTOverMinor(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            opened_1_minor,
+            _partner_opened_1_minor,
             HcpRange(6, 10),
             Not(has_4_card_major),
         )

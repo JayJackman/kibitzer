@@ -26,7 +26,7 @@ from bridge.model.card import SUITS_SHDC, Suit
 
 
 @condition("I opened 2C")
-def _opened_2c_self(ctx: BiddingContext) -> bool:
+def _i_opened_2c(ctx: BiddingContext) -> bool:
     """Whether I opened 2C."""
     if not ctx.my_bids:
         return False
@@ -135,7 +135,7 @@ class Rebid2NTAfter2C(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            _opened_2c_self,
+            _i_opened_2c,
             _partner_bid_2d_waiting,
             Balanced(strict=True),
             HcpRange(22, 24),
@@ -173,7 +173,7 @@ class Rebid3NTAfter2C(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            _opened_2c_self,
+            _i_opened_2c,
             _partner_bid_2d_waiting,
             Balanced(strict=True),
             HcpRange(min_hcp=25),
@@ -211,7 +211,7 @@ class RebidSuitAfter2C(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_opened_2c_self, _partner_bid_2d_waiting, _has_5_plus_suit)
+        return All(_i_opened_2c, _partner_bid_2d_waiting, _has_5_plus_suit)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _longest_suit(ctx)
@@ -251,7 +251,7 @@ class Rebid2NTAfter2COffshape(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            _opened_2c_self,
+            _i_opened_2c,
             _partner_bid_2d_waiting,
             Not(Balanced(strict=True), label="balanced"),
             Not(_has_5_plus_suit),
@@ -295,7 +295,7 @@ class RebidRaiseAfterPositive2C(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            _opened_2c_self,
+            _i_opened_2c,
             _partner_positive_suit,
             HasSuitFit(_partner_response_suit, min_len=4),
         )
@@ -336,7 +336,7 @@ class RebidSuitAfterPositive2C(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            _opened_2c_self,
+            _i_opened_2c,
             _partner_positive_response,
             Any(
                 All(_partner_positive_suit, _has_5_plus_unbid_suit),
@@ -384,7 +384,7 @@ class RebidNTAfterPositive2C(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_opened_2c_self, _partner_positive_response)
+        return All(_i_opened_2c, _partner_positive_response)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(

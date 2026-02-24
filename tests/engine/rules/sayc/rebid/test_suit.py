@@ -53,6 +53,8 @@ from bridge.engine.rules.sayc.rebid.suit import (
     RebidSuitAfter2Over1,
     RebidSuitOver1NT,
 )
+from bridge.engine.sayc import create_sayc_registry
+from bridge.engine.selector import BidSelector
 from bridge.model.auction import AuctionState, Seat
 from bridge.model.bid import PASS, is_pass, parse_bid
 from bridge.model.board import Board
@@ -1111,3 +1113,17 @@ class TestDoubleJumpRebidOwnSuit:
         # K4.AKJ852.Q7.Q73 — 15 HCP, total=17
         ctx = _ctx("K4.AKJ852.Q7.Q73", "1H", "1S")
         assert not self.rule.applies(ctx)
+
+
+# ── Regression: suit rules must not crash after NT openings ──────
+
+
+class TestSuitRulesSkipAfterNTOpening:
+    """Regression: rebid/suit.py rules must not crash after NT openings."""
+
+    def test_no_crash_after_1nt_stayman(self) -> None:
+        """1NT->2C should not crash when evaluating suit rebid rules."""
+        ctx = _ctx("AK32.KQ3.J84.A73", "1NT", "2C")
+        selector = BidSelector(create_sayc_registry())
+        # think() evaluates ALL rules — would crash without _i_opened_1_suit guard
+        selector.think(ctx)

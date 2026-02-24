@@ -39,7 +39,7 @@ def _opening_suit(ctx: BiddingContext) -> Suit:
 
 
 @condition("partner opened a weak two")
-def opened_weak_two(ctx: BiddingContext) -> bool:
+def _partner_opened_weak_2(ctx: BiddingContext) -> bool:
     if ctx.opening_bid is None:
         return False
     _, bid = ctx.opening_bid
@@ -51,7 +51,7 @@ def opened_weak_two(ctx: BiddingContext) -> bool:
 
 
 @condition("partner opened at the 3-level")
-def opened_3_level(ctx: BiddingContext) -> bool:
+def _partner_opened_3_level(ctx: BiddingContext) -> bool:
     if ctx.opening_bid is None:
         return False
     _, bid = ctx.opening_bid
@@ -59,7 +59,7 @@ def opened_3_level(ctx: BiddingContext) -> bool:
 
 
 @condition("partner opened at the 4-level")
-def opened_4_level(ctx: BiddingContext) -> bool:
+def _partner_opened_4_level(ctx: BiddingContext) -> bool:
     if ctx.opening_bid is None:
         return False
     _, bid = ctx.opening_bid
@@ -150,7 +150,7 @@ class RespondGameRaiseWeakTwo(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            opened_weak_two,
+            _partner_opened_weak_2,
             Any(
                 # Preemptive: 5+ support in a major
                 All(_opener_is_major, HasSuitFit(_opening_suit, min_len=5)),
@@ -203,7 +203,7 @@ class Respond3NTOverWeakTwo(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(opened_weak_two, HcpRange(min_hcp=15), _stoppers_in_unbid)
+        return All(_partner_opened_weak_2, HcpRange(min_hcp=15), _stoppers_in_unbid)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -239,7 +239,7 @@ class RespondNewSuitOverWeakTwo(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(opened_weak_two, HcpRange(min_hcp=14), self._suit)
+        return All(_partner_opened_weak_2, HcpRange(min_hcp=14), self._suit)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._suit.value
@@ -279,7 +279,7 @@ class Respond2NTFeatureAsk(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(opened_weak_two, HcpRange(min_hcp=14))
+        return All(_partner_opened_weak_2, HcpRange(min_hcp=14))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -312,7 +312,7 @@ class RespondRaiseWeakTwo(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(opened_weak_two, HasSuitFit(_opening_suit, min_len=3))
+        return All(_partner_opened_weak_2, HasSuitFit(_opening_suit, min_len=3))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _opening_suit(ctx)
@@ -344,7 +344,7 @@ class RespondPassOverWeakTwo(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return opened_weak_two
+        return _partner_opened_weak_2
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -383,7 +383,7 @@ class RespondGameRaise3Level(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            opened_3_level,
+            _partner_opened_3_level,
             HasSuitFit(_opening_suit, min_len=3),
             Any(
                 # Major: 14+ support pts
@@ -426,7 +426,7 @@ class Respond3NTOver3Level(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(opened_3_level, HcpRange(min_hcp=15), _stoppers_in_unbid)
+        return All(_partner_opened_3_level, HcpRange(min_hcp=15), _stoppers_in_unbid)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -464,7 +464,7 @@ class RespondNewSuitOver3Level(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(opened_3_level, HcpRange(min_hcp=14), self._suit)
+        return All(_partner_opened_3_level, HcpRange(min_hcp=14), self._suit)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._suit.value
@@ -501,7 +501,7 @@ class RespondRaise3Level(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(opened_3_level, HasSuitFit(_opening_suit, min_len=3))
+        return All(_partner_opened_3_level, HasSuitFit(_opening_suit, min_len=3))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _opening_suit(ctx)
@@ -533,7 +533,7 @@ class RespondPassOver3Level(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return opened_3_level
+        return _partner_opened_3_level
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -573,7 +573,7 @@ class RespondRaise4Level(Rule):
     @property
     def conditions(self) -> Condition:
         return All(
-            opened_4_level,
+            _partner_opened_4_level,
             _opener_is_minor,
             HasSuitFit(_opening_suit, min_len=4),
             SupportPtsRange(_opening_suit, min_pts=14),
@@ -609,7 +609,7 @@ class RespondPassOver4Level(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return opened_4_level
+        return _partner_opened_4_level
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
