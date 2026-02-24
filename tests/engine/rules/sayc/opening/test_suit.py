@@ -208,10 +208,10 @@ class TestOpenPass:
         assert is_pass(result.bid)
         assert result.rule_name == "opening.pass"
 
-    def test_applies_to_any_hand(self):
-        """Even a strong hand passes if no other rule matched first."""
+    def test_does_not_apply_to_opening_strength(self):
+        """A hand with opening strength should not match OpenPass."""
         ctx = _ctx("AKQJ.AKQ.AJ8.A84")
-        assert self.rule.applies(ctx)
+        assert not self.rule.applies(ctx)
 
 
 # ── Seat-dependent opening strength ─────────────────────────────────

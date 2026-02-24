@@ -82,9 +82,12 @@ class TestSAYCIntegration:
         """candidates() returns all matching rules, not just the winner."""
         reg = create_sayc_registry()
         selector = BidSelector(reg)
-        # 13 HCP, 5 spades — matches Open1Major *and* OpenPass
+        # 8 HCP, 5 spades — matches Open1Major (Rule of 20: 8+5+3=16, no)
+        # Actually 8 HCP flat won't open. Use a weak hand that matches
+        # OpenPass plus a preempt rule for multiple candidates.
+        # 9 HCP, 6 hearts — matches OpenWeakTwo *and* OpenPass
         board = Board(
-            hand=Hand.from_pbn("AKJ52.Q73.84.A73"),
+            hand=Hand.from_pbn("73.KQT852.J84.A3"),
             seat=Seat.NORTH,
             auction=AuctionState(dealer=Seat.NORTH),
         )
@@ -92,7 +95,7 @@ class TestSAYCIntegration:
         results = selector.candidates(ctx)
         names = [r.rule_name for r in results]
         assert len(results) >= 2
-        assert "opening.1_major" in names
+        assert "opening.weak_two" in names
         assert "opening.pass" in names
 
 
