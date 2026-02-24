@@ -357,4 +357,4 @@ def format_bid_prompt(current_seat: Seat) -> str:
     Example: ``North's bid (a=advise, h=help, q=quit):``
     """
     name = _SEAT_NAMES[current_seat]
-    return f"{name}'s bid (a=advise, h=help, q=quit): "
+    return f"{name}'s bid (a=advise, r=redeal, h=help, q=quit): "

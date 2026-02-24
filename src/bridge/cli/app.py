@@ -179,26 +179,32 @@ def _practice_loop(
                 result = _player_turn(advisor, player_hand, auction, player_seat)
                 if result is None:
                     return
+                if result == _REDEAL:
+                    break
                 feedback = result
 
-        # Auction complete
-        console.clear()
-        console.print()
-        console.print(hand_panel)
-        console.print(eval_panel)
-        console.print(format_auction(auction.bids, auction.dealer, None))
-        if feedback is not None:
-            console.print(feedback)
-        for line in computer_bids:
-            console.print(line)
-        contract = auction.contract
-        if contract is not None:
-            console.print(f"  Final contract: {format_contract(contract)}")
-        console.print(format_all_hands(hands))
+        else:
+            # Auction complete (not redealt)
+            console.clear()
+            console.print()
+            console.print(hand_panel)
+            console.print(eval_panel)
+            console.print(format_auction(auction.bids, auction.dealer, None))
+            if feedback is not None:
+                console.print(feedback)
+            for line in computer_bids:
+                console.print(line)
+            contract = auction.contract
+            if contract is not None:
+                console.print(f"  Final contract: {format_contract(contract)}")
+            console.print(format_all_hands(hands))
 
-        again = console.input("\nPlay again? [Y/n] ").strip().lower()
-        if again in ("n", "no"):
-            return
+            again = console.input("\nPlay again? [Y/n] ").strip().lower()
+            if again in ("n", "no"):
+                return
+
+
+_REDEAL = "<<redeal>>"
 
 
 def _player_turn(
@@ -207,13 +213,15 @@ def _player_turn(
     auction: AuctionState,
     seat: Seat,
 ) -> str | None:
-    """Handle one player turn. Returns feedback string, or None to quit."""
+    """Handle one player turn. Returns feedback string, _REDEAL, or None to quit."""
     while True:
         raw = console.input(format_bid_prompt(seat)).strip()
         cmd = raw.lower()
 
         if cmd in ("q", "quit"):
             return None
+        if cmd in ("r", "redeal"):
+            return _REDEAL
         if cmd in ("h", "?", "help"):
             console.print("  Valid bids: 1C..7NT, P (Pass), X (Double), XX (Redouble)")
             continue
