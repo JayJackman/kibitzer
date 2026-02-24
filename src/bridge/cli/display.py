@@ -116,7 +116,7 @@ def format_auction(
         current_col = _AUCTION_SEATS.index(current_seat)
         row[current_col] = "[bold]?[/bold]"
 
-    # Flush remaining row if it has content
+    # Add the last partial row if it has content
     if any(cell != "" for cell in row):
         table.add_row(*row)
 
@@ -147,12 +147,11 @@ def format_thought_process(tp: ThoughtProcess) -> Panel:
     """Display the engine's reasoning trace."""
     text = Text()
 
-    # Find the winning step
-    winning_step = None
-    for step in tp.steps:
-        if step.rule_name == tp.selected.rule_name and step.passed:
-            winning_step = step
-            break
+    # Find the winning step (None when selected is fallback.pass)
+    winning_step = next(
+        (s for s in tp.steps if s.rule_name == tp.selected.rule_name and s.passed),
+        None,
+    )
 
     # Show the winning rule
     bid_str = format_bid(tp.selected.bid)
