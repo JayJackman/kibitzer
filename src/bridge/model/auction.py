@@ -105,6 +105,17 @@ class Contract:
     redoubled: bool = False
     passed_out: bool = False
 
+    def __str__(self) -> str:
+        if self.passed_out:
+            return "Passed out"
+        bid = f"{self.level}{self.suit.letter}"
+        declarer = self.declarer.name.capitalize()
+        if self.redoubled:
+            return f"{bid} by {declarer} redoubled"
+        if self.doubled:
+            return f"{bid} by {declarer} doubled"
+        return f"{bid} by {declarer}"
+
 
 class IllegalBidError(Exception):
     """Raised when an illegal bid is attempted."""

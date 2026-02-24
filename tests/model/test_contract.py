@@ -1,6 +1,6 @@
 """Tests for Contract derivation on AuctionState."""
 
-from bridge.model.auction import NS_VULNERABLE, AuctionState, Seat
+from bridge.model.auction import NS_VULNERABLE, AuctionState, Contract, Seat
 from bridge.model.bid import DOUBLE, PASS, REDOUBLE, SuitBid
 from bridge.model.card import Suit
 
@@ -153,3 +153,25 @@ class TestContractWithVulnerability:
             auction.add_bid(PASS)
         assert auction.contract is not None
         assert auction.vulnerability == NS_VULNERABLE
+
+
+class TestContractStr:
+    def test_simple_contract(self) -> None:
+        c = Contract(level=1, suit=Suit.HEARTS, declarer=Seat.NORTH)
+        assert str(c) == "1H by North"
+
+    def test_notrump_contract(self) -> None:
+        c = Contract(level=3, suit=Suit.NOTRUMP, declarer=Seat.SOUTH)
+        assert str(c) == "3NT by South"
+
+    def test_doubled(self) -> None:
+        c = Contract(level=4, suit=Suit.SPADES, declarer=Seat.EAST, doubled=True)
+        assert str(c) == "4S by East doubled"
+
+    def test_redoubled(self) -> None:
+        c = Contract(level=7, suit=Suit.CLUBS, declarer=Seat.WEST, redoubled=True)
+        assert str(c) == "7C by West redoubled"
+
+    def test_passed_out(self) -> None:
+        c = Contract(level=0, suit=Suit.CLUBS, declarer=Seat.NORTH, passed_out=True)
+        assert str(c) == "Passed out"
