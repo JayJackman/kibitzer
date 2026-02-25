@@ -11,6 +11,7 @@ from bridge.cli.display import (
     format_bid,
     format_bid_prompt,
     format_contract,
+    format_glossary,
     format_hand,
     format_hand_eval,
     format_thought_process,
@@ -224,6 +225,9 @@ def _player_turn(
             return _REDEAL
         if cmd in ("h", "?", "help"):
             console.print("  Valid bids: 1C..7NT, P (Pass), X (Double), XX (Redouble)")
+            continue
+        if cmd in ("g", "glossary"):
+            console.print(format_glossary())
             continue
         if cmd in ("a", "advise"):
             advice = advisor.advise(hand, auction)

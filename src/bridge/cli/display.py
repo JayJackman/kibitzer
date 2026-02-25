@@ -351,10 +351,63 @@ def format_contract(contract: Contract) -> str:
     return result
 
 
+def format_glossary() -> Panel:
+    """Display definitions of common hand evaluation metrics."""
+    entries = [
+        ("HCP", "A=4, K=3, Q=2, J=1. Primary measure of hand strength."),
+        ("Length Points", "+1 per card beyond the 4th in any suit."),
+        (
+            "Total Points",
+            "HCP + Length Points. Used for opening and responding.",
+        ),
+        (
+            "Distribution Points",
+            "Shortness when raising partner: void=5, singleton=3, doubleton=1.",
+        ),
+        (
+            "Support Points",
+            "HCP + Distribution Points. Used when raising partner's suit.",
+        ),
+        (
+            "Bergen Points",
+            "HCP + 2/singleton + 4/void + 1/trump-past-5 + 1/4+ side suit."
+            " Used after getting raised.",
+        ),
+        (
+            "Quick Tricks",
+            "Sure winners: AK=2, AQ=1.5, A or KQ=1, Kx=0.5.",
+        ),
+        (
+            "Losing Trick Count",
+            "Losers per suit (max 3). Subtract combined LTC from 24 "
+            "for trick estimate.",
+        ),
+        ("Controls", "A=2, K=1. Used for slam evaluation."),
+        (
+            "Balanced",
+            "4-3-3-3, 4-4-3-2, or 5-3-3-2. Qualifies for NT openings/rebids.",
+        ),
+        (
+            "Rule of 20",
+            "Open if HCP + two longest suit lengths >= 20 (1st/2nd/3rd seat).",
+        ),
+        (
+            "Rule of 15",
+            "Open in 4th seat if HCP + spade count >= 15.",
+        ),
+        ("Stopper", "Suit protection for NT: A, Kx, or Qxx+."),
+    ]
+    label_width = max(len(label) for label, _ in entries)
+    lines = []
+    for label, desc in entries:
+        lines.append(f"  {label:<{label_width}}  {desc}")
+    return Panel("\n".join(lines), title="Glossary")
+
+
 def format_bid_prompt(current_seat: Seat) -> str:
     """Return a prompt with available commands.
 
-    Example: ``North's bid (a=advise, h=help, q=quit):``
+    Example: ``North's bid (a=advise, g=glossary, h=help, q=quit):``
     """
     name = _SEAT_NAMES[current_seat]
-    return f"{name}'s bid (a=advise, r=redeal, h=help, q=quit): "
+    return f"{name}'s bid (a=advise, g=glossary, r=redeal, h=help, q=quit): "
