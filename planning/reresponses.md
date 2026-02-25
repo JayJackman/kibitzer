@@ -281,7 +281,7 @@ Opener showed 12-14 HCP, balanced. Combined range: 18-28. Responder classifies:
 |------|-----------|-----|---------|----------|-------|
 | `3NTAfter1NTRebid` | 13-15 HCP, balanced | 3NT | Game | 340 | Game in NT |
 | `4MAfter1NTRebid` | 13+ HCP, 6+ card major | 4M | Game | 345 | Game in own major |
-| `JumpOwnSuitAfter1NT` | 13+ HCP, 5+ card major (not 6) | 3y (jump) | GF | 335 | GF, 5+ suit, asks opener to choose 3NT or 4M |
+| `JumpOwnMajorAfter1NT` | 13+ HCP, 5+ card major (not 6) | 3M (jump) | GF | 335 | GF, 5+ major, asks opener to choose 3NT or 4M |
 | `NewSuitAfter1NTForcing` | 13+ HCP, 4+ card new suit | New suit | Forcing | 330 | Fourth suit forcing or natural new suit |
 | `2NTAfter1NTRebid` | 11-12 HCP | 2NT | Invit. | 250 | Invitational to 3NT |
 | `JumpRebidAfter1NT` | 11-12 HCP, 6+ card suit | 3y | Invit. | 245 | Invitational, 6+ cards |
