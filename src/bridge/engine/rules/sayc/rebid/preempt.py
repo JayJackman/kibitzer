@@ -56,7 +56,7 @@ def _i_opened_3_level(ctx: BiddingContext) -> bool:
     if not ctx.my_bids:
         return False
     bid = ctx.my_bids[0]
-    return is_suit_bid(bid) and bid.level == 3 and bid.suit != Suit.NOTRUMP
+    return is_suit_bid(bid) and bid.level == 3 and not bid.is_notrump
 
 
 @condition("I opened 4-level")
@@ -65,7 +65,7 @@ def _i_opened_4_level(ctx: BiddingContext) -> bool:
     if not ctx.my_bids:
         return False
     bid = ctx.my_bids[0]
-    return is_suit_bid(bid) and bid.level == 4 and bid.suit != Suit.NOTRUMP
+    return is_suit_bid(bid) and bid.level == 4 and not bid.is_notrump
 
 
 @condition("partner bid 2NT feature ask")
@@ -73,10 +73,7 @@ def _partner_bid_2nt(ctx: BiddingContext) -> bool:
     """Whether partner responded 2NT (feature ask after weak two)."""
     resp = ctx.partner_last_bid
     return (
-        resp is not None
-        and is_suit_bid(resp)
-        and resp.level == 2
-        and resp.suit == Suit.NOTRUMP
+        resp is not None and is_suit_bid(resp) and resp.level == 2 and resp.is_notrump
     )
 
 
@@ -86,7 +83,7 @@ def _partner_bid_new_suit(ctx: BiddingContext) -> bool:
     resp = ctx.partner_last_bid
     if resp is None or not is_suit_bid(resp):
         return False
-    if resp.suit == Suit.NOTRUMP:
+    if resp.is_notrump:
         return False
     return resp.suit != _my_opened_suit(ctx)
 

@@ -44,7 +44,7 @@ def _partner_opened_1nt(ctx: BiddingContext) -> bool:
     if ctx.opening_bid is None:
         return False
     _, bid = ctx.opening_bid
-    return is_suit_bid(bid) and bid.level == 1 and bid.suit == Suit.NOTRUMP
+    return is_suit_bid(bid) and bid.level == 1 and bid.is_notrump
 
 
 @condition("partner opened 2NT")
@@ -52,7 +52,7 @@ def _partner_opened_2nt(ctx: BiddingContext) -> bool:
     if ctx.opening_bid is None:
         return False
     _, bid = ctx.opening_bid
-    return is_suit_bid(bid) and bid.level == 2 and bid.suit == Suit.NOTRUMP
+    return is_suit_bid(bid) and bid.level == 2 and bid.is_notrump
 
 
 @condition("has 5+ card major")

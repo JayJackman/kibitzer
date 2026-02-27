@@ -20,6 +20,7 @@ All rules belong to Category.REBID_OPENER.
 
 from __future__ import annotations
 
+from bridge.engine.bidutil import cheapest_bid_in_suit, suit_hcp
 from bridge.engine.condition import (
     All,
     Any,
@@ -51,7 +52,7 @@ def _my_opening_bid(ctx: BiddingContext) -> SuitBid:
 def _my_opening_suit(ctx: BiddingContext) -> Suit:
     """Return the suit opener bid (never NOTRUMP for 1-suit openings)."""
     bid = _my_opening_bid(ctx)
-    assert bid.suit != Suit.NOTRUMP
+    assert not bid.is_notrump
     return bid.suit
 
 
@@ -66,7 +67,7 @@ def _partner_response(ctx: BiddingContext) -> SuitBid:
 def _i_opened_1_suit(ctx: BiddingContext) -> bool:
     """Guard: opener's first bid was 1 of a suit (not NT)."""
     bid = _my_opening_bid(ctx)
-    return bid.level == 1 and bid.suit != Suit.NOTRUMP
+    return bid.level == 1 and not bid.is_notrump
 
 
 # ── Response classifiers ────────────────────────────────────────────
@@ -92,13 +93,13 @@ def _partner_limit_raised(ctx: BiddingContext) -> bool:
 def _partner_bid_1nt(ctx: BiddingContext) -> bool:
     """Partner responded 1NT."""
     resp = _partner_response(ctx)
-    return resp.suit == Suit.NOTRUMP and resp.level == 1
+    return resp.is_notrump and resp.level == 1
 
 
 def _partner_bid_new_suit(ctx: BiddingContext) -> bool:
     """Partner bid a new suit (not a raise, not NT)."""
     resp = _partner_response(ctx)
-    return resp.suit != Suit.NOTRUMP and resp.suit != _my_opening_suit(ctx)
+    return not resp.is_notrump and resp.suit != _my_opening_suit(ctx)
 
 
 @condition("partner bid new suit at 1-level")
@@ -127,7 +128,7 @@ def _partner_bid_2_over_1(ctx: BiddingContext) -> bool:
 def _partner_bid_3nt(ctx: BiddingContext) -> bool:
     """Partner responded 3NT."""
     resp = _partner_response(ctx)
-    return resp.suit == Suit.NOTRUMP and resp.level == 3
+    return resp.is_notrump and resp.level == 3
 
 
 @condition("partner bid game raise")
@@ -143,7 +144,7 @@ def _partner_bid_jacoby_2nt(ctx: BiddingContext) -> bool:
     """Partner responded 2NT to our 1M opening (Jacoby 2NT)."""
     resp = _partner_response(ctx)
     opening = _my_opening_bid(ctx)
-    return resp.suit == Suit.NOTRUMP and resp.level == 2 and opening.suit.is_major
+    return resp.is_notrump and resp.level == 2 and opening.suit.is_major
 
 
 @condition("partner bid 2NT over minor")
@@ -151,7 +152,7 @@ def _partner_bid_2nt_over_minor(ctx: BiddingContext) -> bool:
     """Partner responded 2NT to our 1m opening."""
     resp = _partner_response(ctx)
     opening = _my_opening_bid(ctx)
-    return resp.suit == Suit.NOTRUMP and resp.level == 2 and opening.suit.is_minor
+    return resp.is_notrump and resp.level == 2 and opening.suit.is_minor
 
 
 @condition("partner jump-shifted")
@@ -167,12 +168,12 @@ def _partner_jump_shifted(ctx: BiddingContext) -> bool:
     """
     resp = _partner_response(ctx)
     opening = _my_opening_bid(ctx)
-    if resp.suit == Suit.NOTRUMP:
+    if resp.is_notrump:
         return False
     if resp.suit == opening.suit:
         return False  # raise, not a new suit
     # Compute cheapest legal level for responder's suit above the opening bid
-    cheapest = _cheapest_bid_in_suit(resp.suit, opening)
+    cheapest = cheapest_bid_in_suit(resp.suit, opening)
     return resp.level > cheapest.level
 
 
@@ -222,7 +223,7 @@ def _find_new_suit_for_rebid(ctx: BiddingContext) -> Suit | None:
         length = ctx.hand.suit_length(suit)
         if length < 4:
             continue
-        candidate = _cheapest_bid_in_suit(suit, resp)
+        candidate = cheapest_bid_in_suit(suit, resp)
         is_better = length > best_len or (
             length == best_len and best_bid is not None and candidate < best_bid
         )
@@ -289,15 +290,6 @@ def _find_reverse_suit(ctx: BiddingContext) -> Suit | None:
     return best
 
 
-def _cheapest_bid_in_suit(suit: Suit, above: SuitBid) -> SuitBid:
-    """Return the cheapest legal bid in the given suit above the given bid."""
-    for level in range(1, 8):
-        candidate = SuitBid(level, suit)
-        if candidate > above:
-            return candidate
-    raise ValueError(f"Cannot bid {suit} above {above}")
-
-
 def _find_shortness_suit(ctx: BiddingContext) -> Suit | None:
     """Find a side suit with 0 or 1 cards (singleton or void).
 
@@ -336,11 +328,6 @@ def _find_5_card_side_suit(ctx: BiddingContext) -> Suit | None:
     return best
 
 
-def _suit_hcp(ctx: BiddingContext, suit: Suit) -> int:
-    """Sum of HCP in a single suit."""
-    return sum(c.rank.hcp for c in ctx.hand.suit_cards(suit))
-
-
 def _find_help_suit(ctx: BiddingContext) -> Suit | None:
     """Find the weakest 3+ card side suit for a help suit game try.
 
@@ -360,10 +347,10 @@ def _find_help_suit(ctx: BiddingContext) -> Suit | None:
             continue
         if ctx.hand.suit_length(suit) < 3:
             continue
-        suit_pts = _suit_hcp(ctx, suit)
+        suit_pts = suit_hcp(ctx, suit)
         if suit_pts > 4:
             continue
-        candidate = _cheapest_bid_in_suit(suit, resp)
+        candidate = cheapest_bid_in_suit(suit, resp)
         if candidate >= SuitBid(3, trump):
             continue
         is_better = suit_pts < best_hcp or (
@@ -378,7 +365,7 @@ def _find_help_suit(ctx: BiddingContext) -> Suit | None:
 
 def _jump_bid_in_suit(suit: Suit, above: SuitBid) -> SuitBid:
     """Return a jump bid (one level above cheapest) in the given suit."""
-    cheapest = _cheapest_bid_in_suit(suit, above)
+    cheapest = cheapest_bid_in_suit(suit, above)
     return SuitBid(cheapest.level + 1, suit)
 
 
@@ -730,7 +717,7 @@ class RebidNewSuitAfterRaiseMinor(Rule):
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._new_suit.value
         resp = _partner_response(ctx)
-        bid = _cheapest_bid_in_suit(suit, resp)
+        bid = cheapest_bid_in_suit(suit, resp)
         return RuleResult(
             bid=bid,
             rule_name=self.name,
@@ -1495,7 +1482,7 @@ class RebidNewSuitNonreverse(Rule):
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._nonrev_suit.value
         resp = _partner_response(ctx)
-        bid = _cheapest_bid_in_suit(suit, resp)
+        bid = cheapest_bid_in_suit(suit, resp)
         return RuleResult(
             bid=bid,
             rule_name=self.name,
@@ -1536,7 +1523,7 @@ class RebidOwnSuit(Rule):
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _my_opening_suit(ctx)
         resp = _partner_response(ctx)
-        bid = _cheapest_bid_in_suit(suit, resp)
+        bid = cheapest_bid_in_suit(suit, resp)
         return RuleResult(
             bid=bid,
             rule_name=self.name,
@@ -1653,7 +1640,7 @@ class RebidNewSuitAfter2Over1(Rule):
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._new_suit.value
         resp = _partner_response(ctx)
-        bid = _cheapest_bid_in_suit(suit, resp)
+        bid = cheapest_bid_in_suit(suit, resp)
         return RuleResult(
             bid=bid,
             rule_name=self.name,
@@ -1689,7 +1676,7 @@ class RebidSuitAfter2Over1(Rule):
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _my_opening_suit(ctx)
         resp = _partner_response(ctx)
-        bid = _cheapest_bid_in_suit(suit, resp)
+        bid = cheapest_bid_in_suit(suit, resp)
         return RuleResult(
             bid=bid,
             rule_name=self.name,
@@ -2186,7 +2173,7 @@ class RebidRaiseAfterJumpShift(Rule):
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         resp = _partner_response(ctx)
-        bid = _cheapest_bid_in_suit(resp.suit, resp)
+        bid = cheapest_bid_in_suit(resp.suit, resp)
         return RuleResult(
             bid=bid,
             rule_name=self.name,
@@ -2222,7 +2209,7 @@ class RebidOwnSuitAfterJumpShift(Rule):
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _my_opening_suit(ctx)
         resp = _partner_response(ctx)
-        bid = _cheapest_bid_in_suit(suit, resp)
+        bid = cheapest_bid_in_suit(suit, resp)
         return RuleResult(
             bid=bid,
             rule_name=self.name,
@@ -2259,7 +2246,7 @@ class RebidNewSuitAfterJumpShift(Rule):
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._new_suit.value
         resp = _partner_response(ctx)
-        bid = _cheapest_bid_in_suit(suit, resp)
+        bid = cheapest_bid_in_suit(suit, resp)
         return RuleResult(
             bid=bid,
             rule_name=self.name,
@@ -2292,7 +2279,7 @@ class RebidNTAfterJumpShift(Rule):
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         resp = _partner_response(ctx)
-        bid = _cheapest_bid_in_suit(Suit.NOTRUMP, resp)
+        bid = cheapest_bid_in_suit(Suit.NOTRUMP, resp)
         return RuleResult(
             bid=bid,
             rule_name=self.name,
@@ -2343,7 +2330,7 @@ class RebidHelpSuitGameTry(Rule):
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._help_suit.value
         resp = _partner_response(ctx)
-        bid = _cheapest_bid_in_suit(suit, resp)
+        bid = cheapest_bid_in_suit(suit, resp)
         return RuleResult(
             bid=bid,
             rule_name=self.name,

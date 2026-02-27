@@ -34,7 +34,7 @@ def _i_opened_1nt(ctx: BiddingContext) -> bool:
     if not ctx.my_bids:
         return False
     bid = ctx.my_bids[0]
-    return is_suit_bid(bid) and bid.level == 1 and bid.suit == Suit.NOTRUMP
+    return is_suit_bid(bid) and bid.level == 1 and bid.is_notrump
 
 
 def _partner_bid(ctx: BiddingContext) -> SuitBid:
@@ -106,7 +106,7 @@ def _partner_bid_3_major(ctx: BiddingContext) -> bool:
 def _partner_bid_2nt(ctx: BiddingContext) -> bool:
     """Partner bid 2NT (invitational)."""
     resp = _partner_bid(ctx)
-    return resp.level == 2 and resp.suit == Suit.NOTRUMP
+    return resp.level == 2 and resp.is_notrump
 
 
 @condition("partner bid 3m")
@@ -120,14 +120,14 @@ def _partner_bid_3_minor(ctx: BiddingContext) -> bool:
 def _partner_bid_3nt(ctx: BiddingContext) -> bool:
     """Partner bid 3NT (to play)."""
     resp = _partner_bid(ctx)
-    return resp.level == 3 and resp.suit == Suit.NOTRUMP
+    return resp.level == 3 and resp.is_notrump
 
 
 @condition("partner bid 4NT")
 def _partner_bid_4nt(ctx: BiddingContext) -> bool:
     """Partner bid 4NT (quantitative slam invite)."""
     resp = _partner_bid(ctx)
-    return resp.level == 4 and resp.suit == Suit.NOTRUMP
+    return resp.level == 4 and resp.is_notrump
 
 
 def _ace_count(ctx: BiddingContext) -> int:
@@ -144,7 +144,7 @@ def _i_opened_2nt(ctx: BiddingContext) -> bool:
     if not ctx.my_bids:
         return False
     bid = ctx.my_bids[0]
-    return is_suit_bid(bid) and bid.level == 2 and bid.suit == Suit.NOTRUMP
+    return is_suit_bid(bid) and bid.level == 2 and bid.is_notrump
 
 
 @condition("partner bid Stayman over 2NT")

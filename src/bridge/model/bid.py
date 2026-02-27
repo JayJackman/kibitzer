@@ -86,6 +86,10 @@ class SuitBid:
             return NotImplemented
         return self._sort_key >= other._sort_key
 
+    @property
+    def is_notrump(self) -> bool:
+        return self.suit == Suit.NOTRUMP
+
     def __str__(self) -> str:
         return f"{self.level}{self.suit.letter}"
 

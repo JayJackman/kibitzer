@@ -110,6 +110,129 @@ from .rebid import (
     RebidSuitOver1NT,
     RebidSuperAccept,
 )
+from .reresponse import (
+    Accept2NTAfterMinorRaise,
+    Accept3yJumpRaise,
+    Accept3yJumpRaise3NT,
+    AcceptGameTry,
+    AcceptMinorInvite,
+    AcceptReraise,
+    Bid4MAfter3NTMedium,
+    Bid4MAfterMax,
+    Bid4MAfterShortness,
+    Bid4MAfterSource,
+    Blackwood4NTAfter3NTMedium,
+    Blackwood4NTAfterJacoby4M,
+    Blackwood4NTAfterJS,
+    Blackwood4NTAfterMax,
+    Blackwood4NTAfterShortness,
+    Blackwood4NTAfterSource,
+    BlackwoodResponseAfterLimitRaise,
+    Decline2NTAfterMinorRaise,
+    Decline3yJumpRaise,
+    DeclineGameTry,
+    DeclineMinorInvite,
+    DeclineReraise,
+    FourMAfter1NTRebid,
+    FourMAfter2NTRebid,
+    FourMAfter2Over1OwnSuit,
+    FourMAfterJS,
+    FourMAfterJumpRebid,
+    FourMAfterJumpRebidOver1NT,
+    FourMAfterNewSuit,
+    FourMAfterOwnSuitMajor,
+    FourMAfterRaise,
+    FourMAfterRaise2Over1,
+    FourthSuitAfter2Over1NS,
+    FourthSuitAfterOwnSuit,
+    FourthSuitForcing,
+    GameInMinorAfterRaise,
+    JumpInOwnSuitAfterReverse,
+    JumpOwnMajorAfter1NT,
+    JumpRebidAfter1NT,
+    NewSuitAfter1NTForcing,
+    NewSuitAfter2Over1OwnSuit,
+    NewSuitWeakAfter1NT,
+    PassAfter1NTRebid,
+    PassAfter2NTMinor3NT,
+    PassAfter2NTOver1NT,
+    PassAfter2NTRebid,
+    PassAfter2Over1_2NT,
+    PassAfter3NTOver1NT,
+    PassAfter3NTRebid,
+    PassAfter3NTResponse,
+    PassAfterAcceptedLimitRaise,
+    PassAfterDoubleJumpRaise,
+    PassAfterGame,
+    PassAfterGameJumpOver1NT,
+    PassAfterJacoby4M,
+    PassAfterJumpRebid,
+    PassAfterJumpRebidOver1NT,
+    PassAfterMinor3NT,
+    PassAfterMinorGame,
+    PassAfterNewSuit,
+    PassAfterNewSuit1NT,
+    PassAfterRaise,
+    PassAfterSuitRebid1NT,
+    PreferenceAfterOwnSuit,
+    PreferenceAfterReverse,
+    PreferenceAfterReverseOver1NT,
+    PreferenceTo1stSuit1NT,
+    PreferenceToOpenerFirst,
+    Raise2ndSuitAfterMinorRaise,
+    Raise3MAfter2NTMinor,
+    RaiseJumpShiftSuit,
+    RaiseNewSuit1NTResponse,
+    RaiseNewSuitInvite,
+    RaiseOpenerAfter2Over1,
+    RaiseOpenerNewSuit2Over1,
+    RaiseReverseSuit,
+    RaiseReverseSuitOver1NT,
+    RebidOwnAfter2Over1NS,
+    RebidOwnSuitAfter1NT,
+    RebidOwnSuitAfter2Over1,
+    RebidOwnSuitAfterJS,
+    RebidOwnSuitAfterNewSuit,
+    RebidOwnSuitAfterOwnSuit,
+    RebidOwnSuitAfterReverse,
+    ReturnToMinor,
+    ReturnToOpenerSuitAfterJS1NT,
+    ShowSecondSuitAfterJS,
+    SlamTryMinorAfterRaise,
+    SupportJumpShiftOver1NT,
+    SupportOpenerFirstAfterJS,
+    ThreeNTAfter1NTRebid,
+    ThreeNTAfter2NTMinorMajor,
+    ThreeNTAfter2NTMinorRebid,
+    ThreeNTAfter2NTOver1NT,
+    ThreeNTAfter2NTRebid,
+    ThreeNTAfter2Over1_2NT,
+    ThreeNTAfter2Over1NewSuit,
+    ThreeNTAfter2Over1OwnSuit,
+    ThreeNTAfterJSOver1NT,
+    ThreeNTAfterJSReresponse,
+    ThreeNTAfterJumpRebid,
+    ThreeNTAfterJumpRebidOver1NT,
+    ThreeNTAfterJumpShift,
+    ThreeNTAfterMinorNewSuit,
+    ThreeNTAfterNewSuit,
+    ThreeNTAfterOwnSuit,
+    ThreeNTAfterRaise,
+    ThreeNTAfterRaise2Over1,
+    ThreeNTAfterReverse,
+    ThreeNTAfterReverseOver1NT,
+    ThreeSuitAfter2NTRebid,
+    ThreeSuitAfter2Over1_2NT,
+    ThreeXInviteAfterOwnSuit,
+    ThreeYInviteAfterRaise,
+    TwoNTAfter1NTRebid,
+    TwoNTAfter2Over1,
+    TwoNTAfter2Over1NS,
+    TwoNTAfterNewSuit,
+    TwoNTAfterOwnSuit,
+    TwoNTAfterReverse,
+    TwoNTAfterReverseOver1NT,
+)
 from .response import (
     Respond1NTOverMajor,
     Respond1NTOverMinor,
@@ -380,4 +503,170 @@ def create_sayc_registry() -> RuleRegistry:
 
     # ── Opener rebids after 4-level preempt ──────────────────────────
     reg.register(RebidPassAfter4Level())
+
+    # ── Responder rebids after 1-of-a-suit (reresponse) ──────────────
+
+    # After raise of major (1M->2M->rebid->?)
+    reg.register(AcceptGameTry())
+    reg.register(DeclineGameTry())
+    reg.register(AcceptReraise())
+    reg.register(DeclineReraise())
+    reg.register(PassAfterGame())
+
+    # After raise of minor (1m->2m->rebid->?)
+    reg.register(PassAfterMinor3NT())
+    reg.register(Accept2NTAfterMinorRaise())
+    reg.register(Decline2NTAfterMinorRaise())
+    reg.register(ThreeNTAfterMinorNewSuit())
+    reg.register(Raise2ndSuitAfterMinorRaise())
+    reg.register(ReturnToMinor())
+    reg.register(AcceptMinorInvite())
+    reg.register(DeclineMinorInvite())
+    reg.register(PassAfterMinorGame())
+
+    # After limit raise (1x->3x->rebid->?)
+    reg.register(PassAfterAcceptedLimitRaise())
+    reg.register(BlackwoodResponseAfterLimitRaise())
+
+    # After Jacoby 2NT (1M->2NT->rebid->?)
+    reg.register(Blackwood4NTAfterShortness())
+    reg.register(Blackwood4NTAfterSource())
+    reg.register(Blackwood4NTAfterMax())
+    reg.register(Blackwood4NTAfter3NTMedium())
+    reg.register(Blackwood4NTAfterJacoby4M())
+    reg.register(Bid4MAfterShortness())
+    reg.register(Bid4MAfterSource())
+    reg.register(Bid4MAfterMax())
+    reg.register(Bid4MAfter3NTMedium())
+    reg.register(PassAfterJacoby4M())
+
+    # After new suit at 1-level: 1NT rebid (1x->1y->1NT->?)
+    reg.register(FourMAfter1NTRebid())
+    reg.register(ThreeNTAfter1NTRebid())
+    reg.register(JumpOwnMajorAfter1NT())
+    reg.register(NewSuitAfter1NTForcing())
+    reg.register(TwoNTAfter1NTRebid())
+    reg.register(JumpRebidAfter1NT())
+    reg.register(NewSuitWeakAfter1NT())
+    reg.register(RebidOwnSuitAfter1NT())
+    reg.register(PassAfter1NTRebid())
+
+    # After new suit at 1-level: raise (1x->1y->2y->?)
+    reg.register(FourMAfterRaise())
+    reg.register(ThreeNTAfterRaise())
+    reg.register(ThreeYInviteAfterRaise())
+    reg.register(PassAfterRaise())
+
+    # After new suit at 1-level: jump raise (1x->1y->3y->?)
+    reg.register(Accept3yJumpRaise())
+    reg.register(Accept3yJumpRaise3NT())
+    reg.register(Decline3yJumpRaise())
+    reg.register(PassAfterDoubleJumpRaise())
+
+    # After new suit at 1-level: opener rebid own suit (1x->1y->2x->?)
+    reg.register(FourMAfterOwnSuitMajor())
+    reg.register(ThreeNTAfterOwnSuit())
+    reg.register(FourthSuitAfterOwnSuit())
+    reg.register(TwoNTAfterOwnSuit())
+    reg.register(ThreeXInviteAfterOwnSuit())
+    reg.register(RebidOwnSuitAfterOwnSuit())
+    reg.register(PreferenceAfterOwnSuit())
+
+    # After new suit at 1-level: jump rebid (1x->1y->3x->?)
+    reg.register(FourMAfterJumpRebid())
+    reg.register(ThreeNTAfterJumpRebid())
+    reg.register(PassAfterJumpRebid())
+
+    # After new suit at 1-level: new suit non-reverse (1x->1y->2z->?)
+    reg.register(FourMAfterNewSuit())
+    reg.register(ThreeNTAfterNewSuit())
+    reg.register(FourthSuitForcing())
+    reg.register(RaiseNewSuitInvite())
+    reg.register(TwoNTAfterNewSuit())
+    reg.register(PreferenceToOpenerFirst())
+    reg.register(RebidOwnSuitAfterNewSuit())
+    reg.register(PassAfterNewSuit())
+
+    # After new suit at 1-level: reverse (1x->1y->2z rev->?)
+    reg.register(ThreeNTAfterReverse())
+    reg.register(RaiseReverseSuit())
+    reg.register(JumpInOwnSuitAfterReverse())
+    reg.register(TwoNTAfterReverse())
+    reg.register(RebidOwnSuitAfterReverse())
+    reg.register(PreferenceAfterReverse())
+
+    # After new suit at 1-level: jump shift (1x->1y->3z->?)
+    reg.register(RaiseJumpShiftSuit())
+    reg.register(SupportOpenerFirstAfterJS())
+    reg.register(RebidOwnSuitAfterJS())
+    reg.register(ThreeNTAfterJumpShift())
+
+    # After new suit at 1-level: 2NT rebid (1x->1y->2NT->?)
+    reg.register(FourMAfter2NTRebid())
+    reg.register(ThreeNTAfter2NTRebid())
+    reg.register(ThreeSuitAfter2NTRebid())
+    reg.register(PassAfter2NTRebid())
+
+    # After new suit at 1-level: 3NT rebid (1x->1y->3NT->?)
+    reg.register(PassAfter3NTRebid())
+
+    # After 1NT response (1x->1NT->rebid->?)
+    reg.register(PassAfterSuitRebid1NT())
+    reg.register(RaiseNewSuit1NTResponse())
+    reg.register(PreferenceTo1stSuit1NT())
+    reg.register(PassAfterNewSuit1NT())
+    reg.register(ThreeNTAfter2NTOver1NT())
+    reg.register(PassAfter2NTOver1NT())
+    reg.register(FourMAfterJumpRebidOver1NT())
+    reg.register(ThreeNTAfterJumpRebidOver1NT())
+    reg.register(PassAfterJumpRebidOver1NT())
+    reg.register(PassAfter3NTOver1NT())
+    reg.register(SupportJumpShiftOver1NT())
+    reg.register(ReturnToOpenerSuitAfterJS1NT())
+    reg.register(ThreeNTAfterJSOver1NT())
+
+    # After reverse over 1NT response (1x->1NT->2z(rev)->?)
+    reg.register(ThreeNTAfterReverseOver1NT())
+    reg.register(RaiseReverseSuitOver1NT())
+    reg.register(PreferenceAfterReverseOver1NT())
+    reg.register(TwoNTAfterReverseOver1NT())
+
+    # After game jump over 1NT response (1x->1NT->4x->?)
+    reg.register(PassAfterGameJumpOver1NT())
+
+    # After 2-over-1 (1x->2y->rebid->?)
+    reg.register(SlamTryMinorAfterRaise())
+    reg.register(GameInMinorAfterRaise())
+    reg.register(FourMAfterRaise2Over1())
+    reg.register(ThreeNTAfterRaise2Over1())
+    reg.register(FourMAfter2Over1OwnSuit())
+    reg.register(ThreeNTAfter2Over1OwnSuit())
+    reg.register(NewSuitAfter2Over1OwnSuit())
+    reg.register(RaiseOpenerAfter2Over1())
+    reg.register(RebidOwnSuitAfter2Over1())
+    reg.register(TwoNTAfter2Over1())
+    reg.register(ThreeNTAfter2Over1NewSuit())
+    reg.register(FourthSuitAfter2Over1NS())
+    reg.register(RaiseOpenerNewSuit2Over1())
+    reg.register(RebidOwnAfter2Over1NS())
+    reg.register(TwoNTAfter2Over1NS())
+    reg.register(ThreeNTAfter2Over1_2NT())
+    reg.register(ThreeSuitAfter2Over1_2NT())
+    reg.register(PassAfter2Over1_2NT())
+
+    # After jump shift (1x->jump->rebid->?)
+    reg.register(Blackwood4NTAfterJS())
+    reg.register(ShowSecondSuitAfterJS())
+    reg.register(FourMAfterJS())
+    reg.register(ThreeNTAfterJSReresponse())
+
+    # After 2NT over minor (1m->2NT->rebid->?)
+    reg.register(Raise3MAfter2NTMinor())
+    reg.register(ThreeNTAfter2NTMinorMajor())
+    reg.register(ThreeNTAfter2NTMinorRebid())
+    reg.register(PassAfter2NTMinor3NT())
+
+    # After 3NT response
+    reg.register(PassAfter3NTResponse())
+
     return reg

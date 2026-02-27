@@ -53,7 +53,7 @@ def _opener_suit(ctx: BiddingContext) -> Suit:
 @condition("partner opened 1 of a suit")
 def _partner_opened_1_suit(ctx: BiddingContext) -> bool:
     bid = _opening_bid(ctx)
-    return is_suit_bid(bid) and bid.level == 1 and bid.suit != Suit.NOTRUMP
+    return is_suit_bid(bid) and bid.level == 1 and not bid.is_notrump
 
 
 @condition("partner opened 1 of a major")

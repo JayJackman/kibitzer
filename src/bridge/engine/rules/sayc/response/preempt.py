@@ -55,7 +55,7 @@ def _partner_opened_3_level(ctx: BiddingContext) -> bool:
     if ctx.opening_bid is None:
         return False
     _, bid = ctx.opening_bid
-    return is_suit_bid(bid) and bid.level == 3 and bid.suit != Suit.NOTRUMP
+    return is_suit_bid(bid) and bid.level == 3 and not bid.is_notrump
 
 
 @condition("partner opened at the 4-level")
@@ -63,7 +63,7 @@ def _partner_opened_4_level(ctx: BiddingContext) -> bool:
     if ctx.opening_bid is None:
         return False
     _, bid = ctx.opening_bid
-    return is_suit_bid(bid) and bid.level == 4 and bid.suit != Suit.NOTRUMP
+    return is_suit_bid(bid) and bid.level == 4 and not bid.is_notrump
 
 
 @condition("stoppers in all unbid suits")

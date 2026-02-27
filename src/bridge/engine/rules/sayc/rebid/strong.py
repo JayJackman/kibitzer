@@ -58,7 +58,7 @@ def _partner_positive_response(ctx: BiddingContext) -> bool:
 def _partner_positive_suit(ctx: BiddingContext) -> bool:
     """Partner made a positive suit response (2H/2S/3C/3D, not 2NT)."""
     resp = _partner_bid(ctx)
-    if resp.suit == Suit.NOTRUMP:
+    if resp.is_notrump:
         return False
     return _partner_positive_response(ctx)
 
