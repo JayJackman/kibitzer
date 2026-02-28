@@ -13,6 +13,7 @@ from rich.table import Table
 
 from bridge.engine.rule import RuleResult
 from bridge.engine.selector import ThoughtProcess, ThoughtStep
+from bridge.evaluate.hand_eval import hcp
 from bridge.model.auction import Contract, Seat
 from bridge.model.bid import Bid, is_suit_bid
 from bridge.model.card import SUITS_SHDC, Suit
@@ -142,19 +143,26 @@ def format_all_hands(hands: dict[Seat, Hand]) -> Panel:
     # North/South are shifted slightly left of center to sit above West
     ns_width = total - 14
 
+    n_hcp = hcp(hands[Seat.NORTH])
+    s_hcp = hcp(hands[Seat.SOUTH])
+    w_hcp = hcp(hands[Seat.WEST])
+    e_hcp = hcp(hands[Seat.EAST])
+
     # North (centered as a block so suit symbols stay aligned)
-    lines.append(f"{'North':^{ns_width}}")
+    lines.append(f"{'North (' + str(n_hcp) + ' HCP)':^{ns_width}}")
     lines.extend(_center_block(north, ns_width))
     lines.append("")
 
     # West and East side by side
-    lines.append(f"{'West':<{col}}{'':>{gap}}East")
+    w_label = f"West ({w_hcp} HCP)"
+    e_label = f"East ({e_hcp} HCP)"
+    lines.append(f"{w_label:<{col}}{'':>{gap}}{e_label}")
     for w, e in zip(west, east, strict=True):
         lines.append(f"{_ljust(w, col)}{'':>{gap}}{e}")
     lines.append("")
 
     # South (centered as a block)
-    lines.append(f"{'South':^{ns_width}}")
+    lines.append(f"{'South (' + str(s_hcp) + ' HCP)':^{ns_width}}")
     lines.extend(_center_block(south, ns_width))
 
     return Panel("\n".join(lines), title="All Hands")
