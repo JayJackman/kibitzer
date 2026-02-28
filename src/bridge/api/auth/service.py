@@ -21,8 +21,8 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 
 def get_user_by_username(db: Session, username: str) -> User | None:
-    """Look up a user by username. Returns None if not found."""
-    return db.query(User).filter(User.username == username).first()
+    """Look up a user by username (case-insensitive). Returns None if not found."""
+    return db.query(User).filter(User.username.ilike(username)).first()
 
 
 def create_user(db: Session, username: str, password: str) -> User:

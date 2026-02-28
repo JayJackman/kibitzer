@@ -75,3 +75,13 @@ Every bidding rule must be accurate to the official SAYC (Standard American Yell
 - All tool config lives in `pyproject.toml` — no separate config files.
 - Pre-commit hooks run ruff + mypy on every commit.
 - When writing anything related to the web-app (i.e., in the frontend folder) err on more verbose comments. I am new to web-app code and would appreciate helpful comments that help me understand both *why* and *what* is happening in the code.
+
+## Frontend Patterns (React Router v7)
+
+The frontend uses React Router v7's **data router** patterns (`createBrowserRouter` + `RouterProvider`). Follow these conventions:
+
+- **Loaders for data fetching.** Use route `loader` functions to fetch data before a page renders. Don't use `useEffect` + `useState` for initial data loading -- loaders run before the component mounts, avoiding loading spinners and flash of wrong content.
+- **Actions for mutations.** Use route `action` functions to handle form submissions (login, register, creating tables, etc.). Pair with React Router's `<Form>` component, `useActionData()` for error display, and `useNavigation()` for submission state.
+- **Uncontrolled form inputs.** Use `name` attributes on inputs instead of controlled state (`value` + `onChange`). The action reads values via native `FormData`.
+- **Auth via loader, not context.** Authentication is checked by the `protectedLoader` in `App.tsx`. Protected routes get user data from `useRouteLoaderData("protected")`. There is no AuthProvider or auth context.
+- **`useFetcher` for non-navigation mutations.** For actions that shouldn't cause a page navigation (e.g., logout button in the nav bar), use `useFetcher()` and `fetcher.Form`.
