@@ -74,3 +74,4 @@ Every bidding rule must be accurate to the official SAYC (Standard American Yell
 - **Use plain ASCII in source code.** Hyphens (`-`) not en dashes, `<=` not `≤`, etc.
 - All tool config lives in `pyproject.toml` — no separate config files.
 - Pre-commit hooks run ruff + mypy on every commit.
+- When writing anything related to the web-app (i.e., in the frontend folder) err on more verbose comments. I am new to web-app code and would appreciate helpful comments that help me understand both *why* and *what* is happening in the code.
