@@ -1,4 +1,4 @@
-"""Section A: After I Raised Opener's Major (1M->2M->rebid->?)."""
+"""After I Raised Opener's Major (1M->2M->rebid->?)."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ __all__ = [
 ]
 
 
-# ── Section A helpers ─────────────────────────────────
+# ── helpers ─────────────────────────────────
 
 
 @condition("partner re-raised our major")

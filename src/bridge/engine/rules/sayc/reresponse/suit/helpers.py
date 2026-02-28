@@ -116,11 +116,18 @@ def partner_rebid_new_suit(ctx: BiddingContext) -> bool:
 
 @condition("partner reversed")
 def partner_reversed(ctx: BiddingContext) -> bool:
-    """Partner made a reverse bid (new higher-ranking suit at 2-level, 17+)."""
+    """Partner made a reverse bid (new higher-ranking suit at cheapest level, 17+)."""
     rebid = partner_rebid(ctx)
     if rebid.suit in (opening_suit(ctx), my_response_suit(ctx)) or rebid.is_notrump:
         return False
-    return rebid.suit > opening_suit(ctx) and rebid.level == 2
+    # Reverse: higher-ranking suit at 2-level+, at cheapest level (not a jump).
+    # A 1-level bid (e.g. 1C->1D->1H) is NOT a reverse.
+    cheapest = cheapest_bid_in_suit(rebid.suit, my_response(ctx))
+    return (
+        rebid.suit > opening_suit(ctx)
+        and rebid.level >= 2
+        and rebid.level == cheapest.level
+    )
 
 
 @condition("partner jumped to game in own suit")
@@ -167,12 +174,12 @@ def partner_rebid_3nt(ctx: BiddingContext) -> bool:
 
 
 @condition("I responded in a major")
-def my_response_suit_is_major(ctx: BiddingContext) -> bool:
+def i_responded_in_a_major(ctx: BiddingContext) -> bool:
     return my_response_suit(ctx).is_major
 
 
 @condition("I responded in a minor")
-def my_response_suit_is_minor(ctx: BiddingContext) -> bool:
+def i_responded_in_a_minor(ctx: BiddingContext) -> bool:
     return my_response_suit(ctx).is_minor
 
 
@@ -233,9 +240,13 @@ def find_new_suit_forcing(ctx: BiddingContext, *, min_len: int = 4) -> Suit | No
 
 
 def find_fourth_suit_bid(ctx: BiddingContext) -> SuitBid | None:
-    """Find the fourth suit forcing bid."""
+    """Find the fourth suit forcing bid (must be at 2-level or higher)."""
     suit = fourth_suit(ctx)
     if suit is None:
         return None
     rebid = partner_rebid(ctx)
-    return cheapest_bid_in_suit(suit, rebid)
+    bid = cheapest_bid_in_suit(suit, rebid)
+    # FSF is only at 2+ level; at the 1-level a new suit is natural, not artificial.
+    if bid.level == 1:
+        return None
+    return bid

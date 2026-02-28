@@ -6,7 +6,7 @@ from bridge.engine.rule import Category, Rule
 
 
 class DuplicateRuleError(Exception):
-    """Raised when registering a rule with a duplicate name or priority."""
+    """Raised when registering a rule with a duplicate name."""
 
 
 class RuleRegistry:
@@ -19,19 +19,12 @@ class RuleRegistry:
     def register(self, rule: Rule) -> None:
         """Add a rule to the registry.
 
-        Raises DuplicateRuleError if a rule with the same name already exists,
-        or if a rule with the same priority already exists in the same category.
+        Raises DuplicateRuleError if a rule with the same name already exists.
+        Duplicate priorities within a category are allowed; runtime ambiguity
+        detection in the selector catches conflicting matches.
         """
         if rule.name in self._rules:
             raise DuplicateRuleError(f"Duplicate rule name: {rule.name!r}")
-
-        category_rules = self._by_category.get(rule.category, [])
-        for existing in category_rules:
-            if existing.priority == rule.priority:
-                raise DuplicateRuleError(
-                    f"Duplicate priority {rule.priority} in category "
-                    f"{rule.category!r}: {existing.name!r} and {rule.name!r}"
-                )
 
         self._rules[rule.name] = rule
         self._by_category.setdefault(rule.category, []).append(rule)

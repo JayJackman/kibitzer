@@ -1,10 +1,17 @@
 """Tests for BidSelector and phase detection."""
 
+import pytest
+
 from bridge.engine.condition import Condition, condition
 from bridge.engine.context import BiddingContext
 from bridge.engine.registry import RuleRegistry
 from bridge.engine.rule import Category, Rule, RuleResult
-from bridge.engine.selector import BidSelector, ThoughtProcess, ThoughtStep
+from bridge.engine.selector import (
+    AmbiguousBidError,
+    BidSelector,
+    ThoughtProcess,
+    ThoughtStep,
+)
 from bridge.model.auction import AuctionState, Seat
 from bridge.model.bid import PASS, Bid, SuitBid, is_pass
 from bridge.model.board import Board
@@ -542,3 +549,115 @@ class TestThink:
         tp = selector.think(ctx)
 
         assert tp.selected.explanation == "Mock rule opening.1suit"
+
+
+class TestAmbiguousBid:
+    def test_same_priority_mutual_exclusion_ok(self) -> None:
+        """Two rules at the same priority where only one matches -- no error."""
+        reg = RuleRegistry()
+        reg.register(
+            MockRule(
+                "opening.1nt",
+                Category.OPENING,
+                200,
+                bid=SuitBid(1, Suit.NOTRUMP),
+                should_apply=True,
+            )
+        )
+        reg.register(
+            MockRule(
+                "opening.2nt",
+                Category.OPENING,
+                200,
+                bid=SuitBid(2, Suit.NOTRUMP),
+                should_apply=False,
+            )
+        )
+
+        auction = AuctionState(dealer=Seat.NORTH)
+        ctx = _make_ctx(Seat.NORTH, auction)
+        selector = BidSelector(reg)
+
+        result = selector.select(ctx)
+        assert result.rule_name == "opening.1nt"
+
+    def test_same_priority_both_match_raises_in_select(self) -> None:
+        """Two rules at the same priority both matching -- raises error."""
+        reg = RuleRegistry()
+        reg.register(
+            MockRule(
+                "opening.1nt",
+                Category.OPENING,
+                200,
+                bid=SuitBid(1, Suit.NOTRUMP),
+            )
+        )
+        reg.register(
+            MockRule(
+                "opening.2nt",
+                Category.OPENING,
+                200,
+                bid=SuitBid(2, Suit.NOTRUMP),
+            )
+        )
+
+        auction = AuctionState(dealer=Seat.NORTH)
+        ctx = _make_ctx(Seat.NORTH, auction)
+        selector = BidSelector(reg)
+
+        with pytest.raises(AmbiguousBidError, match="both match at priority 200"):
+            selector.select(ctx)
+
+    def test_same_priority_both_match_raises_in_think(self) -> None:
+        """Two rules at the same priority both matching -- raises in think()."""
+        reg = RuleRegistry()
+        reg.register(
+            MockRule(
+                "opening.1nt",
+                Category.OPENING,
+                200,
+                bid=SuitBid(1, Suit.NOTRUMP),
+            )
+        )
+        reg.register(
+            MockRule(
+                "opening.2nt",
+                Category.OPENING,
+                200,
+                bid=SuitBid(2, Suit.NOTRUMP),
+            )
+        )
+
+        auction = AuctionState(dealer=Seat.NORTH)
+        ctx = _make_ctx(Seat.NORTH, auction)
+        selector = BidSelector(reg)
+
+        with pytest.raises(AmbiguousBidError, match="both match at priority 200"):
+            selector.think(ctx)
+
+    def test_different_priority_no_ambiguity(self) -> None:
+        """Two rules at different priorities both matching -- no error."""
+        reg = RuleRegistry()
+        reg.register(
+            MockRule(
+                "opening.1nt",
+                Category.OPENING,
+                200,
+                bid=SuitBid(1, Suit.NOTRUMP),
+            )
+        )
+        reg.register(
+            MockRule(
+                "opening.1suit",
+                Category.OPENING,
+                100,
+                bid=SuitBid(1, Suit.SPADES),
+            )
+        )
+
+        auction = AuctionState(dealer=Seat.NORTH)
+        ctx = _make_ctx(Seat.NORTH, auction)
+        selector = BidSelector(reg)
+
+        result = selector.select(ctx)
+        assert result.rule_name == "opening.1nt"

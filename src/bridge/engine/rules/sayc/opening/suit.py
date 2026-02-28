@@ -17,9 +17,13 @@ from bridge.evaluate import best_major, best_minor
 from bridge.model.bid import PASS, SuitBid
 from bridge.model.card import Suit
 
-_not_1nt_range = Not(All(HcpRange(15, 17), Balanced(strict=True)), label="in 1NT range")
-_not_2nt_range = Not(All(HcpRange(20, 21), Balanced(strict=True)), label="in 2NT range")
-_not_2c_range = Not(TotalPtsRange(min_pts=22), label="in 2C range")
+_not_1nt_range = Not(
+    All(HcpRange(15, 17), Balanced(strict=True)), label="15-17 balanced (1NT)"
+)
+_not_2nt_range = Not(
+    All(HcpRange(20, 21), Balanced(strict=True)), label="20-21 balanced (2NT)"
+)
+_not_2c_range = Not(TotalPtsRange(min_pts=22), label="22+ pts (2C)")
 
 
 def _best_major(ctx: BiddingContext) -> Suit | None:

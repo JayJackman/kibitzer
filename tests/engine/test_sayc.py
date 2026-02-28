@@ -243,10 +243,18 @@ class TestSAYCRebidIntegration:
             == "rebid.game_after_raise_major"
         )
 
-    def test_invite_after_raise_17_bergen(self):
-        """17 Bergen pts → 3S (invite) after 1S→2S."""
+    def test_game_try_after_raise_17_bergen(self):
+        """17 Bergen pts with help suit → game try after 1S→2S."""
+        # A73 in clubs (4 HCP ≤ 4) qualifies as a help suit
         assert (
-            _rebid_select("AKJ52.KQ3.84.A73", "1S", "2S")
+            _rebid_select("AKJ52.KQ3.84.A73", "1S", "2S") == "rebid.help_suit_game_try"
+        )
+
+    def test_invite_after_raise_no_help_suit(self):
+        """18 Bergen pts, no weak suit → 3S (invite) after 1S→2S."""
+        # KQ3 in both hearts and clubs (5 HCP > 4) — no qualifying help suit
+        assert (
+            _rebid_select("AKJ52.KQ3.84.KQ3", "1S", "2S")
             == "rebid.invite_after_raise_major"
         )
 

@@ -1,4 +1,4 @@
-"""Section G: After I Responded 1NT (1x->1NT->rebid->?)."""
+"""After I Responded 1NT (1x->1NT->rebid->?)."""
 
 from __future__ import annotations
 
@@ -49,13 +49,16 @@ __all__ = [
 ]
 
 
-# ── Section G helpers ─────────────────────────────────
+# ── helpers ─────────────────────────────────
 
 
 @condition("I responded 1NT")
 def _i_bid_1nt(ctx: BiddingContext) -> bool:
     resp = my_response(ctx)
     return resp.is_notrump and resp.level == 1
+
+
+# ── After opener rebids own suit (1x->1NT->2x) ──────────────────
 
 
 class PassAfterSuitRebid1NT(Rule):
@@ -90,6 +93,9 @@ class PassAfterSuitRebid1NT(Rule):
             rule_name=self.name,
             explanation="After 1NT response, opener rebid own suit -- pass",
         )
+
+
+# ── After opener bids new suit, non-reverse (1x->1NT->2z) ───────
 
 
 class RaiseNewSuit1NTResponse(Rule):
@@ -204,6 +210,9 @@ class PassAfterNewSuit1NT(Rule):
         )
 
 
+# ── After opener rebids 2NT (1x->1NT->2NT, 18-19) ──────────────
+
+
 class ThreeNTAfter2NTOver1NT(Rule):
     """Accept 2NT invitation after 1NT response.
 
@@ -272,6 +281,9 @@ class PassAfter2NTOver1NT(Rule):
             rule_name=self.name,
             explanation="6-7 HCP, decline 2NT invitation -- pass",
         )
+
+
+# ── After opener jump rebids own suit (1x->1NT->3x, invit) ──────
 
 
 class FourMAfterJumpRebidOver1NT(Rule):
@@ -382,6 +394,9 @@ class PassAfterJumpRebidOver1NT(Rule):
         )
 
 
+# ── After opener rebids 3NT (1x->1NT->3NT, 20-21) ──────────────
+
+
 class PassAfter3NTOver1NT(Rule):
     """Pass after opener bid 3NT over 1NT response.
 
@@ -414,6 +429,9 @@ class PassAfter3NTOver1NT(Rule):
             rule_name=self.name,
             explanation="Game reached after 3NT -- pass",
         )
+
+
+# ── After jump shift (1x->1NT->3z, GF) ──────────────────────────
 
 
 class SupportJumpShiftOver1NT(Rule):
@@ -547,7 +565,7 @@ class ThreeNTAfterReverseOver1NT(Rule):
 
     @property
     def priority(self) -> int:
-        return 336
+        return 330
 
     @property
     def conditions(self) -> All:
@@ -583,7 +601,7 @@ class RaiseReverseSuitOver1NT(Rule):
 
     @property
     def priority(self) -> int:
-        return 277
+        return 279
 
     @property
     def conditions(self) -> All:
@@ -623,7 +641,7 @@ class PreferenceAfterReverseOver1NT(Rule):
 
     @property
     def priority(self) -> int:
-        return 100
+        return 196
 
     @property
     def conditions(self) -> All:
@@ -662,7 +680,7 @@ class TwoNTAfterReverseOver1NT(Rule):
 
     @property
     def priority(self) -> int:
-        return 83
+        return 93
 
     @property
     def conditions(self) -> All:
@@ -699,7 +717,7 @@ class PassAfterGameJumpOver1NT(Rule):
 
     @property
     def priority(self) -> int:
-        return 82
+        return 90
 
     @property
     def conditions(self) -> All:

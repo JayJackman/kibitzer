@@ -28,6 +28,36 @@ class Category(StrEnum):
     SLAM = "slam"
 
 
+class Priority:
+    """Universal semantic priority bands for all rule categories.
+
+    Higher priority = checked first by the selector.  Within a band, higher
+    values denote more specific rules.  Rules in mutually exclusive sections
+    (different guards) may share the same numeric value.
+
+    Convention sections (NT/2C/preempt responses and rebids) already use
+    high-priority schemes that fit FORCED/CONVENTION naturally.
+    """
+
+    FORCED = 500
+    """500+: Convention completions (completing transfers, Stayman response)."""
+
+    CONVENTION = 440
+    """440-499: Convention initiations, slam tries (Blackwood, Jacoby)."""
+
+    GAME = 300
+    """300-439: Game-level natural bids (3NT, game raises)."""
+
+    INVITE = 220
+    """220-299: Invitational (limit raises, 2NT invites, new suits)."""
+
+    MINIMUM = 100
+    """100-219: Minimum/constructive (single raises, 1NT, own suit rebid)."""
+
+    SIGNOFF = 40
+    """40-99: Pass, sign-off."""
+
+
 @dataclass(frozen=True)
 class RuleResult:
     """The output of a rule that matched."""
@@ -80,10 +110,7 @@ class Rule(ABC):
     @property
     @abstractmethod
     def priority(self) -> int:
-        """Higher wins. Bands: 0-99 fallback, 100-199 general,
-        200-299 specific, 300-399 convention, 400-499 strong, 500+ slam.
-        Must be unique within a category.
-        """
+        """Higher wins. See ``Priority`` for band definitions."""
 
     @property
     @abstractmethod

@@ -464,7 +464,7 @@ class RespondSingleRaiseMajor(Rule):
 
     @property
     def priority(self) -> int:
-        return 220
+        return 212
 
     @property
     def conditions(self) -> Condition:
@@ -649,7 +649,7 @@ class RespondSingleRaiseMinor(Rule):
 
     @property
     def priority(self) -> int:
-        return 230
+        return 215
 
     @property
     def conditions(self) -> Condition:

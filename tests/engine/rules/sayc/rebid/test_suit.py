@@ -202,18 +202,12 @@ class TestDeclineLimitRaise:
 
 
 class TestRaiseMinorRebids:
-    def test_3nt_after_single_raise_18_balanced(self) -> None:
-        # KJ3.KQ3.AJ52.A73 — 18 HCP, balanced 3-3-4-3
+    def test_3nt_not_after_single_raise(self) -> None:
+        # 3NT only applies after limit raise, not single raise.
+        # 18-19 balanced bids 2NT; 20-21 balanced opens 2NT.
         rule = Rebid3NTAfterRaiseMinor()
+        # KJ3.KQ3.AJ52.A73 — 18 HCP, balanced
         ctx = _ctx("KJ3.KQ3.AJ52.A73", "1D", "2D")
-        assert rule.applies(ctx)
-        result = rule.select(ctx)
-        assert str(result.bid) == "3NT"
-
-    def test_3nt_after_single_raise_15_too_low(self) -> None:
-        rule = Rebid3NTAfterRaiseMinor()
-        # AK3.Q73.QJ52.K73 — 15 HCP, balanced
-        ctx = _ctx("AK3.Q73.QJ52.K73", "1D", "2D")
         assert not rule.applies(ctx)
 
     def test_3nt_after_limit_raise_12_balanced(self) -> None:
@@ -224,11 +218,17 @@ class TestRaiseMinorRebids:
 
     def test_2nt_after_single_raise_balanced(self) -> None:
         rule = Rebid2NTAfterRaiseMinor()
-        # K73.Q73.AJ52.K73 — 12 HCP, balanced
-        ctx = _ctx("K73.Q73.AJ52.K73", "1D", "2D")
+        # KJ3.KQ3.AJ52.A73 — 18 HCP, balanced
+        ctx = _ctx("KJ3.KQ3.AJ52.A73", "1D", "2D")
         assert rule.applies(ctx)
         result = rule.select(ctx)
         assert str(result.bid) == "2NT"
+
+    def test_2nt_after_single_raise_12_too_low(self) -> None:
+        rule = Rebid2NTAfterRaiseMinor()
+        # K73.Q73.AJ52.K73 — 12 HCP, balanced (should pass, not 2NT)
+        ctx = _ctx("K73.Q73.AJ52.K73", "1D", "2D")
+        assert not rule.applies(ctx)
 
     def test_5m_after_limit_raise_unbalanced(self) -> None:
         rule = Rebid5mAfterLimitRaiseMinor()

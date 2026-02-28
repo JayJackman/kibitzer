@@ -275,7 +275,9 @@ class Raise2ndSuitAfterMinorRaise(Rule):
 class ReturnToMinor(Rule):
     """Return to agreed minor after opener's new suit.
 
-    1m->2m->2x->3m. 6-8 HCP, no fit for new suit.
+    1m->2m->2x->3m. 6-10 HCP, catch-all when no fit or stoppers.
+    Higher-priority rules intercept hands with stoppers (3NT)
+    or 4+ fit (raise new suit).
     """
 
     @property
@@ -297,7 +299,7 @@ class ReturnToMinor(Rule):
             _opening_is_minor,
             i_raised,
             _partner_bid_new_suit_over_raise,
-            HcpRange(max_hcp=8),
+            HcpRange(max_hcp=10),
         )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -307,7 +309,7 @@ class ReturnToMinor(Rule):
         return RuleResult(
             bid=bid,
             rule_name=self.name,
-            explanation=f"6-8 HCP, return to agreed minor -- {bid}",
+            explanation=f"Return to agreed minor -- {bid}",
         )
 
 

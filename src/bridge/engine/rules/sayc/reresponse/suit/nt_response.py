@@ -1,4 +1,4 @@
-"""Section K: After I Bid 3NT Over Major/Minor."""
+"""After I Bid 3NT Over Major/Minor."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ __all__ = [
 ]
 
 
-# ── Section K helpers ─────────────────────────────────
+# ── helpers ─────────────────────────────────
 
 
 @condition("I bid 3NT")

@@ -18,13 +18,14 @@ from bridge.model.card import Suit
 
 from .helpers import (
     find_fourth_suit_bid,
+    find_new_suit_forcing,
+    i_responded_in_a_major,
+    i_responded_in_a_minor,
     my_response,
     my_response_suit,
     my_response_suit_5,
     my_response_suit_5plus,
     my_response_suit_6plus,
-    my_response_suit_is_major,
-    my_response_suit_is_minor,
     opening_bid,
     opening_is_major,
     opening_suit,
@@ -53,15 +54,24 @@ __all__ = [
     "FourMAfterRaise",
     "FourthSuitAfterOwnSuit",
     "FourthSuitForcing",
+    "GFAfterReverse",
+    "GFRaiseReverseSuit",
     "JumpInOwnSuitAfterReverse",
     "JumpOwnMajorAfter1NT",
+    "JumpRebidOwnSuitAfterNewSuit",
+    "JumpRebidOwnSuitAfterOwnSuit",
     "JumpRebidAfter1NT",
     "NewSuitAfter1NTForcing",
+    "NewSuitAt1Level",
+    "NewSuitForcingAfterMinorRaise",
+    "NewSuitForcingAfterOwnSuit",
     "NewSuitWeakAfter1NT",
+    "OneNTReresponse",
     "PassAfter1NTRebid",
     "PassAfter2NTRebid",
     "PassAfter3NTRebid",
     "PassAfterDoubleJumpRaise",
+    "PassAfterDoubleJumpRebid",
     "PassAfterJumpRebid",
     "PassAfterNewSuit",
     "PassAfterRaise",
@@ -80,6 +90,7 @@ __all__ = [
     "ThreeNTAfter1NTRebid",
     "ThreeNTAfter2NTRebid",
     "ThreeNTAfterJumpRebid",
+    "ThreeNTAfterJumpRebidNoStoppers",
     "ThreeNTAfterJumpShift",
     "ThreeNTAfterNewSuit",
     "ThreeNTAfterOwnSuit",
@@ -92,6 +103,7 @@ __all__ = [
     "TwoNTAfterNewSuit",
     "TwoNTAfterOwnSuit",
     "TwoNTAfterReverse",
+    "WeakRaiseNewSuit",
 ]
 
 
@@ -108,7 +120,7 @@ def _i_bid_new_suit_1level(ctx: BiddingContext) -> bool:
 
 @condition("partner reversed")
 def _partner_reversed(ctx: BiddingContext) -> bool:
-    """Partner made a reverse bid (higher new suit, 17+ HCP)."""
+    """Partner made a reverse bid (higher new suit at cheapest level, 17+ HCP)."""
     opening = opening_bid(ctx)
     my_resp = my_response(ctx)
     rebid = partner_rebid(ctx)
@@ -116,8 +128,13 @@ def _partner_reversed(ctx: BiddingContext) -> bool:
         return False
     if not my_resp.is_notrump and rebid.suit == my_resp.suit:
         return False
-    # Reverse: new suit ranks above opener's first suit, bid at 2-level
-    return rebid.suit > opening.suit and rebid.level == 2
+    # Reverse: new suit ranks above opener's first suit, at 2-level+, at cheapest level.
+    # A 1-level bid (e.g. 1C->1D->1H) is NOT a reverse -- no extra values needed.
+    # A jump in a higher-ranking suit is a jump shift, not a reverse.
+    cheapest = cheapest_bid_in_suit(rebid.suit, my_resp)
+    return (
+        rebid.suit > opening.suit and rebid.level >= 2 and rebid.level == cheapest.level
+    )
 
 
 @condition("partner jump-raised my suit")
@@ -146,6 +163,41 @@ def _partner_double_jump_raised(ctx: BiddingContext) -> bool:
 def _partner_rebid_1nt(ctx: BiddingContext) -> bool:
     rebid = partner_rebid(ctx)
     return rebid.is_notrump and rebid.level == 1
+
+
+@condition("partner double-jump-rebid own suit")
+def _partner_double_jump_rebid_own_suit(ctx: BiddingContext) -> bool:
+    """Partner double-jump-rebid their opening suit (e.g. 1H->1S->4H)."""
+    opening = opening_bid(ctx)
+    my_resp = my_response(ctx)
+    rebid = partner_rebid(ctx)
+    if rebid.suit != opening.suit:
+        return False
+    cheapest = cheapest_bid_in_suit(opening.suit, my_resp)
+    return rebid.level == cheapest.level + 2
+
+
+@condition("partner rebid new suit at 1-level")
+def _partner_rebid_new_suit_1_level(ctx: BiddingContext) -> bool:
+    """Partner rebid a new suit at the 1-level (e.g. 1C->1D->1H)."""
+    return partner_rebid_new_suit(ctx) and partner_rebid(ctx).level == 1
+
+
+def _find_new_suit_at_1_level(ctx: BiddingContext) -> Suit | None:
+    """Find a 4+ card suit biddable at the 1-level above partner's rebid.
+
+    Only possible after 1C->1D->1H (bid 1S). Returns None otherwise.
+    """
+    rebid = partner_rebid(ctx)
+    if rebid.level != 1:
+        return None
+    exclude = {opening_suit(ctx), my_response_suit(ctx), rebid.suit}
+    for suit in (Suit.CLUBS, Suit.DIAMONDS, Suit.HEARTS, Suit.SPADES):
+        if suit in exclude:
+            continue
+        if suit > rebid.suit and ctx.hand.suit_length(suit) >= 4:
+            return suit
+    return None
 
 
 def _find_new_suit_lower(ctx: BiddingContext) -> Suit | None:
@@ -251,7 +303,7 @@ class FourMAfter1NTRebid(Rule):
             _i_bid_new_suit_1level,
             _partner_rebid_1nt,
             HcpRange(min_hcp=13),
-            my_response_suit_is_major,
+            i_responded_in_a_major,
             my_response_suit_6plus,
         )
 
@@ -290,7 +342,7 @@ class JumpOwnMajorAfter1NT(Rule):
             _i_bid_new_suit_1level,
             _partner_rebid_1nt,
             HcpRange(min_hcp=13),
-            my_response_suit_is_major,
+            i_responded_in_a_major,
             my_response_suit_5,
         )
 
@@ -365,7 +417,7 @@ class TwoNTAfter1NTRebid(Rule):
 
     @property
     def priority(self) -> int:
-        return 286
+        return 278
 
     @property
     def conditions(self) -> All:
@@ -400,7 +452,7 @@ class JumpRebidAfter1NT(Rule):
 
     @property
     def priority(self) -> int:
-        return 280
+        return 288
 
     @property
     def conditions(self) -> All:
@@ -561,7 +613,7 @@ class FourMAfterRaise(Rule):
             _i_bid_new_suit_1level,
             partner_raised_my_suit,
             HcpRange(min_hcp=13),
-            my_response_suit_is_major,
+            i_responded_in_a_major,
         )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -599,7 +651,7 @@ class ThreeNTAfterRaise(Rule):
             partner_raised_my_suit,
             stoppers_in_unbid,
             HcpRange(min_hcp=13),
-            my_response_suit_is_minor,
+            i_responded_in_a_minor,
         )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -607,6 +659,52 @@ class ThreeNTAfterRaise(Rule):
             bid=SuitBid(3, Suit.NOTRUMP),
             rule_name=self.name,
             explanation="13+ HCP, minor raised -- 3NT",
+        )
+
+
+class NewSuitForcingAfterMinorRaise(Rule):
+    """Bid a new suit forcing after minor raise without stoppers.
+
+    1x->1y->2y->new suit. 13+ HCP, minor raised, no stoppers.
+    Bid longest unbid suit as a forcing new suit to explore.
+    Only applies when response was a minor (major raises use FourMAfterRaise).
+    """
+
+    def __init__(self) -> None:
+        self._new_suit = Computed(find_new_suit_forcing, "new suit forcing")
+
+    @property
+    def name(self) -> str:
+        return "reresponse.new_suit_forcing_after_minor_raise"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_RESPONDER
+
+    @property
+    def priority(self) -> int:
+        return 355
+
+    @property
+    def conditions(self) -> All:
+        return All(
+            partner_opened_1_suit,
+            _i_bid_new_suit_1level,
+            partner_raised_my_suit,
+            HcpRange(min_hcp=13),
+            i_responded_in_a_minor,
+            self._new_suit,
+        )
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        suit = self._new_suit.value
+        rebid = partner_rebid(ctx)
+        bid = cheapest_bid_in_suit(suit, rebid)
+        return RuleResult(
+            bid=bid,
+            rule_name=self.name,
+            explanation=f"13+ HCP, minor raised, no stoppers -- {bid} forcing",
+            forcing=True,
         )
 
 
@@ -709,7 +807,7 @@ class Accept3yJumpRaise(Rule):
             _i_bid_new_suit_1level,
             _partner_jump_raised_my_suit,
             HcpRange(min_hcp=9),
-            my_response_suit_is_major,
+            i_responded_in_a_major,
         )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -746,14 +844,15 @@ class Accept3yJumpRaise3NT(Rule):
             _i_bid_new_suit_1level,
             _partner_jump_raised_my_suit,
             HcpRange(min_hcp=9),
-            my_response_suit_is_minor,
+            i_responded_in_a_minor,
+            stoppers_in_unbid,
         )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
             bid=SuitBid(3, Suit.NOTRUMP),
             rule_name=self.name,
-            explanation="9+ HCP, minor jump raised -- 3NT",
+            explanation="9+ HCP, minor jump raised, stoppers -- 3NT",
         )
 
 
@@ -948,6 +1047,51 @@ class FourthSuitAfterOwnSuit(Rule):
         )
 
 
+class NewSuitForcingAfterOwnSuit(Rule):
+    """Bid a new suit -- forcing, game-going.
+
+    1x->1y->2x->new suit. 13+ HCP, 4+ cards in an unbid suit.
+    Used when FSF is unavailable (only 2 suits bid, 2 unbid).
+    A new suit by responder is forcing one round in SAYC.
+    """
+
+    def __init__(self) -> None:
+        self._new_suit = Computed(find_new_suit_forcing, "new suit forcing")
+
+    @property
+    def name(self) -> str:
+        return "reresponse.new_suit_forcing_after_own_suit"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_RESPONDER
+
+    @property
+    def priority(self) -> int:
+        return 348
+
+    @property
+    def conditions(self) -> All:
+        return All(
+            partner_opened_1_suit,
+            _i_bid_new_suit_1level,
+            partner_rebid_own_suit,
+            HcpRange(min_hcp=13),
+            self._new_suit,
+        )
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        suit = self._new_suit.value
+        rebid = partner_rebid(ctx)
+        bid = cheapest_bid_in_suit(suit, rebid)
+        return RuleResult(
+            bid=bid,
+            rule_name=self.name,
+            explanation=f"13+ HCP, 4+ {suit.letter} -- new suit forcing {bid}",
+            forcing=True,
+        )
+
+
 class TwoNTAfterOwnSuit(Rule):
     """Bid 2NT after opener rebid own suit -- invitational.
 
@@ -980,6 +1124,44 @@ class TwoNTAfterOwnSuit(Rule):
             bid=SuitBid(2, Suit.NOTRUMP),
             rule_name=self.name,
             explanation="11-12 HCP after own suit rebid -- invitational 2NT",
+        )
+
+
+class JumpRebidOwnSuitAfterOwnSuit(Rule):
+    """Jump rebid own suit -- invitational.
+
+    1x->1y->2x->3y. 11-12 HCP, 6+ cards in response suit.
+    More descriptive than 2NT when holding a long suit.
+    """
+
+    @property
+    def name(self) -> str:
+        return "reresponse.jump_rebid_own_suit_after_own_suit"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_RESPONDER
+
+    @property
+    def priority(self) -> int:
+        return 284
+
+    @property
+    def conditions(self) -> All:
+        return All(
+            partner_opened_1_suit,
+            _i_bid_new_suit_1level,
+            partner_rebid_own_suit,
+            HcpRange(min_hcp=11, max_hcp=12),
+            my_response_suit_6plus,
+        )
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        suit = my_response_suit(ctx)
+        return RuleResult(
+            bid=SuitBid(3, suit),
+            rule_name=self.name,
+            explanation=f"11-12 HCP, 6+ {suit.letter} -- invitational 3{suit.letter}",
         )
 
 
@@ -1171,6 +1353,43 @@ class ThreeNTAfterJumpRebid(Rule):
         )
 
 
+class ThreeNTAfterJumpRebidNoStoppers(Rule):
+    """Bid 3NT after opener jump rebid -- no stoppers but game values.
+
+    1x->1y->3x->3NT. 8+ HCP, without stoppers in unbid suits.
+    With enough combined values for game, accept the risk.
+    Lower priority than stopper-checked version.
+    """
+
+    @property
+    def name(self) -> str:
+        return "reresponse.3nt_after_jump_rebid_no_stoppers"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_RESPONDER
+
+    @property
+    def priority(self) -> int:
+        return 335
+
+    @property
+    def conditions(self) -> All:
+        return All(
+            partner_opened_1_suit,
+            _i_bid_new_suit_1level,
+            partner_jump_rebid_own_suit,
+            HcpRange(min_hcp=8),
+        )
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        return RuleResult(
+            bid=SuitBid(3, Suit.NOTRUMP),
+            rule_name=self.name,
+            explanation="8+ HCP after jump rebid -- 3NT (no stopper check)",
+        )
+
+
 class PassAfterJumpRebid(Rule):
     """Decline jump rebid invitation.
 
@@ -1234,7 +1453,7 @@ class FourMAfterNewSuit(Rule):
             _i_bid_new_suit_1level,
             partner_rebid_new_suit,
             HcpRange(min_hcp=13),
-            my_response_suit_is_major,
+            i_responded_in_a_major,
             my_response_suit_5plus,
         )
 
@@ -1326,9 +1545,11 @@ class FourthSuitForcing(Rule):
 
 
 class RaiseNewSuitInvite(Rule):
-    """Raise opener's new suit -- invitational.
+    """Raise opener's new suit -- invitational (after 2-level rebid).
 
     1x->1y->2z->3z. 11-12 HCP, 4+ support for z.
+    After a 2-level rebid, cheapest raise IS the jump (invitational).
+    For 1-level rebids, see InviteJumpRaiseNewSuit.
     """
 
     @property
@@ -1357,10 +1578,51 @@ class RaiseNewSuitInvite(Rule):
         suit = partner_rebid_suit(ctx)
         rebid = partner_rebid(ctx)
         bid = cheapest_bid_in_suit(suit, rebid)
+        # After 1-level rebid, jump one level for invitational
+        if rebid.level == 1:
+            bid = SuitBid(bid.level + 1, suit)
         return RuleResult(
             bid=bid,
             rule_name=self.name,
             explanation=f"11-12 HCP, 4+ {suit.letter} -- invitational raise {bid}",
+        )
+
+
+class JumpRebidOwnSuitAfterNewSuit(Rule):
+    """Jump rebid own suit after opener's new suit -- invitational.
+
+    1x->1y->2z->3y. 11-12 HCP, 6+ cards in response suit.
+    More descriptive than 2NT when holding a long suit.
+    """
+
+    @property
+    def name(self) -> str:
+        return "reresponse.jump_rebid_own_suit_after_new_suit"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_RESPONDER
+
+    @property
+    def priority(self) -> int:
+        return 289
+
+    @property
+    def conditions(self) -> All:
+        return All(
+            partner_opened_1_suit,
+            _i_bid_new_suit_1level,
+            partner_rebid_new_suit,
+            HcpRange(min_hcp=11, max_hcp=12),
+            my_response_suit_6plus,
+        )
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        suit = my_response_suit(ctx)
+        return RuleResult(
+            bid=SuitBid(3, suit),
+            rule_name=self.name,
+            explanation=f"11-12 HCP, 6+ {suit.letter} -- invitational 3{suit.letter}",
         )
 
 
@@ -1512,6 +1774,124 @@ class PassAfterNewSuit(Rule):
         )
 
 
+# ── F7b: Extra rules for 1-level new suit rebids (1x->1y->1z->?) ──
+
+
+class NewSuitAt1Level(Rule):
+    """Bid a new suit at the 1-level -- natural, forcing.
+
+    1C->1D->1H->1S. 6+ HCP, 4+ cards in a suit biddable at 1-level.
+    Only possible after 1C->1D->1H (bidding 1S).
+    """
+
+    @property
+    def name(self) -> str:
+        return "reresponse.new_suit_at_1_level"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_RESPONDER
+
+    @property
+    def priority(self) -> int:
+        return 262
+
+    @property
+    def conditions(self) -> All:
+        return All(
+            partner_opened_1_suit,
+            _i_bid_new_suit_1level,
+            _partner_rebid_new_suit_1_level,
+            HcpRange(min_hcp=6),
+            Computed(_find_new_suit_at_1_level, "new suit at 1-level"),
+        )
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        suit = _find_new_suit_at_1_level(ctx)
+        assert suit is not None
+        return RuleResult(
+            bid=SuitBid(1, suit),
+            rule_name=self.name,
+            explanation=f"6+ HCP, 4+ {suit.letter} -- natural 1{suit.letter}, forcing",
+            forcing=True,
+        )
+
+
+class WeakRaiseNewSuit(Rule):
+    """Raise opener's new suit -- weak (after 1-level rebid).
+
+    1x->1y->1z->2z. 6-10 HCP, 4+ support for z.
+    """
+
+    @property
+    def name(self) -> str:
+        return "reresponse.weak_raise_new_suit"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_RESPONDER
+
+    @property
+    def priority(self) -> int:
+        return 200
+
+    @property
+    def conditions(self) -> All:
+        return All(
+            partner_opened_1_suit,
+            _i_bid_new_suit_1level,
+            _partner_rebid_new_suit_1_level,
+            HcpRange(max_hcp=10),
+            HasSuitFit(partner_rebid_suit, min_len=4),
+        )
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        suit = partner_rebid_suit(ctx)
+        rebid = partner_rebid(ctx)
+        bid = cheapest_bid_in_suit(suit, rebid)
+        return RuleResult(
+            bid=bid,
+            rule_name=self.name,
+            explanation=f"6-10 HCP, 4+ {suit.letter} -- simple raise {bid}",
+        )
+
+
+class OneNTReresponse(Rule):
+    """Bid 1NT -- weak, balanced, no fit (after 1-level rebid).
+
+    1x->1y->1z->1NT. 6-10 HCP, balanced, no support for opener's suits.
+    """
+
+    @property
+    def name(self) -> str:
+        return "reresponse.1nt_reresponse"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_RESPONDER
+
+    @property
+    def priority(self) -> int:
+        return 100
+
+    @property
+    def conditions(self) -> All:
+        return All(
+            partner_opened_1_suit,
+            _i_bid_new_suit_1level,
+            _partner_rebid_new_suit_1_level,
+            HcpRange(max_hcp=10),
+            Balanced(),
+        )
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        return RuleResult(
+            bid=SuitBid(1, Suit.NOTRUMP),
+            rule_name=self.name,
+            explanation="6-10 HCP, balanced -- 1NT sign-off",
+        )
+
+
 # ── F8: After Opener Reversed (1x->1y->2z reverse->?) ───────────
 
 
@@ -1552,10 +1932,56 @@ class ThreeNTAfterReverse(Rule):
         )
 
 
-class RaiseReverseSuit(Rule):
-    """Raise the reverse suit.
+class GFRaiseReverseSuit(Rule):
+    """Raise reverse suit -- game forcing.
 
-    1x->1y->2z(rev)->3z. 10+ HCP, 4+ in reverse suit.
+    1x->1y->2z(rev)->4z/3NT. 13+ HCP, 4+ in reverse suit.
+    With opener's 17+ (reverse) + responder's 13+ = 30+ combined.
+    Major fit: bid game (4z). Minor fit: bid 3NT.
+    """
+
+    @property
+    def name(self) -> str:
+        return "reresponse.gf_raise_reverse_suit"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_RESPONDER
+
+    @property
+    def priority(self) -> int:
+        return 372
+
+    @property
+    def conditions(self) -> All:
+        return All(
+            partner_opened_1_suit,
+            _i_bid_new_suit_1level,
+            _partner_reversed,
+            HcpRange(min_hcp=13),
+            HasSuitFit(partner_rebid_suit, min_len=4),
+        )
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        suit = partner_rebid_suit(ctx)
+        if suit.is_major:
+            bid = SuitBid(4, suit)
+            return RuleResult(
+                bid=bid,
+                rule_name=self.name,
+                explanation=f"13+ HCP, 4+ {suit.letter} after reverse -- game {bid}",
+            )
+        return RuleResult(
+            bid=SuitBid(3, Suit.NOTRUMP),
+            rule_name=self.name,
+            explanation=f"13+ HCP, 4+ {suit.letter} (minor) after reverse -- 3NT",
+        )
+
+
+class RaiseReverseSuit(Rule):
+    """Raise the reverse suit -- invitational.
+
+    1x->1y->2z(rev)->3z. 10-12 HCP, 4+ in reverse suit.
     """
 
     @property
@@ -1576,7 +2002,7 @@ class RaiseReverseSuit(Rule):
             partner_opened_1_suit,
             _i_bid_new_suit_1level,
             _partner_reversed,
-            HcpRange(min_hcp=10),
+            HcpRange(min_hcp=10, max_hcp=12),
             HasSuitFit(partner_rebid_suit, min_len=4),
         )
 
@@ -1587,7 +2013,58 @@ class RaiseReverseSuit(Rule):
         return RuleResult(
             bid=bid,
             rule_name=self.name,
-            explanation=f"10+ HCP, 4+ {suit.letter} -- raise reverse suit {bid}",
+            explanation=(
+                f"10-12 HCP, 4+ {suit.letter} --"
+                f" invitational raise of reverse suit {bid}"
+            ),
+        )
+
+
+class GFAfterReverse(Rule):
+    """Game-forcing action after reverse -- new suit or 3NT.
+
+    1x->1y->2z(rev)->?. 13+ HCP, no 4+ fit in reverse suit.
+    With opener's 17+ (reverse) + responder's 13+ = 30+ combined.
+    Bid a 4+ card unbid suit (forcing, natural) if available,
+    otherwise bid 3NT.
+    """
+
+    @property
+    def name(self) -> str:
+        return "reresponse.gf_after_reverse"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_RESPONDER
+
+    @property
+    def priority(self) -> int:
+        return 360
+
+    @property
+    def conditions(self) -> All:
+        return All(
+            partner_opened_1_suit,
+            _i_bid_new_suit_1level,
+            _partner_reversed,
+            HcpRange(min_hcp=13),
+        )
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        new_suit = find_new_suit_forcing(ctx)
+        if new_suit is not None:
+            rebid = partner_rebid(ctx)
+            bid = cheapest_bid_in_suit(new_suit, rebid)
+            return RuleResult(
+                bid=bid,
+                rule_name=self.name,
+                explanation=f"13+ HCP after reverse -- {bid} forcing",
+                forcing=True,
+            )
+        return RuleResult(
+            bid=SuitBid(3, Suit.NOTRUMP),
+            rule_name=self.name,
+            explanation="13+ HCP after reverse -- 3NT",
         )
 
 
@@ -1925,7 +2402,7 @@ class FourMAfter2NTRebid(Rule):
             _i_bid_new_suit_1level,
             partner_rebid_2nt,
             HcpRange(min_hcp=8),
-            my_response_suit_is_major,
+            i_responded_in_a_major,
             my_response_suit_6plus,
         )
 
@@ -1974,9 +2451,9 @@ class ThreeNTAfter2NTRebid(Rule):
 
 
 class ThreeSuitAfter2NTRebid(Rule):
-    """Bid a suit at 3-level after 2NT rebid -- forcing, exploring.
+    """Bid 3M after 2NT rebid -- forcing, lets opener choose 3NT or 4M.
 
-    1x->1y->2NT->3-level suit. 8+ HCP, 5+ cards.
+    1x->1y->2NT->3y. 8+ HCP, 5+ card major.
     """
 
     @property
@@ -1989,7 +2466,7 @@ class ThreeSuitAfter2NTRebid(Rule):
 
     @property
     def priority(self) -> int:
-        return 334
+        return 341
 
     @property
     def conditions(self) -> All:
@@ -1998,6 +2475,7 @@ class ThreeSuitAfter2NTRebid(Rule):
             _i_bid_new_suit_1level,
             partner_rebid_2nt,
             HcpRange(min_hcp=8),
+            i_responded_in_a_major,
             my_response_suit_5plus,
         )
 
@@ -2006,7 +2484,11 @@ class ThreeSuitAfter2NTRebid(Rule):
         return RuleResult(
             bid=SuitBid(3, suit),
             rule_name=self.name,
-            explanation=f"8+ HCP, 5+ cards after 2NT -- forcing 3{suit.letter}",
+            explanation=(
+                f"8+ HCP, 5+ {suit.letter} after 2NT --"
+                f" 3{suit.letter} lets opener choose"
+                f" 3NT or 4{suit.letter}"
+            ),
             forcing=True,
         )
 
@@ -2080,4 +2562,43 @@ class PassAfter3NTRebid(Rule):
             bid=PASS,
             rule_name=self.name,
             explanation="Game reached after 3NT rebid -- pass",
+        )
+
+
+# ── F12: After Opener Double-Jump Rebid Own Suit (1x->1y->4x->?) ──
+
+
+class PassAfterDoubleJumpRebid(Rule):
+    """Pass after opener's double-jump rebid of own suit.
+
+    1x->1y->4x->Pass. Opener shows 19-21 with self-supporting 6+ suit.
+    For majors (4H/4S), game is reached. For minors (4C/4D), pass is
+    pragmatic -- opener bid aggressively and 5m is rarely right.
+    """
+
+    @property
+    def name(self) -> str:
+        return "reresponse.pass_after_double_jump_rebid"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_RESPONDER
+
+    @property
+    def priority(self) -> int:
+        return 88
+
+    @property
+    def conditions(self) -> All:
+        return All(
+            partner_opened_1_suit,
+            _i_bid_new_suit_1level,
+            _partner_double_jump_rebid_own_suit,
+        )
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        return RuleResult(
+            bid=PASS,
+            rule_name=self.name,
+            explanation="Opener double-jump-rebid own suit -- pass",
         )

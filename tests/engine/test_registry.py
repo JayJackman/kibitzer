@@ -94,12 +94,13 @@ class TestRuleRegistry:
         with pytest.raises(DuplicateRuleError, match="Duplicate rule name"):
             reg.register(MockRule("opening.1nt", Category.OPENING, 201))
 
-    def test_duplicate_priority_in_category_rejected(self) -> None:
+    def test_duplicate_priority_in_category_allowed(self) -> None:
         reg = RuleRegistry()
         reg.register(MockRule("opening.1nt", Category.OPENING, 200))
+        reg.register(MockRule("opening.2nt", Category.OPENING, 200))
 
-        with pytest.raises(DuplicateRuleError, match="Duplicate priority 200"):
-            reg.register(MockRule("opening.2nt", Category.OPENING, 200))
+        rules = reg.rules_for(Category.OPENING)
+        assert len(rules) == 2
 
     def test_same_priority_different_categories_ok(self) -> None:
         reg = RuleRegistry()

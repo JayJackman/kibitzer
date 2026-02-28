@@ -1,8 +1,8 @@
-"""Section J: After I Bid 2NT Over Minor (1m->2NT->rebid->?)."""
+"""After I Bid 2NT Over Minor (1m->2NT->rebid->?)."""
 
 from __future__ import annotations
 
-from bridge.engine.condition import All, Condition, HasSuitFit, condition
+from bridge.engine.condition import All, Condition, HcpRange, condition
 from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.model.bid import PASS, SuitBid
@@ -15,18 +15,18 @@ from .helpers import (
     partner_rebid,
     partner_rebid_3nt,
     partner_rebid_own_suit,
-    partner_rebid_suit,
 )
 
 __all__ = [
+    "AcceptQuantitative4NTMinor",
+    "DeclineQuantitative4NTMinor",
     "PassAfter2NTMinor3NT",
-    "Raise3MAfter2NTMinor",
     "ThreeNTAfter2NTMinorMajor",
     "ThreeNTAfter2NTMinorRebid",
 ]
 
 
-# ── Section J helpers ─────────────────────────────────
+# ── helpers ─────────────────────────────────
 
 
 @condition("I bid 2NT over minor")
@@ -43,49 +43,20 @@ def _partner_rebid_suit_is_major(ctx: BiddingContext) -> bool:
     return not rebid.is_notrump and rebid.suit.is_major
 
 
-# ── Rules ─────────────────────────────────────────────
+@condition("partner rebid 4NT (quantitative)")
+def _partner_rebid_4nt(ctx: BiddingContext) -> bool:
+    rebid = partner_rebid(ctx)
+    return rebid.is_notrump and rebid.level == 4
 
 
-class Raise3MAfter2NTMinor(Rule):
-    """Raise opener's major after 2NT over minor.
-
-    1m->2NT->3M->4M. 4+ fit in M.
-    """
-
-    @property
-    def name(self) -> str:
-        return "reresponse.raise_3m_after_2nt_minor"
-
-    @property
-    def category(self) -> Category:
-        return Category.REBID_RESPONDER
-
-    @property
-    def priority(self) -> int:
-        return 369
-
-    @property
-    def conditions(self) -> Condition:
-        return All(
-            partner_opened_1_suit,
-            _i_bid_2nt_over_minor,
-            _partner_rebid_suit_is_major,
-            HasSuitFit(partner_rebid_suit, min_len=4),
-        )
-
-    def select(self, ctx: BiddingContext) -> RuleResult:
-        suit = partner_rebid_suit(ctx)
-        return RuleResult(
-            bid=SuitBid(4, suit),
-            rule_name=self.name,
-            explanation=f"4+ {suit.letter}, game in major -- 4{suit.letter}",
-        )
+# ── After opener showed major (1m->2NT->3M) ──────────
 
 
 class ThreeNTAfter2NTMinorMajor(Rule):
     """Bid 3NT when no fit for opener's major.
 
-    1m->2NT->3M->3NT. No fit in M.
+    1m->2NT->3M->3NT. 2NT response denies 4-card major,
+    so responder has at most 3 cards in M -- 3NT is correct.
     """
 
     @property
@@ -114,6 +85,9 @@ class ThreeNTAfter2NTMinorMajor(Rule):
             rule_name=self.name,
             explanation="No major fit after 2NT -- 3NT",
         )
+
+
+# ── After opener rebid minor (1m->2NT->3m) ───────────
 
 
 class ThreeNTAfter2NTMinorRebid(Rule):
@@ -150,6 +124,9 @@ class ThreeNTAfter2NTMinorRebid(Rule):
         )
 
 
+# ── After opener bid 3NT (1m->2NT->3NT) ──────────────
+
+
 class PassAfter2NTMinor3NT(Rule):
     """Pass after opener bid 3NT over 2NT minor.
 
@@ -181,4 +158,79 @@ class PassAfter2NTMinor3NT(Rule):
             bid=PASS,
             rule_name=self.name,
             explanation="Game reached after 2NT minor -- pass",
+        )
+
+
+# ── After quantitative 4NT (1m->2NT->4NT) ────────────
+
+
+class AcceptQuantitative4NTMinor(Rule):
+    """Accept quantitative 4NT -- bid 6NT with maximum.
+
+    1m->2NT->4NT->6NT. 14-15 HCP (maximum for 2NT response).
+    Opener showed 18+ HCP; combined 18+14 = 32+ (slam range).
+    """
+
+    @property
+    def name(self) -> str:
+        return "reresponse.accept_quantitative_4nt_minor"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_RESPONDER
+
+    @property
+    def priority(self) -> int:
+        return 370
+
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            partner_opened_1_suit,
+            _i_bid_2nt_over_minor,
+            _partner_rebid_4nt,
+            HcpRange(min_hcp=14),
+        )
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        return RuleResult(
+            bid=SuitBid(6, Suit.NOTRUMP),
+            rule_name=self.name,
+            explanation="14-15 HCP, accept quantitative 4NT -- 6NT",
+        )
+
+
+class DeclineQuantitative4NTMinor(Rule):
+    """Decline quantitative 4NT -- pass with minimum.
+
+    1m->2NT->4NT->Pass. 13 HCP (minimum for 2NT response).
+    Opener showed 18+ HCP; combined 18+13 = 31 (not enough for slam).
+    """
+
+    @property
+    def name(self) -> str:
+        return "reresponse.decline_quantitative_4nt_minor"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_RESPONDER
+
+    @property
+    def priority(self) -> int:
+        return 92
+
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            partner_opened_1_suit,
+            _i_bid_2nt_over_minor,
+            _partner_rebid_4nt,
+            HcpRange(max_hcp=13),
+        )
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        return RuleResult(
+            bid=PASS,
+            rule_name=self.name,
+            explanation="13 HCP, decline quantitative 4NT -- pass",
         )

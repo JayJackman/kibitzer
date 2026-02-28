@@ -309,17 +309,18 @@ def _find_shortness_suit(ctx: BiddingContext) -> Suit | None:
     return best
 
 
-def _find_5_card_side_suit(ctx: BiddingContext) -> Suit | None:
-    """Find a side suit with 5+ cards (source of tricks).
+def _find_jacoby_side_suit(ctx: BiddingContext) -> Suit | None:
+    """Find a 5+ card side suit biddable below 4M in Jacoby 2NT.
 
     Returns the longest qualifying suit; cheapest breaks ties.
-    Excludes the trump (opening) suit.
+    Excludes the trump (opening) suit and any suit ranking above it,
+    since bidding 4x in a higher-ranking suit would bypass 4M game.
     """
     trump = _my_opening_suit(ctx)
     best: Suit | None = None
     best_len = 0
     for suit in (Suit.CLUBS, Suit.DIAMONDS, Suit.HEARTS, Suit.SPADES):
-        if suit == trump:
+        if suit >= trump:
             continue
         length = ctx.hand.suit_length(suit)
         if length >= 5 and length > best_len:
@@ -399,7 +400,7 @@ def _has_shortness(ctx: BiddingContext) -> bool:
 
 @condition("5+ card side suit")
 def _has_side_suit(ctx: BiddingContext) -> bool:
-    return _find_5_card_side_suit(ctx) is not None
+    return _find_jacoby_side_suit(ctx) is not None
 
 
 def _responder_suit(ctx: BiddingContext) -> Suit:
@@ -456,6 +457,7 @@ class RebidInviteAfterRaiseMajor(Rule):
     e.g. 1H→2H→3H
 
     SAYC: "16-18 points; invitational. Raise to 3."
+    Fallback when no suitable help suit exists for a game try.
     """
 
     @property
@@ -468,7 +470,7 @@ class RebidInviteAfterRaiseMajor(Rule):
 
     @property
     def priority(self) -> int:
-        return 220
+        return 225
 
     @property
     def conditions(self) -> Condition:
@@ -524,15 +526,54 @@ class RebidPassAfterRaise(Rule):
         )
 
 
-# ── Rules — After Limit Raise of Major ──────────────────────────────
+# ── Rules — After Limit Raise ─────────────────────────────────────────
+
+
+class RebidBlackwoodAfterLimitRaise(Rule):
+    """Blackwood 4NT after limit raise -- slam investigation.
+
+    e.g. 1H->3H->4NT, 1D->3D->4NT
+
+    21+ Bergen pts. With 21+ opener + 10-12 responder = 31-33+,
+    slam investigation is warranted. Shared between major and minor.
+    """
+
+    @property
+    def name(self) -> str:
+        return "rebid.blackwood_after_limit_raise"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_OPENER
+
+    @property
+    def priority(self) -> int:
+        return 325
+
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            _i_opened_1_suit,
+            _partner_limit_raised,
+            BergenPtsRange(_my_opening_suit, min_pts=21),
+        )
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        return RuleResult(
+            bid=SuitBid(4, Suit.NOTRUMP),
+            rule_name=self.name,
+            explanation="21+ Bergen pts after limit raise -- Blackwood 4NT",
+            forcing=True,
+        )
 
 
 class RebidAcceptLimitRaiseMajor(Rule):
-    """Accept limit raise — 15+ Bergen pts, bid game.
+    """Accept limit raise — 15-20 Bergen pts, bid game.
 
     e.g. 1H→3H→4H
 
     SAYC: "Accept the invitation; bid game."
+    21+ Bergen goes to Blackwood instead.
     """
 
     @property
@@ -553,7 +594,7 @@ class RebidAcceptLimitRaiseMajor(Rule):
             _i_opened_1_suit,
             _partner_limit_raised,
             _opening_suit_is_major,
-            BergenPtsRange(_my_opening_suit, min_pts=15),
+            BergenPtsRange(_my_opening_suit, min_pts=15, max_pts=20),
         )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -561,7 +602,7 @@ class RebidAcceptLimitRaiseMajor(Rule):
         return RuleResult(
             bid=SuitBid(4, suit),
             rule_name=self.name,
-            explanation=(f"15+ Bergen pts, accept limit raise — SAYC 4{suit.letter}"),
+            explanation=(f"15-20 Bergen pts, accept limit raise — SAYC 4{suit.letter}"),
         )
 
 
@@ -605,12 +646,15 @@ class RebidDeclineLimitRaise(Rule):
 
 
 class Rebid3NTAfterRaiseMinor(Rule):
-    """Bid 3NT after minor raise — balanced with sufficient HCP.
+    """Bid 3NT after minor limit raise — balanced, accept invitation.
 
-    e.g. 1D→2D→3NT, 1C→3C→3NT
+    e.g. 1C→3C→3NT, 1D→3D→3NT
 
-    After a single raise: 18-19 HCP balanced.
-    After a limit raise: 12+ HCP balanced.
+    After a limit raise (10-12 support): 12+ HCP balanced is enough
+    for game (combined 22+, and 3NT is easier than 5m).
+
+    Not used after a single raise: 18-19 balanced bids 2NT (invitational),
+    and 20-21 balanced opens 2NT rather than 1m.
     """
 
     @property
@@ -630,27 +674,25 @@ class Rebid3NTAfterRaiseMinor(Rule):
         return All(
             _i_opened_1_suit,
             _opening_suit_is_minor,
+            _partner_limit_raised,
             Balanced(),
-            Any(
-                All(_partner_single_raised, HcpRange(18, 19)),
-                All(_partner_limit_raised, HcpRange(min_hcp=12)),
-            ),
+            HcpRange(min_hcp=12, max_hcp=20),
         )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
             bid=SuitBid(3, Suit.NOTRUMP),
             rule_name=self.name,
-            explanation="Balanced, sufficient HCP after minor raise — SAYC 3NT",
+            explanation="Balanced, accept minor limit raise — SAYC 3NT",
         )
 
 
 class Rebid2NTAfterRaiseMinor(Rule):
-    """Bid 2NT after single raise of minor — 12-14 HCP balanced.
+    """Bid 2NT after single raise of minor — 18-19 HCP balanced.
 
     e.g. 1D→2D→2NT
 
-    Shows a balanced minimum over the single raise.
+    Invitational. Responder bids 3NT with 9-10, returns to 3m with 6-8.
     """
 
     @property
@@ -663,7 +705,7 @@ class Rebid2NTAfterRaiseMinor(Rule):
 
     @property
     def priority(self) -> int:
-        return 210
+        return 225
 
     @property
     def conditions(self) -> Condition:
@@ -672,14 +714,14 @@ class Rebid2NTAfterRaiseMinor(Rule):
             _partner_single_raised,
             _opening_suit_is_minor,
             Balanced(),
-            HcpRange(12, 14),
+            HcpRange(18, 19),
         )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
             bid=SuitBid(2, Suit.NOTRUMP),
             rule_name=self.name,
-            explanation="12-14 HCP balanced after minor raise — SAYC 2NT",
+            explanation="18-19 HCP balanced after minor raise — SAYC 2NT",
         )
 
 
@@ -744,7 +786,7 @@ class RebidGameAfterSingleRaiseMinor(Rule):
 
     @property
     def priority(self) -> int:
-        return 175
+        return 304
 
     @property
     def conditions(self) -> Condition:
@@ -785,7 +827,7 @@ class RebidInviteAfterRaiseMinor(Rule):
 
     @property
     def priority(self) -> int:
-        return 165
+        return 222
 
     @property
     def conditions(self) -> Condition:
@@ -807,9 +849,9 @@ class RebidInviteAfterRaiseMinor(Rule):
 
 
 class Rebid5mAfterLimitRaiseMinor(Rule):
-    """Bid 5 of minor after limit raise — 15+ Bergen pts, unbalanced, 6+ minor.
+    """Bid 5 of minor after limit raise — 15-20 Bergen pts, unbalanced, 6+ minor.
 
-    e.g. 1D→3D→5D
+    e.g. 1D→3D→5D. 21+ goes to Blackwood.
     """
 
     @property
@@ -822,7 +864,7 @@ class Rebid5mAfterLimitRaiseMinor(Rule):
 
     @property
     def priority(self) -> int:
-        return 180
+        return 308
 
     @property
     def conditions(self) -> Condition:
@@ -832,7 +874,7 @@ class Rebid5mAfterLimitRaiseMinor(Rule):
             _opening_suit_is_minor,
             Not(Balanced(), label="balanced/semi-balanced"),
             _has_rebiddable_suit,
-            BergenPtsRange(_my_opening_suit, min_pts=15),
+            BergenPtsRange(_my_opening_suit, min_pts=15, max_pts=20),
         )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -840,12 +882,12 @@ class Rebid5mAfterLimitRaiseMinor(Rule):
         return RuleResult(
             bid=SuitBid(5, suit),
             rule_name=self.name,
-            explanation=f"15+ Bergen pts, 6+ minor, unbalanced — SAYC 5{suit.letter}",
+            explanation=f"15-20 Bergen pts, 6+ minor, unbalanced — SAYC 5{suit.letter}",
         )
 
 
 class RebidAcceptLimitRaiseMinor3NT(Rule):
-    """Bid 3NT after limit raise of minor — unbalanced, 15+ Bergen pts.
+    """Bid 3NT after limit raise of minor — unbalanced, 15-20 Bergen pts.
 
     e.g. 1D→3D→3NT
 
@@ -868,7 +910,7 @@ class RebidAcceptLimitRaiseMinor3NT(Rule):
 
     @property
     def priority(self) -> int:
-        return 178
+        return 306
 
     @property
     def conditions(self) -> Condition:
@@ -877,14 +919,14 @@ class RebidAcceptLimitRaiseMinor3NT(Rule):
             _partner_limit_raised,
             _opening_suit_is_minor,
             Not(Balanced(), label="balanced/semi-balanced"),
-            BergenPtsRange(_my_opening_suit, min_pts=15),
+            BergenPtsRange(_my_opening_suit, min_pts=15, max_pts=20),
         )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
             bid=SuitBid(3, Suit.NOTRUMP),
             rule_name=self.name,
-            explanation="15+ Bergen pts, unbalanced, accept limit raise — 3NT",
+            explanation="15-20 Bergen pts, unbalanced, accept limit raise — 3NT",
         )
 
 
@@ -1060,7 +1102,7 @@ class RebidGameOver1NT(Rule):
 
     @property
     def priority(self) -> int:
-        return 275
+        return 320
 
     @property
     def conditions(self) -> Condition:
@@ -1888,11 +1930,11 @@ class RebidJacoby4LevelSource(Rule):
         return Category.REBID_OPENER
 
     def __init__(self) -> None:
-        self._side_suit = Computed(_find_5_card_side_suit, "5+ card side suit")
+        self._side_suit = Computed(_find_jacoby_side_suit, "5+ card side suit")
 
     @property
     def priority(self) -> int:
-        return 430
+        return 485
 
     @property
     def conditions(self) -> Condition:
@@ -1926,7 +1968,7 @@ class RebidJacoby3Major(Rule):
 
     @property
     def priority(self) -> int:
-        return 420
+        return 480
 
     @property
     def conditions(self) -> Condition:
@@ -1969,7 +2011,7 @@ class RebidJacoby3NT(Rule):
 
     @property
     def priority(self) -> int:
-        return 410
+        return 475
 
     @property
     def conditions(self) -> Condition:
@@ -2008,7 +2050,7 @@ class RebidJacoby4Major(Rule):
 
     @property
     def priority(self) -> int:
-        return 400
+        return 470
 
     @property
     def conditions(self) -> Condition:
@@ -2112,10 +2154,51 @@ class RebidMinorAfter2NTMinor(Rule):
         )
 
 
+class RebidQuantitative4NTAfter2NTMinor(Rule):
+    """Quantitative 4NT after 1m→2NT — slam invitation.
+
+    e.g. 1D→2NT→4NT, 1C→2NT→4NT
+
+    18+ HCP, no 4-card major, no 6+ minor (balanced/semi-balanced).
+    Responder (13-15) accepts with 14-15, declines with 13.
+    Combined 18+14 = 32 (borderline), 18+15 = 33 (slam).
+    """
+
+    @property
+    def name(self) -> str:
+        return "rebid.quantitative_4nt_after_2nt_minor"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_OPENER
+
+    @property
+    def priority(self) -> int:
+        return 391
+
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            _i_opened_1_suit,
+            _partner_bid_2nt_over_minor,
+            HcpRange(min_hcp=18),
+        )
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        return RuleResult(
+            bid=SuitBid(4, Suit.NOTRUMP),
+            rule_name=self.name,
+            explanation="18+ HCP after 2NT over minor -- quantitative 4NT, slam invite",
+            forcing=True,
+        )
+
+
 class RebidNTAfter2NTMinor(Rule):
     """Bid 3NT after 1m→2NT — balanced catch-all.
 
     e.g. 1D→2NT→3NT, 1C→2NT→3NT
+
+    12-17 HCP. With 18+, use quantitative 4NT instead.
     """
 
     @property
@@ -2132,13 +2215,17 @@ class RebidNTAfter2NTMinor(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(_i_opened_1_suit, _partner_bid_2nt_over_minor)
+        return All(
+            _i_opened_1_suit,
+            _partner_bid_2nt_over_minor,
+            HcpRange(max_hcp=17),
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
             bid=SuitBid(3, Suit.NOTRUMP),
             rule_name=self.name,
-            explanation="No 4-card major, no long minor — SAYC 3NT after 2NT",
+            explanation="12-17 HCP, no 4-card major, no long minor -- 3NT after 2NT",
         )
 
 
@@ -2297,7 +2384,8 @@ class RebidHelpSuitGameTry(Rule):
     e.g. 1H→2H→2S, 1S→2S→3D
 
     16-18 Bergen pts, major raise only. Bids the weakest side suit
-    to ask responder about help.
+    to ask responder about help. Preferred over generic 3M re-raise
+    when a suitable help suit exists.
     """
 
     @property
@@ -2315,7 +2403,7 @@ class RebidHelpSuitGameTry(Rule):
 
     @property
     def priority(self) -> int:
-        return 215
+        return 228
 
     @property
     def conditions(self) -> Condition:

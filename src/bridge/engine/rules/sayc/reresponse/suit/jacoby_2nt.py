@@ -1,8 +1,7 @@
-"""Section E: After Jacoby 2NT (1M->2NT->rebid->?)."""
+"""After Jacoby 2NT (1M->2NT->rebid->?)."""
 
 from __future__ import annotations
 
-from bridge.engine.bidutil import suit_hcp
 from bridge.engine.condition import All, Any, Not, SupportPtsRange, condition
 from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
@@ -32,7 +31,7 @@ __all__ = [
 ]
 
 
-# ── Section E helpers ─────────────────────────────────
+# ── helpers ─────────────────────────────────
 
 
 @condition("I bid Jacoby 2NT")
@@ -55,7 +54,11 @@ def _partner_showed_shortness(ctx: BiddingContext) -> bool:
 @condition("no wasted values in partner's short suit")
 def _no_wasted_values_in_short_suit(ctx: BiddingContext) -> bool:
     short_suit = partner_rebid_suit(ctx)
-    return suit_hcp(ctx, short_suit) < 4
+    # Aces are never wasted opposite shortness -- only count K/Q/J
+    non_ace_hcp = sum(
+        c.rank.hcp for c in ctx.hand.suit_cards(short_suit) if c.rank.hcp < 4
+    )
+    return non_ace_hcp <= 1
 
 
 @condition("partner showed source of tricks (Jacoby)")
@@ -82,7 +85,7 @@ def _partner_rebid_4_major(ctx: BiddingContext) -> bool:
     return rebid.suit == opening.suit and rebid.level == 4
 
 
-# ── Rules ─────────────────────────────────────────────
+# ── After shortness shown (1M->2NT->3x, singleton/void) ─────────
 
 
 class Blackwood4NTAfterShortness(Rule):
@@ -167,10 +170,13 @@ class Bid4MAfterShortness(Rule):
         )
 
 
+# ── After source of tricks (1M->2NT->4x, 5+ side suit) ──────────
+
+
 class Blackwood4NTAfterSource(Rule):
     """Slam try after opener showed source of tricks.
 
-    1M->2NT->4x->4NT. 16+ support pts with fitting honors.
+    1M->2NT->4x->4NT. 16+ support pts.
     """
 
     @property
@@ -237,6 +243,9 @@ class Bid4MAfterSource(Rule):
             rule_name=self.name,
             explanation=f"13-15 support pts after source of tricks -- 4{suit.letter}",
         )
+
+
+# ── After 3M maximum (1M->2NT->3M, 18+) ─────────────────────────
 
 
 class Blackwood4NTAfterMax(Rule):
@@ -311,6 +320,9 @@ class Bid4MAfterMax(Rule):
         )
 
 
+# ── After 3NT medium (1M->2NT->3NT, 15-17) ──────────────────────
+
+
 class Blackwood4NTAfter3NTMedium(Rule):
     """Slam try after opener showed medium hand.
 
@@ -381,6 +393,9 @@ class Bid4MAfter3NTMedium(Rule):
             rule_name=self.name,
             explanation=f"13-17 spts after 3NT medium -- correct to 4{suit.letter}",
         )
+
+
+# ── After 4M minimum (1M->2NT->4M, 12-14) ───────────────────────
 
 
 class Blackwood4NTAfterJacoby4M(Rule):

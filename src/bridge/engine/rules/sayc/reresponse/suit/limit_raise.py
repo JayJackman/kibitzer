@@ -1,4 +1,4 @@
-"""Section C-D: After I Limit Raised (1x->3x->rebid->?)."""
+"""After I Limit Raised (1x->3x->rebid->?)."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ __all__ = [
 ]
 
 
-# ── Section C helpers ─────────────────────────────────
+# ── helpers ─────────────────────────────────
 
 
 @condition("I limit-raised opener's suit")

@@ -177,7 +177,7 @@ def _practice_loop(
                 for line in computer_bids:
                     console.print(line)
                 computer_bids.clear()
-                result = _player_turn(advisor, player_hand, auction, player_seat)
+                result = _player_turn(advisor, player_hand, auction, player_seat, hands)
                 if result is None:
                     return
                 if result == _REDEAL:
@@ -213,6 +213,7 @@ def _player_turn(
     hand: Hand,
     auction: AuctionState,
     seat: Seat,
+    hands: dict[Seat, Hand],
 ) -> str | None:
     """Handle one player turn. Returns feedback string, _REDEAL, or None to quit."""
     while True:
@@ -228,6 +229,9 @@ def _player_turn(
             continue
         if cmd in ("g", "glossary"):
             console.print(format_glossary())
+            continue
+        if cmd in ("s", "show"):
+            console.print(format_all_hands(hands))
             continue
         if cmd in ("a", "advise"):
             advice = advisor.advise(hand, auction)

@@ -14,6 +14,10 @@ from bridge.model.bid import PASS, Bid
 _OVERLAY_CATEGORIES = (Category.CONVENTION, Category.SLAM)
 
 
+class AmbiguousBidError(Exception):
+    """Two rules at the same priority both matched — a real conflict."""
+
+
 @dataclass(frozen=True)
 class ThoughtStep:
     """One rule evaluated during the thought process."""
@@ -68,12 +72,22 @@ class BidSelector:
     def select(self, ctx: BiddingContext) -> RuleResult:
         """Pick the highest-priority matching rule and return its result.
 
-        Falls back to Pass if no rule applies.
+        Raises ``AmbiguousBidError`` if two rules at the same priority both
+        match.  Falls back to Pass if no rule applies.
         """
         candidates = self._collect_rules(ctx)
 
-        for rule in candidates:
+        for i, rule in enumerate(candidates):
             if rule.applies(ctx):
+                # Check for same-priority ambiguity.
+                for other in candidates[i + 1 :]:
+                    if other.priority != rule.priority:
+                        break
+                    if other.applies(ctx):
+                        raise AmbiguousBidError(
+                            f"Rules {rule.name!r} and {other.name!r} both "
+                            f"match at priority {rule.priority}"
+                        )
                 return rule.select(ctx)
 
         return RuleResult(
@@ -91,10 +105,15 @@ class BidSelector:
         return [rule.select(ctx) for rule in rules if rule.applies(ctx)]
 
     def think(self, ctx: BiddingContext) -> ThoughtProcess:
-        """Evaluate all candidate rules and produce a structured trace."""
+        """Evaluate all candidate rules and produce a structured trace.
+
+        Raises ``AmbiguousBidError`` if two rules at the same priority both
+        match.
+        """
         rules = self._collect_rules(ctx)
         steps: list[ThoughtStep] = []
         winner: RuleResult | None = None
+        winner_rule: Rule | None = None
 
         for rule in rules:
             check_result = rule.check(ctx)
@@ -110,6 +129,16 @@ class BidSelector:
             )
             if passed and winner is None:
                 winner = result
+                winner_rule = rule
+            elif (
+                passed
+                and winner_rule is not None
+                and rule.priority == winner_rule.priority
+            ):
+                raise AmbiguousBidError(
+                    f"Rules {winner_rule.name!r} and {rule.name!r} both "
+                    f"match at priority {rule.priority}"
+                )
 
         if winner is None:
             winner = RuleResult(
