@@ -134,26 +134,22 @@ export default function PracticePage() {
   return (
     <div className="container mx-auto px-4 py-6">
       {/* --- Page header: title, hand number, and New Hand button --- */}
-      <div className="mb-6 flex items-center justify-between">
-        <div>
+      <div className="mb-6">
+        <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold">Practice Mode</h1>
-          <p className="text-muted-foreground text-sm">
-            Hand #{state.hand_number} &middot; Seat:{" "}
-            {SEAT_LABELS[state.your_seat]} &middot; Vuln:{" "}
-            {auction.vulnerability}
-          </p>
+          {/* New Hand button inline with the title */}
+          <Form method="post">
+            <input type="hidden" name="intent" value="redeal" />
+            <Button type="submit" variant="outline" size="sm" disabled={isSubmitting}>
+              New Hand
+            </Button>
+          </Form>
         </div>
-
-        {/*
-         * "New Hand" button: submits a form with intent=redeal.
-         * Uses its own <Form> so it doesn't conflict with the bid form.
-         */}
-        <Form method="post">
-          <input type="hidden" name="intent" value="redeal" />
-          <Button type="submit" variant="outline" disabled={isSubmitting}>
-            New Hand
-          </Button>
-        </Form>
+        <p className="text-muted-foreground text-sm">
+          Hand #{state.hand_number} &middot; Seat:{" "}
+          {SEAT_LABELS[state.your_seat]} &middot; Vuln:{" "}
+          {auction.vulnerability}
+        </p>
       </div>
 
       {/*
@@ -181,7 +177,7 @@ export default function PracticePage() {
                     onClick={handleAdvise}
                     disabled={adviceFetcher.state === "loading"}
                   >
-                    {adviceFetcher.state === "loading" ? "Thinking..." : "Advise Me"}
+                    {adviceFetcher.state === "loading" ? "Thinking..." : "Show Advice"}
                   </Button>
                 ) : undefined
               }
@@ -259,7 +255,7 @@ function AuctionHistory({
   // Filter out Pass bids, but track original indices for stable React keys.
   const nonPassBids = bids
     .map((entry, i) => ({ entry, origIndex: i }))
-    .filter(({ entry }) => entry.bid !== "Pass");
+    .filter(({ entry }) => entry.bid !== "Pass" || entry.matched_engine === false);
 
   return (
     <Card>

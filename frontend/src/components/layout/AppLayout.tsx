@@ -13,7 +13,7 @@
  * /logout action without navigating away from the current page.
  * The action clears cookies and returns a redirect to /login.
  */
-import { Outlet, useFetcher, useRouteLoaderData } from "react-router";
+import { Link, Outlet, useFetcher, useRouteLoaderData } from "react-router";
 import type { User } from "@/api/types";
 import { Button } from "@/components/ui/button";
 
@@ -34,7 +34,9 @@ export default function AppLayout() {
       <nav className="border-b bg-card">
         <div className="container mx-auto flex items-center justify-between px-4 py-3">
           {/* App name / logo area */}
-          <h1 className="text-2xl font-bold">Kibitzer</h1>
+          <Link to="/lobby" className="text-2xl font-bold hover:opacity-80">
+            Kibitzer
+          </Link>
 
           {/* Right side: username + logout */}
           <div className="flex items-center gap-4">

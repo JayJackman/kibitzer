@@ -55,8 +55,6 @@ export default function HandDisplay({
           <div className="text-muted-foreground mt-2 border-t pt-2 text-xs">
             <span>{evaluation.hcp} HCP</span>
             <span className="mx-1">/</span>
-            <span>{evaluation.total_points} pts</span>
-            <span className="mx-1">/</span>
             <span>{evaluation.shape.join("-")}</span>
             <span className="mx-1">/</span>
             <span>{evaluation.is_balanced ? "bal" : "unbal"}</span>
