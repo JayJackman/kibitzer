@@ -18,16 +18,20 @@
  * - /logout:   action-only route (no page), clears cookies and redirects
  * - /: protected layout (checks auth via loader), renders nav + Outlet
  *   - /: LobbyPage (child of the protected layout)
+ *   - /practice/new: action-only route that creates a session and redirects
+ *   - /practice/:id: practice page with loader (state) + action (bid/redeal)
+ *   - /practice/:id/advise: loader-only route for fetcher-based advice loading
  * - *: catch-all redirects to /
  */
 import { createBrowserRouter, redirect, Navigate } from "react-router";
-import type { ActionFunctionArgs } from "react-router";
+import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { AxiosError } from "axios";
-import * as authApi from "@/api/endpoints";
+import * as api from "@/api/endpoints";
 import AppLayout from "@/components/layout/AppLayout";
 import LoginPage from "@/pages/Login";
 import RegisterPage from "@/pages/Register";
 import LobbyPage from "@/pages/Lobby";
+import PracticePage from "@/pages/Practice";
 
 // ---------------------------------------------------------------------------
 // Loader: runs before any protected route renders.
@@ -40,7 +44,7 @@ import LobbyPage from "@/pages/Lobby";
 // ---------------------------------------------------------------------------
 async function protectedLoader() {
   try {
-    const user = await authApi.getMe();
+    const user = await api.getMe();
     return { user };
   } catch {
     // Not authenticated -- throw redirect to bail out immediately.
@@ -60,7 +64,7 @@ async function loginAction({ request }: ActionFunctionArgs) {
   const formData = await request.formData();
 
   try {
-    await authApi.login({
+    await api.login({
       username: formData.get("username") as string,
       password: formData.get("password") as string,
     });
@@ -90,7 +94,7 @@ async function registerAction({ request }: ActionFunctionArgs) {
   }
 
   try {
-    await authApi.register({
+    await api.register({
       username: formData.get("username") as string,
       password,
     });
@@ -108,8 +112,65 @@ async function registerAction({ request }: ActionFunctionArgs) {
 // Clears cookies on the backend, then redirects to /login.
 // ---------------------------------------------------------------------------
 async function logoutAction() {
-  await authApi.logout();
+  await api.logout();
   return redirect("/login");
+}
+
+// ---------------------------------------------------------------------------
+// Practice routes: create, view, bid, redeal, and advise.
+// ---------------------------------------------------------------------------
+
+/**
+ * Action: creates a new practice session and redirects to it.
+ * The Lobby page's "Start Practice" form posts here with a seat choice.
+ */
+async function createPracticeAction({ request }: ActionFunctionArgs) {
+  const formData = await request.formData();
+  const seat = (formData.get("seat") as string) || "S";
+  const { id } = await api.createPracticeSession(seat);
+  return redirect(`/practice/${id}`);
+}
+
+/**
+ * Loader: fetches the full session state before PracticePage renders.
+ * Runs on initial load and automatically after any action completes
+ * (React Router revalidates loaders after mutations).
+ */
+async function practiceLoader({ params }: LoaderFunctionArgs) {
+  return { state: await api.getPracticeState(params.id!) };
+}
+
+/**
+ * Action: handles form submissions on the practice page.
+ * Reads the hidden "intent" field to distinguish between:
+ *   - "bid": places a bid, returns feedback (matched engine or not)
+ *   - "redeal": deals new hands, redirects to trigger a loader revalidation
+ */
+async function practiceAction({ request, params }: ActionFunctionArgs) {
+  const formData = await request.formData();
+  const intent = formData.get("intent");
+
+  if (intent === "bid") {
+    // Place the bid and return the feedback to the page via useActionData().
+    return await api.placeBid(params.id!, formData.get("bid") as string);
+  }
+
+  if (intent === "redeal") {
+    await api.redeal(params.id!);
+    // Redirect to the same page to trigger a fresh loader run.
+    return redirect(`/practice/${params.id}`);
+  }
+
+  return null;
+}
+
+/**
+ * Loader: fetches engine advice for the useFetcher() call.
+ * This route has no page element -- it's only used by the fetcher
+ * in PracticePage when the user clicks "Advise Me".
+ */
+async function adviceLoader({ params }: LoaderFunctionArgs) {
+  return await api.getAdvice(params.id!);
 }
 
 /**
@@ -136,6 +197,20 @@ export const router = createBrowserRouter([
     element: <AppLayout />,
     children: [
       { path: "/", element: <LobbyPage /> },
+
+      // Action-only: POST creates a session, redirects to /practice/:id.
+      { path: "/practice/new", action: createPracticeAction },
+
+      // Practice page: loader fetches state, action handles bid + redeal.
+      {
+        path: "/practice/:id",
+        element: <PracticePage />,
+        loader: practiceLoader,
+        action: practiceAction,
+      },
+
+      // Advice loader: used by useFetcher() in PracticePage (no element).
+      { path: "/practice/:id/advise", loader: adviceLoader },
     ],
   },
 
