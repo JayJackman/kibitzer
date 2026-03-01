@@ -24,6 +24,11 @@ export interface AuthCredentials {
   password: string;
 }
 
+// --- Shared domain types ---
+
+/** The four compass seats at a bridge table. */
+export type Seat = "N" | "E" | "S" | "W";
+
 // --- Practice types ---
 
 /** Cards grouped by suit, each as a list of rank strings (e.g. ["A", "K", "10", "3"]). */
@@ -51,7 +56,7 @@ export interface HandEvaluation {
 export interface Contract {
   level: number;
   suit: string;
-  declarer: string;
+  declarer: Seat;
   doubled: boolean;
   redoubled: boolean;
   passed_out: boolean;
@@ -59,24 +64,24 @@ export interface Contract {
 
 /** A single bid in the auction history. */
 export interface AuctionBid {
-  seat: string;
+  seat: Seat;
   bid: string;
   explanation: string | null;
 }
 
 /** Full auction state: history, dealer, vulnerability, and optional contract. */
 export interface Auction {
-  dealer: string;
+  dealer: Seat;
   vulnerability: string;
   bids: AuctionBid[];
   is_complete: boolean;
-  current_seat: string | null;
+  current_seat: Seat | null;
   contract: Contract | null;
 }
 
 /** A bid placed by a computer-controlled seat (with engine explanation). */
 export interface ComputerBid {
-  seat: string;
+  seat: Seat;
   bid: string;
   explanation: string;
 }
@@ -91,7 +96,7 @@ export interface BidFeedback {
 /** Full session state returned by GET /api/practice/{id}. */
 export interface PracticeState {
   id: string;
-  your_seat: string;
+  your_seat: Seat;
   hand: Hand;
   hand_evaluation: HandEvaluation;
   auction: Auction;
@@ -99,7 +104,7 @@ export interface PracticeState {
   is_my_turn: boolean;
   legal_bids: string[];
   last_feedback: BidFeedback | null;
-  all_hands: Record<string, Hand> | null;
+  all_hands: Record<Seat, Hand> | null;
   hand_number: number;
 }
 
