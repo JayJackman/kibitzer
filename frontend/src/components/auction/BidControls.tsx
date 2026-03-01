@@ -25,6 +25,12 @@ interface BidControlsProps {
   legalBids: string[];
   /** If true, all buttons are disabled (not the player's turn). */
   disabled: boolean;
+  /**
+   * Set of bid strings currently highlighted by keyboard shortcuts.
+   * When non-empty, highlighted buttons get a ring and non-highlighted
+   * legal buttons are dimmed, so the highlighted ones stand out.
+   */
+  highlightedBids?: Set<string>;
 }
 
 /**
@@ -43,7 +49,11 @@ const SUIT_COLUMNS = [
 /** The 7 bid levels (1 through 7). */
 const LEVELS = [1, 2, 3, 4, 5, 6, 7] as const;
 
-export default function BidControls({ legalBids, disabled }: BidControlsProps) {
+export default function BidControls({
+  legalBids,
+  disabled,
+  highlightedBids,
+}: BidControlsProps) {
   /**
    * useNavigation() tells us if a form submission is in flight.
    * While submitting, we disable all buttons to prevent double-clicks.
@@ -53,6 +63,9 @@ export default function BidControls({ legalBids, disabled }: BidControlsProps) {
 
   /** True if a specific bid string is legal and the controls are active. */
   const isLegal = (bid: string) => !disabled && legalBids.includes(bid);
+
+  /** Whether any keyboard highlight is active (used to dim non-highlighted). */
+  const anyHighlighted = highlightedBids != null && highlightedBids.size > 0;
 
   return (
     <Form method="post">
@@ -70,6 +83,8 @@ export default function BidControls({ legalBids, disabled }: BidControlsProps) {
             label="Pass"
             legal={isLegal("Pass")}
             submitting={isSubmitting}
+            highlighted={highlightedBids?.has("Pass") ?? false}
+            anyHighlighted={anyHighlighted}
           />
           <BidButton
             bid="X"
@@ -77,6 +92,8 @@ export default function BidControls({ legalBids, disabled }: BidControlsProps) {
             className="text-red-600"
             legal={isLegal("X")}
             submitting={isSubmitting}
+            highlighted={highlightedBids?.has("X") ?? false}
+            anyHighlighted={anyHighlighted}
           />
           <BidButton
             bid="XX"
@@ -84,6 +101,8 @@ export default function BidControls({ legalBids, disabled }: BidControlsProps) {
             className="text-blue-600"
             legal={isLegal("XX")}
             submitting={isSubmitting}
+            highlighted={highlightedBids?.has("XX") ?? false}
+            anyHighlighted={anyHighlighted}
           />
         </div>
 
@@ -108,6 +127,8 @@ export default function BidControls({ legalBids, disabled }: BidControlsProps) {
                   className={col.color ?? undefined}
                   legal={isLegal(bid)}
                   submitting={isSubmitting}
+                  highlighted={highlightedBids?.has(bid) ?? false}
+                  anyHighlighted={anyHighlighted}
                 />
               );
             }),
@@ -125,6 +146,10 @@ export default function BidControls({ legalBids, disabled }: BidControlsProps) {
  *
  * Disabled buttons (illegal bids or submitting) get low opacity and
  * are not clickable (pointer-events-none via the Button component).
+ *
+ * When keyboard highlights are active, highlighted buttons get a
+ * prominent ring and non-highlighted legal buttons are dimmed, making
+ * the highlighted ones visually obvious.
  */
 function BidButton({
   bid,
@@ -132,6 +157,8 @@ function BidButton({
   className,
   legal,
   submitting,
+  highlighted,
+  anyHighlighted,
 }: {
   /** The bid string sent to the backend (e.g. "1S", "Pass"). */
   bid: string;
@@ -143,6 +170,10 @@ function BidButton({
   legal: boolean;
   /** Whether a form submission is in flight (disables all buttons). */
   submitting: boolean;
+  /** Whether this specific button is highlighted by a keyboard shortcut. */
+  highlighted: boolean;
+  /** Whether any button in the grid is highlighted (used to dim others). */
+  anyHighlighted: boolean;
 }) {
   return (
     <Button
@@ -154,8 +185,15 @@ function BidButton({
       disabled={!legal || submitting}
       className={cn(
         "font-semibold",
-        // Legal bids get their suit color; illegal bids are muted.
-        legal ? className : "opacity-30",
+        legal
+          ? [
+              className,
+              // When highlights are active, dim non-highlighted legal buttons.
+              anyHighlighted && !highlighted && "opacity-50",
+              // Highlighted buttons get a ring to stand out.
+              highlighted && "ring-2 ring-primary",
+            ]
+          : "opacity-30",
       )}
     >
       {label}

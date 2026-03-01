@@ -32,7 +32,7 @@ export default function HandDisplay({
   className,
 }: HandDisplayProps) {
   return (
-    <Card className={cn("w-fit", className)}>
+    <Card className={cn("w-full", className)}>
       {/* Only render the header if a title is provided */}
       {title && (
         <CardHeader>

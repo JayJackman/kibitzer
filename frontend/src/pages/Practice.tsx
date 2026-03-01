@@ -15,15 +15,18 @@
  * When the auction completes, the bid controls are replaced with a display
  * of all 4 hands and the final contract, plus a "New Hand" button.
  */
+import { useCallback } from "react";
 import {
   Form,
   useActionData,
   useFetcher,
   useLoaderData,
   useNavigation,
+  useSubmit,
 } from "react-router";
 
 import type { Advice, BidFeedback, PracticeState, Seat } from "@/api/types";
+import { useBidKeyboard } from "@/hooks/useBidKeyboard";
 import { SEAT_LABELS, SUIT_COLORS, SUIT_SYMBOLS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -68,8 +71,32 @@ export default function PracticePage() {
    */
   const adviceFetcher = useFetcher<Advice>();
 
+  /**
+   * useSubmit: programmatic form submission. Used by the keyboard shortcut
+   * hook to submit a bid when the user confirms with Enter/Space.
+   */
+  const submit = useSubmit();
+
   // Destructure the session state for easier access in the template.
   const { auction, hand, hand_evaluation, legal_bids, is_my_turn } = state;
+
+  /**
+   * Keyboard shortcut hook for bid selection.
+   * Lets the user press level/suit keys to filter the bid grid, then
+   * Enter/Space to confirm. Only active when it's the player's turn
+   * and the auction is still going.
+   */
+  const handleBidConfirm = useCallback(
+    (bid: string) => {
+      submit({ intent: "bid", bid }, { method: "post" });
+    },
+    [submit],
+  );
+  const { highlightedBids } = useBidKeyboard({
+    legalBids: legal_bids,
+    enabled: is_my_turn && !auction.is_complete && !isSubmitting,
+    onConfirm: handleBidConfirm,
+  });
 
   /**
    * Handle the "Advise Me" button click.
@@ -175,6 +202,7 @@ export default function PracticePage() {
             <BidControls
               legalBids={legal_bids}
               disabled={!is_my_turn || isSubmitting}
+              highlightedBids={highlightedBids}
             />
           ) : (
             <AuctionComplete state={state} />
