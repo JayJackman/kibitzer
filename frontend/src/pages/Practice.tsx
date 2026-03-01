@@ -15,17 +15,16 @@
  * When the auction completes, the bid controls are replaced with a display
  * of all 4 hands and the final contract, plus a "New Hand" button.
  */
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Form,
-  useActionData,
   useFetcher,
   useLoaderData,
   useNavigation,
   useSubmit,
 } from "react-router";
 
-import type { Advice, BidFeedback, PracticeState, Seat } from "@/api/types";
+import type { Advice, AuctionBid, Hand, PracticeState, Seat } from "@/api/types";
 import { useBidKeyboard } from "@/hooks/useBidKeyboard";
 import { SEAT_LABELS, SUIT_COLORS, SUIT_SYMBOLS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -35,6 +34,24 @@ import HandDisplay from "@/components/hand/HandDisplay";
 import AuctionGrid from "@/components/auction/AuctionGrid";
 import BidControls from "@/components/auction/BidControls";
 import AdvicePanel from "@/components/advice/AdvicePanel";
+
+/** Arrow pointing from the center of the compass toward the declarer's seat. */
+const DECLARER_ARROW: Record<Seat, string> = {
+  N: "\u2191",  // ↑
+  S: "\u2193",  // ↓
+  W: "\u2190",  // ←
+  E: "\u2192",  // →
+};
+
+/** HCP values for each rank (A=4, K=3, Q=2, J=1, others=0). */
+const HCP_VALUES: Record<string, number> = { A: 4, K: 3, Q: 2, J: 1 };
+
+/** Count high-card points from a Hand's four suit arrays. */
+function countHcp(hand: Hand): number {
+  return [hand.spades, hand.hearts, hand.diamonds, hand.clubs]
+    .flat()
+    .reduce((sum, rank) => sum + (HCP_VALUES[rank] ?? 0), 0);
+}
 
 /** The loader returns the full practice session state. */
 interface LoaderData {
@@ -50,12 +67,6 @@ export default function PracticePage() {
    */
   const { state } = useLoaderData() as LoaderData;
 
-  /**
-   * useActionData: the result of the most recent form submission (bid or
-   * redeal). For bids, this contains the BidFeedback (matched_engine, etc.).
-   * Null if no action has run yet or after a redeal (which redirects).
-   */
-  const actionData = useActionData() as BidFeedback | null | undefined;
 
   /**
    * useNavigation: tells us if a form submission is in flight. Used to
@@ -99,17 +110,26 @@ export default function PracticePage() {
   });
 
   /**
+   * Track whether advice is visible. Set to true when the user clicks
+   * "Advise Me", reset to false when the legal bids change (i.e., after
+   * a bid is placed and it's a new turn).
+   */
+  const [showAdvice, setShowAdvice] = useState(false);
+  const legalBidsKey = legal_bids.join(",");
+  useEffect(() => {
+    setShowAdvice(false);
+  }, [legalBidsKey]);
+
+  /**
    * Handle the "Advise Me" button click.
    * Triggers a GET to the advice loader route, which fetches
    * engine advice without navigating away from the page.
    */
   function handleAdvise() {
+    setShowAdvice(true);
     adviceFetcher.load(`/practice/${state.id}/advise`);
   }
 
-  // Feedback from the last bid (if any). Shows whether the player's bid
-  // matched the engine's recommendation.
-  const feedback = actionData ?? state.last_feedback;
 
   return (
     <div className="container mx-auto px-4 py-6">
@@ -142,57 +162,8 @@ export default function PracticePage() {
        * Right column: auction grid + feedback + bid controls (or all hands)
        */}
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* === Left column === */}
+        {/* === Left column: controls + advice === */}
         <div className="flex flex-col gap-4">
-          {/* Player's hand with evaluation metrics */}
-          <HandDisplay
-            hand={hand}
-            evaluation={hand_evaluation}
-            title="Your Hand"
-          />
-
-          {/* "Advise Me" button -- only shown during active bidding */}
-          {!auction.is_complete && is_my_turn && (
-            <Button
-              variant="secondary"
-              onClick={handleAdvise}
-              disabled={adviceFetcher.state === "loading"}
-            >
-              {adviceFetcher.state === "loading" ? "Thinking..." : "Advise Me"}
-            </Button>
-          )}
-
-          {/* Advice panel -- appears after clicking "Advise Me" */}
-          <AdvicePanel
-            advice={adviceFetcher.data ?? null}
-            isLoading={adviceFetcher.state === "loading"}
-          />
-        </div>
-
-        {/* === Right column === */}
-        <div className="flex flex-col gap-4">
-          {/* Auction history grid */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Auction</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <AuctionGrid
-                bids={auction.bids}
-                dealer={auction.dealer}
-                currentSeat={auction.current_seat}
-                isComplete={auction.is_complete}
-              />
-            </CardContent>
-          </Card>
-
-          {/* Bid feedback from the last action */}
-          {feedback && <FeedbackBanner feedback={feedback} />}
-
-          {/* Computer bids notification */}
-          {state.computer_bids.length > 0 && (
-            <ComputerBidsNotice bids={state.computer_bids} />
-          )}
 
           {/*
            * During active bidding: show bid controls.
@@ -203,9 +174,63 @@ export default function PracticePage() {
               legalBids={legal_bids}
               disabled={!is_my_turn || isSubmitting}
               highlightedBids={highlightedBids}
+              bottomRight={
+                is_my_turn && !showAdvice ? (
+                  <Button
+                    variant="secondary"
+                    onClick={handleAdvise}
+                    disabled={adviceFetcher.state === "loading"}
+                  >
+                    {adviceFetcher.state === "loading" ? "Thinking..." : "Advise Me"}
+                  </Button>
+                ) : undefined
+              }
             />
           ) : (
             <AuctionComplete state={state} />
+          )}
+
+          {/* Advice panel -- visible after clicking "Advise Me", hidden after bidding */}
+          {showAdvice && (
+            <AdvicePanel
+              advice={adviceFetcher.data ?? null}
+              isLoading={adviceFetcher.state === "loading"}
+            />
+          )}
+        </div>
+
+        {/* === Right area: hand + auction grid side by side, history below === */}
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-row items-start gap-4">
+            {/* Auction history grid */}
+            <Card className="flex-1">
+              <CardHeader>
+                <CardTitle>Auction</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <AuctionGrid
+                  bids={auction.bids}
+                  dealer={auction.dealer}
+                  currentSeat={auction.current_seat}
+                  isComplete={auction.is_complete}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Player's hand with evaluation metrics */}
+            <HandDisplay
+              hand={hand}
+              evaluation={hand_evaluation}
+              title="Your Hand"
+            />
+          </div>
+
+          {/* Auction history: every bid with explanations + feedback */}
+          {auction.bids.length > 0 && (
+            <AuctionHistory
+              bids={auction.bids}
+              yourSeat={state.your_seat}
+            />
           )}
         </div>
       </div>
@@ -218,52 +243,69 @@ export default function PracticePage() {
 // ---------------------------------------------------------------------------
 
 /**
- * Banner showing whether the player's last bid matched the engine.
- * Green for match, amber for mismatch (with the engine's recommendation).
+ * Running auction history showing every bid with explanations.
+ *
+ * Each bid row shows the seat name, bid, explanation, and -- for player bids --
+ * a green/amber indicator of whether the bid matched the engine's recommendation.
+ * Pass bids are filtered out to keep the history compact.
  */
-function FeedbackBanner({ feedback }: { feedback: BidFeedback }) {
-  return (
-    <div
-      className={cn(
-        "rounded-md border px-4 py-2 text-sm",
-        feedback.matched_engine
-          ? "border-green-200 bg-green-50 text-green-800"
-          : "border-amber-200 bg-amber-50 text-amber-800",
-      )}
-    >
-      {feedback.matched_engine ? (
-        "Matched the engine's recommendation."
-      ) : (
-        <>
-          Engine recommends <strong>{feedback.engine_bid}</strong>:{" "}
-          {feedback.engine_explanation}
-        </>
-      )}
-    </div>
-  );
-}
-
-/**
- * Small notice listing what the computer seats bid since the player's
- * last action. Helps the player track what happened while it wasn't
- * their turn.
- */
-function ComputerBidsNotice({
+function AuctionHistory({
   bids,
+  yourSeat,
 }: {
-  bids: { seat: Seat; bid: string; explanation: string }[];
+  bids: AuctionBid[];
+  yourSeat: Seat;
 }) {
+  // Filter out Pass bids, but track original indices for stable React keys.
+  const nonPassBids = bids
+    .map((entry, i) => ({ entry, origIndex: i }))
+    .filter(({ entry }) => entry.bid !== "Pass");
+
   return (
-    <div className="text-muted-foreground rounded-md border px-4 py-2 text-xs">
-      {bids.map((cb, i) => (
-        <div key={i}>
-          <strong>{SEAT_LABELS[cb.seat]}</strong> bid {cb.bid}
-          {cb.explanation && (
-            <span className="ml-1 italic">({cb.explanation})</span>
-          )}
+    <Card>
+      <CardHeader className="px-4">
+        <CardTitle>Bid History</CardTitle>
+      </CardHeader>
+      <CardContent className="px-4 text-sm">
+        <div className="flex flex-col gap-1">
+        {nonPassBids.map(({ entry, origIndex }) => {
+          const isPlayer = entry.seat === yourSeat;
+          const matched = entry.matched_engine;
+
+          return (
+            <div key={origIndex} className={cn(
+              "flex items-baseline gap-2 rounded px-2 py-0.5",
+              isPlayer && matched === true && "bg-green-100",
+              isPlayer && matched === false && "bg-amber-100",
+            )}>
+              {/* Seat label */}
+              <span className={cn("w-12 shrink-0 font-medium", isPlayer && "text-primary")}>
+                {SEAT_LABELS[entry.seat]}
+              </span>
+
+              {/* Bid */}
+              <span className="font-semibold">{entry.bid}</span>
+
+              {/* Explanation */}
+              {entry.explanation && (
+                <span className="text-muted-foreground text-xs italic">
+                  {entry.explanation}
+                </span>
+              )}
+
+              {/* Match indicator for player bids */}
+              {matched === true && (
+                <span className="text-xs italic text-green-600">Matched engine</span>
+              )}
+              {matched === false && (
+                <span className="text-xs italic text-amber-600">Missed</span>
+              )}
+            </div>
+          );
+        })}
         </div>
-      ))}
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -276,51 +318,81 @@ function AuctionComplete({ state }: { state: PracticeState }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Final contract summary */}
-      {auction.contract && (
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-center text-lg font-semibold">
-              {auction.contract.passed_out ? (
-                "Passed Out"
-              ) : (
-                <>
-                  Contract: {auction.contract.level}
-                  <ContractSuit suit={auction.contract.suit} />
-                  {auction.contract.doubled && " X"}
-                  {auction.contract.redoubled && " XX"} by{" "}
-                  {SEAT_LABELS[auction.contract.declarer]}
-                </>
-              )}
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
       {/*
-       * All 4 hands in compass layout:
-       *         North
-       *   West        East
-       *         South
+       * All 4 hands in compass layout with contract in the center:
+       *            North
+       *   West   [Contract]   East
+       *            South
        */}
       {all_hands && (
         <div className="grid grid-cols-3 gap-2">
           {/* Top row: North in the center */}
           <div />
-          <HandDisplay hand={all_hands.N} title="North" />
+          <HandDisplay hand={all_hands.N} title={`North (${countHcp(all_hands.N)})`} isPlayer={state.your_seat === "N"} />
           <div />
 
-          {/* Middle row: West and East on the sides */}
-          <HandDisplay hand={all_hands.W} title="West" />
-          <div />
-          <HandDisplay hand={all_hands.E} title="East" />
+          {/* Middle row: West, Contract, East */}
+          <HandDisplay hand={all_hands.W} title={`West (${countHcp(all_hands.W)})`} isPlayer={state.your_seat === "W"} />
+          {auction.contract ? (
+            <ContractDisplay contract={auction.contract} />
+          ) : (
+            <div />
+          )}
+          <HandDisplay hand={all_hands.E} title={`East (${countHcp(all_hands.E)})`} isPlayer={state.your_seat === "E"} />
 
           {/* Bottom row: South in the center */}
           <div />
-          <HandDisplay hand={all_hands.S} title="South" />
+          <HandDisplay hand={all_hands.S} title={`South (${countHcp(all_hands.S)})`} isPlayer={state.your_seat === "S"} />
           <div />
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Displays the contract in the center of the compass layout with an arrow
+ * pointing toward the declarer. For N/S the arrow is above/below the bid
+ * (vertical stack). For W/E the arrow is to the left/right (horizontal).
+ */
+function ContractDisplay({ contract }: { contract: PracticeState["auction"]["contract"] }) {
+  if (!contract) return null;
+
+  if (contract.passed_out) {
+    return (
+      <div className="flex items-center justify-center">
+        <p className="text-center text-2xl font-bold">Passed Out</p>
+      </div>
+    );
+  }
+
+  /*
+   * Grid trick: both the bid and arrow occupy the same single cell
+   * (row 1 / col 1). The bid is centered, the arrow is self-aligned
+   * to the edge nearest the declarer's hand. This keeps the bid
+   * perfectly centered regardless of arrow size or direction.
+   */
+  const d = contract.declarer;
+  const arrowAlign: Record<Seat, string> = {
+    N: "self-start justify-self-center",   // top center
+    S: "self-end justify-self-center",     // bottom center
+    W: "self-center justify-self-start",   // middle left
+    E: "self-center justify-self-end",     // middle right
+  };
+
+  return (
+    <div className="grid">
+      {/* Bid — centered in the cell */}
+      <span className="col-start-1 row-start-1 place-self-center text-3xl font-bold">
+        {contract.level}
+        <ContractSuit suit={contract.suit} />
+        {contract.doubled && " X"}
+        {contract.redoubled && " XX"}
+      </span>
+      {/* Arrow — same cell, pushed to the edge toward the declarer */}
+      <span className={`col-start-1 row-start-1 text-4xl leading-none ${arrowAlign[d]}`}>
+        {DECLARER_ARROW[d]}
+      </span>
     </div>
   );
 }

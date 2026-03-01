@@ -55,6 +55,8 @@ class PracticeState:
     hand_evaluation: HandEvaluation
     auction: AuctionState
     computer_bids: list[ComputerBidRecord]
+    bid_explanations: dict[int, str]
+    bid_matched: dict[int, bool]
     is_my_turn: bool
     legal_bids: list[str]
     last_feedback: BidResult | None
@@ -137,6 +139,15 @@ class PracticeSession:
         # eval depends only on the hand, not the auction state).
         self._hand_evals: dict[Seat, HandEvaluation] = self._compute_evals()
 
+        # Maps bid index (position in auction.bids) to the engine's
+        # explanation for that bid. Populated for both computer and player
+        # bids so the frontend can show explanations in the auction history.
+        self._bid_explanations: dict[int, str] = {}
+
+        # Tracks whether each player bid matched the engine's recommendation.
+        # Only populated for human bids (not computer bids).
+        self._bid_matched: dict[int, bool] = {}
+
         # Run any computer bids before the human's first turn.
         self._last_computer_bids: list[ComputerBidRecord] = self._run_computer_bids()
         self._last_feedback: BidResult | None = None
@@ -167,6 +178,8 @@ class PracticeSession:
             hand_evaluation=self._hand_evals[seat],
             auction=self.auction,
             computer_bids=list(self._last_computer_bids),
+            bid_explanations=dict(self._bid_explanations),
+            bid_matched=dict(self._bid_matched),
             is_my_turn=is_my_turn,
             legal_bids=legal_bids,
             last_feedback=self._last_feedback,
@@ -188,6 +201,12 @@ class PracticeSession:
         # Get the engine's advice *before* adding the human's bid.
         advice = self.advisor.advise(self.hands[seat], self.auction)
         engine_bid = advice.recommended.bid
+
+        # Record the engine's explanation and match status for this bid
+        # position before adding it (so len(bids) gives us the correct index).
+        bid_index = len(self.auction.bids)
+        self._bid_explanations[bid_index] = advice.recommended.explanation
+        self._bid_matched[bid_index] = bid == engine_bid
 
         # This raises IllegalBidError if the bid is not legal.
         self.auction.add_bid(bid)
@@ -222,6 +241,8 @@ class PracticeSession:
             dealer=next_dealer,
             vulnerability=random.choice(_ALL_VULNERABILITIES),
         )
+        self._bid_explanations = {}
+        self._bid_matched = {}
         self._last_computer_bids = self._run_computer_bids()
         self._last_feedback = None
 
@@ -256,6 +277,9 @@ class PracticeSession:
             if self.players[current] is not None:
                 break  # Human's turn
             advice = self.advisor.advise(self.hands[current], self.auction)
+            self._bid_explanations[len(self.auction.bids)] = (
+                advice.recommended.explanation
+            )
             self.auction.add_bid(advice.recommended.bid)
             computer_bids.append(
                 ComputerBidRecord(

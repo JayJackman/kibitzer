@@ -160,11 +160,17 @@ export function useBidKeyboard({
       if (key >= "1" && key <= "7") {
         const level = parseInt(key, 10);
         e.preventDefault();
-        setState((prev) => ({
-          activeLevel: prev.activeLevel === level ? null : level,
-          activeSuit: prev.activeSuit,
-          special: null,
-        }));
+        setState((prev) => {
+          // Can always toggle off
+          if (prev.activeLevel === level) {
+            return {activeLevel: null, activeSuit: prev.activeSuit, special: null };
+          }
+          const candidate = {activeLevel:  level, activeSuit: prev.activeSuit, special: null };
+          if (computeHighlightedBids(candidate, legalBidsRef.current).size === 0) {
+            return prev;
+          }
+          return candidate;
+        })
         return;
       }
 
@@ -173,12 +179,17 @@ export function useBidKeyboard({
       if ("CDHSN".includes(key) && key.length === 1) {
         const suit = key === "N" ? "NT" : key;
         e.preventDefault();
-        setState((prev) => ({
-          activeLevel: prev.activeLevel,
-          activeSuit: prev.activeSuit === suit ? null : suit,
-          special: null,
-        }));
-        return;
+        setState((prev) => {
+          // Can always toggle off
+          if (prev.activeSuit === suit) {
+            return {activeLevel: prev.activeLevel, activeSuit: null, special: null };
+          }
+          const candidate = {activeLevel:  prev.activeLevel, activeSuit: suit, special: null };
+          if (computeHighlightedBids(candidate, legalBidsRef.current).size === 0) {
+            return prev;
+          }
+          return candidate;
+        })
       }
 
       // --- Pass: toggle on/off ---

@@ -21,6 +21,8 @@ interface HandDisplayProps {
   evaluation?: HandEvaluation;
   /** Optional title shown above the cards (e.g. "Your Hand", "North"). */
   title?: string;
+  /** Whether this hand belongs to the player (highlighted with a colored border). */
+  isPlayer?: boolean;
   /** Optional extra Tailwind classes on the outer Card. */
   className?: string;
 }
@@ -29,18 +31,19 @@ export default function HandDisplay({
   hand,
   evaluation,
   title,
+  isPlayer,
   className,
 }: HandDisplayProps) {
   return (
-    <Card className={cn("w-full", className)}>
+    <Card className={cn("w-full py-2", isPlayer && "border-primary border-2", className)}>
       {/* Only render the header if a title is provided */}
       {title && (
-        <CardHeader>
+        <CardHeader className="px-3">
           <CardTitle>{title}</CardTitle>
         </CardHeader>
       )}
 
-      <CardContent className="flex flex-col gap-1">
+      <CardContent className="flex flex-col gap-1 px-3">
         {/* Four suit rows in standard display order: S, H, D, C */}
         <CardRow suit="S" ranks={hand.spades} />
         <CardRow suit="H" ranks={hand.hearts} />

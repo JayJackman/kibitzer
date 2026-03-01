@@ -23,7 +23,13 @@
  *   - /practice/:id/advise: loader-only route for fetcher-based advice loading
  * - *: catch-all redirects to /
  */
-import { createBrowserRouter, redirect, Navigate } from "react-router";
+import {
+  createBrowserRouter,
+  redirect,
+  Navigate,
+  useRouteError,
+  isRouteErrorResponse,
+} from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { AxiosError } from "axios";
 import * as api from "@/api/endpoints";
@@ -173,14 +179,54 @@ async function adviceLoader({ params }: LoaderFunctionArgs) {
   return await api.getAdvice(params.id!);
 }
 
+// ---------------------------------------------------------------------------
+// Global error boundary -- catches any unhandled errors from loaders/actions.
+// Displays the full error details so nothing gets silently swallowed.
+// ---------------------------------------------------------------------------
+
+function RootErrorBoundary() {
+  const error = useRouteError();
+
+  let title = "Something went wrong";
+  let detail = "An unexpected error occurred.";
+
+  if (isRouteErrorResponse(error)) {
+    // HTTP error thrown from a loader/action (e.g. 422, 404, 500).
+    title = `${error.status} ${error.statusText}`;
+    detail = typeof error.data === "string" ? error.data : JSON.stringify(error.data, null, 2);
+  } else if (error instanceof AxiosError && error.response) {
+    // Axios wraps the HTTP error — dig out the backend's message.
+    const status = error.response.status;
+    const data = error.response.data;
+    title = `${status} Error`;
+    // FastAPI returns errors as { detail: "..." }.
+    detail = data?.detail ?? (typeof data === "string" ? data : JSON.stringify(data, null, 2));
+  } else if (error instanceof Error) {
+    title = error.name;
+    detail = error.message;
+  }
+
+  return (
+    <div className="flex min-h-screen items-center justify-center p-8">
+      <div className="max-w-lg rounded-lg border border-red-200 bg-red-50 p-6 text-left">
+        <h1 className="mb-2 text-xl font-bold text-red-800">{title}</h1>
+        <pre className="whitespace-pre-wrap text-sm text-red-700">{detail}</pre>
+        <a href="/" className="mt-4 inline-block text-sm text-red-600 underline">
+          Go home
+        </a>
+      </div>
+    </div>
+  );
+}
+
 /**
  * The router definition. Passed to <RouterProvider> in main.tsx.
  */
 export const router = createBrowserRouter([
   // --- Public routes (no auth required) ---
   // Each has an action to handle its form submission.
-  { path: "/login", element: <LoginPage />, action: loginAction },
-  { path: "/register", element: <RegisterPage />, action: registerAction },
+  { path: "/login", element: <LoginPage />, action: loginAction, errorElement: <RootErrorBoundary /> },
+  { path: "/register", element: <RegisterPage />, action: registerAction, errorElement: <RootErrorBoundary /> },
 
   // --- Logout (action-only, no page) ---
   // GET /logout redirects to home. POST /logout runs the action.
@@ -195,6 +241,7 @@ export const router = createBrowserRouter([
     id: "protected",
     loader: protectedLoader,
     element: <AppLayout />,
+    errorElement: <RootErrorBoundary />,
     children: [
       { path: "/", element: <LobbyPage /> },
 

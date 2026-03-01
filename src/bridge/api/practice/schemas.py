@@ -123,6 +123,7 @@ class AuctionBidResponse(BaseModel):
     seat: str
     bid: str
     explanation: str | None = None
+    matched_engine: bool | None = None
 
 
 class AuctionResponse(BaseModel):
@@ -295,12 +296,13 @@ def serialize_practice_state(
     """
     auction_resp = serialize_auction(state.auction)
 
-    # Inject explanations from computer bids into auction entries.
-    for abid in auction_resp.bids:
-        for cb in state.computer_bids:
-            if str(cb.seat) == abid.seat and str(cb.bid) == abid.bid:
-                abid.explanation = cb.explanation
-                break
+    # Inject engine explanations and match status into auction entries by
+    # bid index. Covers both computer bids and player bids.
+    for i, abid in enumerate(auction_resp.bids):
+        if i in state.bid_explanations:
+            abid.explanation = state.bid_explanations[i]
+        if i in state.bid_matched:
+            abid.matched_engine = state.bid_matched[i]
 
     all_hands: dict[str, HandResponse] | None = None
     if state.all_hands is not None:

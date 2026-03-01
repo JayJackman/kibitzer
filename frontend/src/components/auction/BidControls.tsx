@@ -31,6 +31,8 @@ interface BidControlsProps {
    * legal buttons are dimmed, so the highlighted ones stand out.
    */
   highlightedBids?: Set<string>;
+  /** Optional extra content rendered to the right of Pass/Dbl/Rdbl row. */
+  bottomRight?: React.ReactNode;
 }
 
 /**
@@ -53,6 +55,7 @@ export default function BidControls({
   legalBids,
   disabled,
   highlightedBids,
+  bottomRight,
 }: BidControlsProps) {
   /**
    * useNavigation() tells us if a form submission is in flight.
@@ -76,36 +79,6 @@ export default function BidControls({
       <input type="hidden" name="intent" value="bid" />
 
       <div className="flex flex-col gap-3">
-        {/* --- Top row: Pass, Double, Redouble --- */}
-        <div className="flex gap-2">
-          <BidButton
-            bid="Pass"
-            label="Pass"
-            legal={isLegal("Pass")}
-            submitting={isSubmitting}
-            highlighted={highlightedBids?.has("Pass") ?? false}
-            anyHighlighted={anyHighlighted}
-          />
-          <BidButton
-            bid="X"
-            label="Dbl"
-            className="text-red-600"
-            legal={isLegal("X")}
-            submitting={isSubmitting}
-            highlighted={highlightedBids?.has("X") ?? false}
-            anyHighlighted={anyHighlighted}
-          />
-          <BidButton
-            bid="XX"
-            label="Rdbl"
-            className="text-blue-600"
-            legal={isLegal("XX")}
-            submitting={isSubmitting}
-            highlighted={highlightedBids?.has("XX") ?? false}
-            anyHighlighted={anyHighlighted}
-          />
-        </div>
-
         {/*
          * --- 7x5 bid grid ---
          * Rows = levels (1-7), Columns = suits (C, D, H, S, NT).
@@ -133,6 +106,38 @@ export default function BidControls({
               );
             }),
           )}
+        </div>
+
+        {/* --- Bottom row: Pass, Double, Redouble + optional extra content --- */}
+        <div className="flex items-center gap-2">
+          <BidButton
+            bid="Pass"
+            label="Pass"
+            legal={isLegal("Pass")}
+            submitting={isSubmitting}
+            highlighted={highlightedBids?.has("Pass") ?? false}
+            anyHighlighted={anyHighlighted}
+          />
+          <BidButton
+            bid="X"
+            label="Dbl"
+            className="text-red-600"
+            legal={isLegal("X")}
+            submitting={isSubmitting}
+            highlighted={highlightedBids?.has("X") ?? false}
+            anyHighlighted={anyHighlighted}
+          />
+          <BidButton
+            bid="XX"
+            label="Rdbl"
+            className="text-blue-600"
+            legal={isLegal("XX")}
+            submitting={isSubmitting}
+            highlighted={highlightedBids?.has("XX") ?? false}
+            anyHighlighted={anyHighlighted}
+          />
+          {/* Push extra content to the right */}
+          {bottomRight && <div className="ml-auto">{bottomRight}</div>}
         </div>
       </div>
     </Form>

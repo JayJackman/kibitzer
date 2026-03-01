@@ -67,6 +67,8 @@ export interface AuctionBid {
   seat: Seat;
   bid: string;
   explanation: string | null;
+  /** Whether this player bid matched the engine's recommendation (null for computer bids). */
+  matched_engine: boolean | null;
 }
 
 /** Full auction state: history, dealer, vulnerability, and optional contract. */
