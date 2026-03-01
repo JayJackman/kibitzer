@@ -277,10 +277,10 @@ class TestMeetsOpeningStrength:
         assert r.passed is True
         assert "Rule of 20" in r.detail
 
-    def test_4th_seat_rule_of_15(self) -> None:
+    def test_4th_seat_clear_opener(self) -> None:
         from bridge.model.bid import PASS
 
-        # 4th seat: 12 HCP + 5 spades = 17, passes Rule of 15
+        # 4th seat with 13 HCP: opens regardless of spade length
         auction = AuctionState(dealer=Seat.NORTH)
         auction.add_bid(PASS)
         auction.add_bid(PASS)
@@ -294,6 +294,44 @@ class TestMeetsOpeningStrength:
         )
         r = MeetsOpeningStrength().check(ctx)
         assert r.passed is True
+        assert "13+ opens in any seat" in r.detail
+
+    def test_4th_seat_rule_of_15_passes(self) -> None:
+        from bridge.model.bid import PASS
+
+        # 4th seat: 12 HCP + 3 spades = 15, passes Rule of 15
+        auction = AuctionState(dealer=Seat.NORTH)
+        auction.add_bid(PASS)
+        auction.add_bid(PASS)
+        auction.add_bid(PASS)
+        ctx = BiddingContext(
+            Board(
+                hand=Hand.from_pbn("KJ5.Q73.842.AQ73"),
+                seat=Seat.WEST,
+                auction=auction,
+            )
+        )
+        r = MeetsOpeningStrength().check(ctx)
+        assert r.passed is True
+        assert "Rule of 15" in r.detail
+
+    def test_4th_seat_rule_of_15_fails(self) -> None:
+        from bridge.model.bid import PASS
+
+        # 4th seat: 12 HCP + 2 spades = 14, fails Rule of 15
+        auction = AuctionState(dealer=Seat.NORTH)
+        auction.add_bid(PASS)
+        auction.add_bid(PASS)
+        auction.add_bid(PASS)
+        ctx = BiddingContext(
+            Board(
+                hand=Hand.from_pbn("J9.9632.Q732.AKQ"),
+                seat=Seat.WEST,
+                auction=auction,
+            )
+        )
+        r = MeetsOpeningStrength().check(ctx)
+        assert r.passed is False
         assert "Rule of 15" in r.detail
 
 

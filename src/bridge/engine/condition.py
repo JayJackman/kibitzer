@@ -807,7 +807,7 @@ class MeetsOpeningStrength(Condition):
 
     Seat-dependent logic:
     - 1st/2nd/3rd seat: 12+ HCP or Rule of 20 (HCP + two longest >= 20)
-    - 4th seat: Rule of 15 (HCP + spades >= 15)
+    - 4th seat: 13+ HCP (clear opener) or Rule of 15 for borderline hands
     """
 
     @property
@@ -818,14 +818,18 @@ class MeetsOpeningStrength(Condition):
         # Determine seat position relative to dealer
         seat_offset = (ctx.seat.value - ctx.auction.dealer.value) % 4
         if seat_offset == 3:
-            # 4th seat: Rule of 15
-            passed = evaluate.rule_of_15(ctx.hand, ctx.hcp)
-            spades = ctx.hand.suit_length(Suit.SPADES)
-            total = ctx.hcp + spades
-            detail = (
-                f"Rule of 15: {ctx.hcp} HCP + {spades} spades"
-                f" = {total} ({'15+ required' if passed else 'need 15+'})"
-            )
+            # 4th seat: 13+ HCP opens regardless; borderline uses Rule of 15
+            if ctx.hcp >= 13:
+                passed = True
+                detail = f"{ctx.hcp} HCP (13+ opens in any seat)"
+            else:
+                passed = evaluate.rule_of_15(ctx.hand, ctx.hcp)
+                spades = ctx.hand.suit_length(Suit.SPADES)
+                total = ctx.hcp + spades
+                detail = (
+                    f"Rule of 15: {ctx.hcp} HCP + {spades} spades"
+                    f" = {total} ({'15+ required' if passed else 'need 15+'})"
+                )
         else:
             # 1st/2nd/3rd seat: 12+ HCP or Rule of 20
             if ctx.hcp >= 12:
