@@ -14,7 +14,7 @@
  * The action clears cookies and returns a redirect to /login.
  */
 import { Outlet, useFetcher, useRouteLoaderData } from "react-router";
-import type { User } from "@/api/endpoints";
+import type { User } from "@/api/types";
 import { Button } from "@/components/ui/button";
 
 export default function AppLayout() {

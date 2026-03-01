@@ -10,7 +10,7 @@
  * is authenticated before this page renders.
  */
 import { useRouteLoaderData } from "react-router";
-import type { User } from "@/api/endpoints";
+import type { User } from "@/api/types";
 import {
   Card,
   CardContent,

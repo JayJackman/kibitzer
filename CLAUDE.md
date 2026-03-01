@@ -67,6 +67,11 @@ Every bidding rule must be accurate to the official SAYC (Standard American Yell
 - **Conventions not in SAYC must not be implemented** unless explicitly noted as extensions. The following are NOT part of standard SAYC: Gambling 3NT, Roman Key Card Blackwood, New Minor Forcing, Drury, Lebensohl, Inverted Minors, Bergen Raises, Splinter Bids.
 - When in doubt, consult: `research/00-overview.md` (system summary), `research/01-opening-bids.md` through `research/06-slam.md` (detailed rules).
 
+## Refactoring Policy
+
+- **Prefer clean refactors over compatibility shims.** When restructuring code (moving types to a new file, renaming exports, splitting modules), update all consumers rather than adding re-exports, aliases, or backwards-compatibility wrappers. A few extra file edits are worth it for a clean result.
+- **If a refactor touches many files**, present the options to the user and let them decide whether to proceed. Don't silently take the shortcut — explain the tradeoff (e.g., "we can add a re-export to avoid touching 12 files, or update all 12 for a cleaner result").
+
 ## Code Conventions
 
 - **Never use string-quoted type annotations** like `-> "Foo"`. When forward references are needed, add `from __future__ import annotations` to the file. Only include the import when it's actually necessary (e.g., forward references, self-referencing types).
