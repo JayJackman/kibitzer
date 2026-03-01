@@ -15,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .auth.router import router as auth_router
 from .config import settings
 from .db import create_tables
+from .practice.router import router as practice_router
 
 
 @asynccontextmanager
@@ -43,3 +44,6 @@ app.add_middleware(
 
 # Mount the auth router (register, login, logout, refresh, me)
 app.include_router(auth_router)
+
+# Mount the practice router (create, state, bid, advise, redeal)
+app.include_router(practice_router)
