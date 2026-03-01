@@ -43,30 +43,70 @@ from bridge.model.card import Suit
 
 
 def _my_opening_bid(ctx: BiddingContext) -> SuitBid:
-    """Return opener's first bid (always a suit bid in this module)."""
+    """Return opener's first bid (always a suit bid in this module).
+
+    Only safe to call from select() methods where conditions have already
+    verified the precondition. Use _my_opening_bid_safe() in conditions.
+    """
     bid = ctx.my_bids[0]
     assert is_suit_bid(bid)
     return bid
 
 
+def _my_opening_bid_safe(ctx: BiddingContext) -> SuitBid | None:
+    """Return opener's first bid, or None if no suit bid was made."""
+    if not ctx.my_bids:
+        return None
+    bid = ctx.my_bids[0]
+    if not is_suit_bid(bid):
+        return None
+    return bid
+
+
 def _my_opening_suit(ctx: BiddingContext) -> Suit:
-    """Return the suit opener bid (never NOTRUMP for 1-suit openings)."""
+    """Return the suit opener bid (never NOTRUMP for 1-suit openings).
+
+    Only safe to call from select() methods. Use _my_opening_suit_safe()
+    in conditions.
+    """
     bid = _my_opening_bid(ctx)
     assert not bid.is_notrump
     return bid.suit
 
 
+def _my_opening_suit_safe(ctx: BiddingContext) -> Suit | None:
+    """Return the suit opener bid, or None if opening was NT or absent."""
+    if (bid := _my_opening_bid_safe(ctx)) is None:
+        return None
+    if bid.is_notrump:
+        return None
+    return bid.suit
+
+
 def _partner_response(ctx: BiddingContext) -> SuitBid:
-    """Return partner's response bid (always a suit bid in uncontested auctions)."""
+    """Return partner's response bid (always a suit bid in uncontested auctions).
+
+    Only safe to call from select() methods. Use _partner_response_safe()
+    in conditions.
+    """
     resp = ctx.partner_last_bid
     assert resp is not None and is_suit_bid(resp)
+    return resp
+
+
+def _partner_response_safe(ctx: BiddingContext) -> SuitBid | None:
+    """Return partner's response bid, or None if partner hasn't bid a suit."""
+    resp = ctx.partner_last_bid
+    if resp is None or not is_suit_bid(resp):
+        return None
     return resp
 
 
 @condition("I opened 1 of a suit")
 def _i_opened_1_suit(ctx: BiddingContext) -> bool:
     """Guard: opener's first bid was 1 of a suit (not NT)."""
-    bid = _my_opening_bid(ctx)
+    if (bid := _my_opening_bid_safe(ctx)) is None:
+        return False
     return bid.level == 1 and not bid.is_notrump
 
 
@@ -76,36 +116,46 @@ def _i_opened_1_suit(ctx: BiddingContext) -> bool:
 @condition("partner single-raised")
 def _partner_single_raised(ctx: BiddingContext) -> bool:
     """Partner made a single raise (1M→2M or 1m→2m)."""
-    resp = _partner_response(ctx)
-    opening = _my_opening_bid(ctx)
+    if (resp := _partner_response_safe(ctx)) is None:
+        return False
+    if (opening := _my_opening_bid_safe(ctx)) is None:
+        return False
     return resp.suit == opening.suit and resp.level == opening.level + 1
 
 
 @condition("partner limit-raised")
 def _partner_limit_raised(ctx: BiddingContext) -> bool:
     """Partner made a limit raise (1M→3M or 1m→3m)."""
-    resp = _partner_response(ctx)
-    opening = _my_opening_bid(ctx)
+    if (resp := _partner_response_safe(ctx)) is None:
+        return False
+    if (opening := _my_opening_bid_safe(ctx)) is None:
+        return False
     return resp.suit == opening.suit and resp.level == opening.level + 2
 
 
 @condition("partner bid 1NT")
 def _partner_bid_1nt(ctx: BiddingContext) -> bool:
     """Partner responded 1NT."""
-    resp = _partner_response(ctx)
+    if (resp := _partner_response_safe(ctx)) is None:
+        return False
     return resp.is_notrump and resp.level == 1
 
 
 def _partner_bid_new_suit(ctx: BiddingContext) -> bool:
     """Partner bid a new suit (not a raise, not NT)."""
-    resp = _partner_response(ctx)
-    return not resp.is_notrump and resp.suit != _my_opening_suit(ctx)
+    if (resp := _partner_response_safe(ctx)) is None:
+        return False
+    if (opening_suit := _my_opening_suit_safe(ctx)) is None:
+        return False
+    return not resp.is_notrump and resp.suit != opening_suit
 
 
 @condition("partner bid new suit at 1-level")
 def _partner_bid_new_suit_1_level(ctx: BiddingContext) -> bool:
     """Partner bid a new suit at the 1-level."""
-    return _partner_bid_new_suit(ctx) and _partner_response(ctx).level == 1
+    if (resp := _partner_response_safe(ctx)) is None:
+        return False
+    return _partner_bid_new_suit(ctx) and resp.level == 1
 
 
 @condition("partner bid 2-over-1")
@@ -116,7 +166,8 @@ def _partner_bid_2_over_1(ctx: BiddingContext) -> bool:
     """
     if not _partner_bid_new_suit(ctx):
         return False
-    resp = _partner_response(ctx)
+    if (resp := _partner_response_safe(ctx)) is None:
+        return False
     if resp.level != 2:
         return False
     # Exclude jump shifts: if responder could have bid this suit at 1-level,
@@ -127,31 +178,38 @@ def _partner_bid_2_over_1(ctx: BiddingContext) -> bool:
 @condition("partner bid 3NT")
 def _partner_bid_3nt(ctx: BiddingContext) -> bool:
     """Partner responded 3NT."""
-    resp = _partner_response(ctx)
+    if (resp := _partner_response_safe(ctx)) is None:
+        return False
     return resp.is_notrump and resp.level == 3
 
 
 @condition("partner bid game raise")
 def _partner_bid_game_raise(ctx: BiddingContext) -> bool:
     """Partner made a preemptive game raise (4M)."""
-    resp = _partner_response(ctx)
-    opening = _my_opening_bid(ctx)
+    if (resp := _partner_response_safe(ctx)) is None:
+        return False
+    if (opening := _my_opening_bid_safe(ctx)) is None:
+        return False
     return resp.suit == opening.suit and resp.level == 4 and opening.suit.is_major
 
 
 @condition("partner bid Jacoby 2NT")
 def _partner_bid_jacoby_2nt(ctx: BiddingContext) -> bool:
     """Partner responded 2NT to our 1M opening (Jacoby 2NT)."""
-    resp = _partner_response(ctx)
-    opening = _my_opening_bid(ctx)
+    if (resp := _partner_response_safe(ctx)) is None:
+        return False
+    if (opening := _my_opening_bid_safe(ctx)) is None:
+        return False
     return resp.is_notrump and resp.level == 2 and opening.suit.is_major
 
 
 @condition("partner bid 2NT over minor")
 def _partner_bid_2nt_over_minor(ctx: BiddingContext) -> bool:
     """Partner responded 2NT to our 1m opening."""
-    resp = _partner_response(ctx)
-    opening = _my_opening_bid(ctx)
+    if (resp := _partner_response_safe(ctx)) is None:
+        return False
+    if (opening := _my_opening_bid_safe(ctx)) is None:
+        return False
     return resp.is_notrump and resp.level == 2 and opening.suit.is_minor
 
 
@@ -166,8 +224,10 @@ def _partner_jump_shifted(ctx: BiddingContext) -> bool:
     - After 1H: 2S is a jump shift (could bid 1S), 3C/3D are jump shifts.
     - After 1S: 3C/3D/3H are jump shifts.
     """
-    resp = _partner_response(ctx)
-    opening = _my_opening_bid(ctx)
+    if (resp := _partner_response_safe(ctx)) is None:
+        return False
+    if (opening := _my_opening_bid_safe(ctx)) is None:
+        return False
     if resp.is_notrump:
         return False
     if resp.suit == opening.suit:
@@ -183,7 +243,9 @@ def _partner_jump_shifted(ctx: BiddingContext) -> bool:
 @condition("6+ card opening suit")
 def _has_rebiddable_suit(ctx: BiddingContext) -> bool:
     """Whether opener has 6+ cards in their opening suit."""
-    return ctx.hand.suit_length(_my_opening_suit(ctx)) >= 6
+    if (suit := _my_opening_suit_safe(ctx)) is None:
+        return False
+    return ctx.hand.suit_length(suit) >= 6
 
 
 def _find_lower_new_suit(ctx: BiddingContext) -> Suit | None:
@@ -192,7 +254,8 @@ def _find_lower_new_suit(ctx: BiddingContext) -> Suit | None:
     Used for non-reverse rebids over 1NT.  Returns the longest qualifying
     suit; cheapest breaks ties.
     """
-    opening_suit = _my_opening_suit(ctx)
+    if (opening_suit := _my_opening_suit_safe(ctx)) is None:
+        return None
     best: Suit | None = None
     best_len = 0
     for suit in (Suit.CLUBS, Suit.DIAMONDS, Suit.HEARTS, Suit.SPADES):
@@ -211,8 +274,10 @@ def _find_new_suit_for_rebid(ctx: BiddingContext) -> Suit | None:
     Returns the longest qualifying suit; cheapest bid breaks ties.
     Excludes the opening suit and responder's suit.
     """
-    opening_suit = _my_opening_suit(ctx)
-    resp = _partner_response(ctx)
+    if (opening_suit := _my_opening_suit_safe(ctx)) is None:
+        return None
+    if (resp := _partner_response_safe(ctx)) is None:
+        return None
     resp_suit = resp.suit
     best: Suit | None = None
     best_len = 0
@@ -242,8 +307,10 @@ def _find_nonreverse_new_suit(ctx: BiddingContext) -> Suit | None:
     - At the 1-level (suit ranks higher than responder's suit), or
     - At the 2-level but ranking lower than the opening suit.
     """
-    opening_suit = _my_opening_suit(ctx)
-    resp = _partner_response(ctx)
+    if (opening_suit := _my_opening_suit_safe(ctx)) is None:
+        return None
+    if (resp := _partner_response_safe(ctx)) is None:
+        return None
     resp_suit = resp.suit
     best: Suit | None = None
     best_len = 0
@@ -272,9 +339,12 @@ def _find_reverse_suit(ctx: BiddingContext) -> Suit | None:
     ranks above responder's suit, it can be bid at the 1-level and is NOT
     a reverse (e.g. 1D-1H-1S is not a reverse).
     """
-    opening_suit = _my_opening_suit(ctx)
+    if (opening_suit := _my_opening_suit_safe(ctx)) is None:
+        return None
     opening_len = ctx.hand.suit_length(opening_suit)
-    resp_suit = _partner_response(ctx).suit
+    if (resp := _partner_response_safe(ctx)) is None:
+        return None
+    resp_suit = resp.suit
     best: Suit | None = None
     best_len = 0
     for suit in (Suit.CLUBS, Suit.DIAMONDS, Suit.HEARTS, Suit.SPADES):
@@ -296,7 +366,8 @@ def _find_shortness_suit(ctx: BiddingContext) -> Suit | None:
     Returns the shortest side suit; with ties, returns the cheapest.
     Excludes the trump (opening) suit.
     """
-    trump = _my_opening_suit(ctx)
+    if (trump := _my_opening_suit_safe(ctx)) is None:
+        return None
     best: Suit | None = None
     best_len = 2  # must be < 2 to qualify
     for suit in (Suit.CLUBS, Suit.DIAMONDS, Suit.HEARTS, Suit.SPADES):
@@ -316,7 +387,8 @@ def _find_jacoby_side_suit(ctx: BiddingContext) -> Suit | None:
     Excludes the trump (opening) suit and any suit ranking above it,
     since bidding 4x in a higher-ranking suit would bypass 4M game.
     """
-    trump = _my_opening_suit(ctx)
+    if (trump := _my_opening_suit_safe(ctx)) is None:
+        return None
     best: Suit | None = None
     best_len = 0
     for suit in (Suit.CLUBS, Suit.DIAMONDS, Suit.HEARTS, Suit.SPADES):
@@ -338,8 +410,10 @@ def _find_help_suit(ctx: BiddingContext) -> Suit | None:
     Must be biddable below 3M.  Excludes the trump suit.
     Returns None if no side suit qualifies (all are well-held).
     """
-    trump = _my_opening_suit(ctx)
-    resp = _partner_response(ctx)
+    if (trump := _my_opening_suit_safe(ctx)) is None:
+        return None
+    if (resp := _partner_response_safe(ctx)) is None:
+        return None
     best: Suit | None = None
     best_hcp = 99
     best_bid: SuitBid | None = None
@@ -375,12 +449,16 @@ def _jump_bid_in_suit(suit: Suit, above: SuitBid) -> SuitBid:
 
 @condition("opening suit is major")
 def _opening_suit_is_major(ctx: BiddingContext) -> bool:
-    return _my_opening_suit(ctx).is_major
+    if (suit := _my_opening_suit_safe(ctx)) is None:
+        return False
+    return suit.is_major
 
 
 @condition("opening suit is minor")
 def _opening_suit_is_minor(ctx: BiddingContext) -> bool:
-    return _my_opening_suit(ctx).is_minor
+    if (suit := _my_opening_suit_safe(ctx)) is None:
+        return False
+    return suit.is_minor
 
 
 @condition("4+ card major")

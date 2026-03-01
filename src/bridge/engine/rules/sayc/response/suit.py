@@ -29,21 +29,36 @@ from bridge.model.card import SUITS_SHDC, Suit
 def _opening_bid(ctx: BiddingContext) -> Bid:
     """Return partner's opening bid.
 
-    Only valid in the RESPONSE phase — the phase detector guarantees
-    an opening bid exists before any response rule runs.
+    Only safe to call from select() methods where conditions have already
+    verified the precondition. Use _opening_bid_safe() in conditions.
     """
     assert ctx.opening_bid is not None, "No opening bid — wrong bidding phase"
+    return ctx.opening_bid[1]
+
+
+def _opening_bid_safe(ctx: BiddingContext) -> Bid | None:
+    """Return partner's opening bid, or None if no opening bid exists."""
+    if ctx.opening_bid is None:
+        return None
     return ctx.opening_bid[1]
 
 
 def _opener_suit(ctx: BiddingContext) -> Suit:
     """Return the suit (or NOTRUMP) partner opened.
 
-    An opening bid is always a suit bid (never pass/double), so suit
-    is guaranteed non-None.
+    Only safe to call from select() methods or conditions guarded by a
+    partner-opened check. Use _opener_suit_safe() otherwise.
     """
     bid = _opening_bid(ctx)
     assert is_suit_bid(bid)
+    return bid.suit
+
+
+def _opener_suit_safe(ctx: BiddingContext) -> Suit | None:
+    """Return the suit partner opened, or None if no suit opening exists."""
+    bid = _opening_bid_safe(ctx)
+    if bid is None or not is_suit_bid(bid):
+        return None
     return bid.suit
 
 
@@ -52,19 +67,22 @@ def _opener_suit(ctx: BiddingContext) -> Suit:
 
 @condition("partner opened 1 of a suit")
 def _partner_opened_1_suit(ctx: BiddingContext) -> bool:
-    bid = _opening_bid(ctx)
+    if (bid := _opening_bid_safe(ctx)) is None:
+        return False
     return is_suit_bid(bid) and bid.level == 1 and not bid.is_notrump
 
 
 @condition("partner opened 1 of a major")
 def _partner_opened_1_major(ctx: BiddingContext) -> bool:
-    bid = _opening_bid(ctx)
+    if (bid := _opening_bid_safe(ctx)) is None:
+        return False
     return is_suit_bid(bid) and bid.level == 1 and bid.suit.is_major
 
 
 @condition("partner opened 1 of a minor")
 def _partner_opened_1_minor(ctx: BiddingContext) -> bool:
-    bid = _opening_bid(ctx)
+    if (bid := _opening_bid_safe(ctx)) is None:
+        return False
     return is_suit_bid(bid) and bid.level == 1 and bid.suit.is_minor
 
 
@@ -76,20 +94,23 @@ def has_4_card_major(ctx: BiddingContext) -> bool:
 @condition("adequate minor support")
 def adequate_minor_support(ctx: BiddingContext) -> bool:
     """SAYC: 4+ for diamonds, 5+ for clubs."""
-    suit = _opener_suit(ctx)
+    if (suit := _opener_suit_safe(ctx)) is None:
+        return False
     length = ctx.hand.suit_length(suit)
     return length >= 4 if suit == Suit.DIAMONDS else length >= 5
 
 
 @condition("has singleton or void in side suit")
 def _has_side_shortness(ctx: BiddingContext) -> bool:
-    suit = _opener_suit(ctx)
+    if (suit := _opener_suit_safe(ctx)) is None:
+        return False
     return any(s != suit and ctx.hand.suit_length(s) <= 1 for s in SUITS_SHDC)
 
 
 def _find_new_suit_1_level(ctx: BiddingContext) -> Suit | None:
     """Find cheapest 4+ card suit biddable at the 1-level above opener's bid."""
-    opener = _opener_suit(ctx)
+    if (opener := _opener_suit_safe(ctx)) is None:
+        return None
     hand = ctx.hand
     for suit in (Suit.DIAMONDS, Suit.HEARTS, Suit.SPADES):
         if suit > opener and hand.suit_length(suit) >= 4:
@@ -104,7 +125,8 @@ def _find_2_over_1_suit(ctx: BiddingContext) -> Suit | None:
     so it must be bid at the 2-level.  Bid the longest qualifying suit;
     with ties, bid the cheapest (up the line).
     """
-    opener = _opener_suit(ctx)
+    if (opener := _opener_suit_safe(ctx)) is None:
+        return None
     hand = ctx.hand
     best: Suit | None = None
     best_len = 0
@@ -123,7 +145,8 @@ def _find_jump_shift_suit(ctx: BiddingContext) -> Suit | None:
     Bid the longest new suit; with ties, bid the higher-ranking.
     Jump shifts can be in any suit (higher or lower than opener's).
     """
-    opener = _opener_suit(ctx)
+    if (opener := _opener_suit_safe(ctx)) is None:
+        return None
     hand = ctx.hand
     best: Suit | None = None
     best_len = 0

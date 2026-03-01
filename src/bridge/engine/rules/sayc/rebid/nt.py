@@ -38,23 +38,37 @@ def _i_opened_1nt(ctx: BiddingContext) -> bool:
 
 
 def _partner_bid(ctx: BiddingContext) -> SuitBid:
-    """Partner's response (always a SuitBid in rebid phase after 1NT)."""
+    """Partner's response (always a SuitBid in rebid phase after 1NT).
+
+    Only safe to call from select() methods where conditions have already
+    verified the precondition. Use _partner_bid_safe() in conditions.
+    """
     resp = ctx.partner_last_bid
     assert resp is not None and is_suit_bid(resp)
+    return resp
+
+
+def _partner_bid_safe(ctx: BiddingContext) -> SuitBid | None:
+    """Partner's response, or None if partner didn't make a suit bid."""
+    resp = ctx.partner_last_bid
+    if resp is None or not is_suit_bid(resp):
+        return None
     return resp
 
 
 @condition("partner bid Stayman")
 def _partner_bid_stayman(ctx: BiddingContext) -> bool:
     """Partner bid 2C (Stayman)."""
-    resp = _partner_bid(ctx)
+    if (resp := _partner_bid_safe(ctx)) is None:
+        return False
     return resp.level == 2 and resp.suit == Suit.CLUBS
 
 
 @condition("partner transferred")
 def _partner_transferred(ctx: BiddingContext) -> bool:
     """Partner bid 2D (hearts) or 2H (spades) -- Jacoby transfer."""
-    resp = _partner_bid(ctx)
+    if (resp := _partner_bid_safe(ctx)) is None:
+        return False
     return resp.level == 2 and resp.suit in (Suit.DIAMONDS, Suit.HEARTS)
 
 
@@ -69,21 +83,24 @@ def _transfer_suit(ctx: BiddingContext) -> Suit:
 @condition("partner bid 2S puppet")
 def _partner_bid_2s_puppet(ctx: BiddingContext) -> bool:
     """Partner bid 2S (puppet to 3C)."""
-    resp = _partner_bid(ctx)
+    if (resp := _partner_bid_safe(ctx)) is None:
+        return False
     return resp.level == 2 and resp.suit == Suit.SPADES
 
 
 @condition("partner bid Gerber")
 def _partner_bid_gerber(ctx: BiddingContext) -> bool:
     """Partner bid 4C (Gerber)."""
-    resp = _partner_bid(ctx)
+    if (resp := _partner_bid_safe(ctx)) is None:
+        return False
     return resp.level == 4 and resp.suit == Suit.CLUBS
 
 
 @condition("partner bid Texas")
 def _partner_bid_texas(ctx: BiddingContext) -> bool:
     """Partner bid 4D or 4H (Texas transfer)."""
-    resp = _partner_bid(ctx)
+    if (resp := _partner_bid_safe(ctx)) is None:
+        return False
     return resp.level == 4 and resp.suit in (Suit.DIAMONDS, Suit.HEARTS)
 
 
@@ -98,35 +115,40 @@ def _texas_suit(ctx: BiddingContext) -> Suit:
 @condition("partner bid 3M")
 def _partner_bid_3_major(ctx: BiddingContext) -> bool:
     """Partner bid 3H or 3S (slam interest with 6+ card major)."""
-    resp = _partner_bid(ctx)
+    if (resp := _partner_bid_safe(ctx)) is None:
+        return False
     return resp.level == 3 and resp.suit.is_major
 
 
 @condition("partner bid 2NT")
 def _partner_bid_2nt(ctx: BiddingContext) -> bool:
     """Partner bid 2NT (invitational)."""
-    resp = _partner_bid(ctx)
+    if (resp := _partner_bid_safe(ctx)) is None:
+        return False
     return resp.level == 2 and resp.is_notrump
 
 
 @condition("partner bid 3m")
 def _partner_bid_3_minor(ctx: BiddingContext) -> bool:
     """Partner bid 3C or 3D (6+ minor, invitational)."""
-    resp = _partner_bid(ctx)
+    if (resp := _partner_bid_safe(ctx)) is None:
+        return False
     return resp.level == 3 and resp.suit.is_minor
 
 
 @condition("partner bid 3NT")
 def _partner_bid_3nt(ctx: BiddingContext) -> bool:
     """Partner bid 3NT (to play)."""
-    resp = _partner_bid(ctx)
+    if (resp := _partner_bid_safe(ctx)) is None:
+        return False
     return resp.level == 3 and resp.is_notrump
 
 
 @condition("partner bid 4NT")
 def _partner_bid_4nt(ctx: BiddingContext) -> bool:
     """Partner bid 4NT (quantitative slam invite)."""
-    resp = _partner_bid(ctx)
+    if (resp := _partner_bid_safe(ctx)) is None:
+        return False
     return resp.level == 4 and resp.is_notrump
 
 
@@ -150,14 +172,16 @@ def _i_opened_2nt(ctx: BiddingContext) -> bool:
 @condition("partner bid Stayman over 2NT")
 def _partner_bid_stayman_2nt(ctx: BiddingContext) -> bool:
     """Partner bid 3C (Stayman over 2NT)."""
-    resp = _partner_bid(ctx)
+    if (resp := _partner_bid_safe(ctx)) is None:
+        return False
     return resp.level == 3 and resp.suit == Suit.CLUBS
 
 
 @condition("partner transferred over 2NT")
 def _partner_transferred_2nt(ctx: BiddingContext) -> bool:
     """Partner bid 3D (hearts) or 3H (spades) -- transfer over 2NT."""
-    resp = _partner_bid(ctx)
+    if (resp := _partner_bid_safe(ctx)) is None:
+        return False
     return resp.level == 3 and resp.suit in (Suit.DIAMONDS, Suit.HEARTS)
 
 
@@ -172,7 +196,8 @@ def _transfer_suit_2nt(ctx: BiddingContext) -> Suit:
 @condition("partner bid 3S puppet")
 def _partner_bid_3s_puppet(ctx: BiddingContext) -> bool:
     """Partner bid 3S (puppet to 4C over 2NT)."""
-    resp = _partner_bid(ctx)
+    if (resp := _partner_bid_safe(ctx)) is None:
+        return False
     return resp.level == 3 and resp.suit == Suit.SPADES
 
 

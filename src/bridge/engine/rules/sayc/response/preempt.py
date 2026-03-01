@@ -28,10 +28,24 @@ from bridge.model.card import SUITS_SHDC, Suit
 
 
 def _opening_suit(ctx: BiddingContext) -> Suit:
-    """The suit partner opened."""
+    """The suit partner opened.
+
+    Only safe to call from select() methods or conditions guarded by a
+    partner-opened check.
+    """
     assert ctx.opening_bid is not None
     _, bid = ctx.opening_bid
     assert is_suit_bid(bid)
+    return bid.suit
+
+
+def _opening_suit_safe(ctx: BiddingContext) -> Suit | None:
+    """The suit partner opened, or None if no suit opening exists."""
+    if ctx.opening_bid is None:
+        return None
+    _, bid = ctx.opening_bid
+    if not is_suit_bid(bid):
+        return None
     return bid.suit
 
 
@@ -68,18 +82,23 @@ def _partner_opened_4_level(ctx: BiddingContext) -> bool:
 
 @condition("stoppers in all unbid suits")
 def _stoppers_in_unbid(ctx: BiddingContext) -> bool:
-    opened = _opening_suit(ctx)
+    if (opened := _opening_suit_safe(ctx)) is None:
+        return False
     return all(has_stopper(ctx.hand, s) for s in SUITS_SHDC if s != opened)
 
 
 @condition("opener's suit is a major")
 def _opener_is_major(ctx: BiddingContext) -> bool:
-    return _opening_suit(ctx).is_major
+    if (suit := _opening_suit_safe(ctx)) is None:
+        return False
+    return suit.is_major
 
 
 @condition("opener's suit is a minor")
 def _opener_is_minor(ctx: BiddingContext) -> bool:
-    return _opening_suit(ctx).is_minor
+    if (suit := _opening_suit_safe(ctx)) is None:
+        return False
+    return suit.is_minor
 
 
 def _find_new_suit_over_2(ctx: BiddingContext) -> Suit | None:
@@ -88,7 +107,8 @@ def _find_new_suit_over_2(ctx: BiddingContext) -> Suit | None:
     Returns the longest qualifying suit (higher rank breaks ties), or None.
     The suit must differ from partner's opened suit.
     """
-    opened = _opening_suit(ctx)
+    if (opened := _opening_suit_safe(ctx)) is None:
+        return None
     best: Suit | None = None
     best_len = 0
     for suit in SUITS_SHDC:
@@ -107,7 +127,8 @@ def _find_new_suit_over_3(ctx: BiddingContext) -> Suit | None:
     Must be higher-ranking to stay at the 3-level. Returns the longest
     qualifying suit (higher rank breaks ties), or None.
     """
-    opened = _opening_suit(ctx)
+    if (opened := _opening_suit_safe(ctx)) is None:
+        return None
     best: Suit | None = None
     best_len = 0
     for suit in SUITS_SHDC:

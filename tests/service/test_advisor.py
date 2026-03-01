@@ -9,6 +9,44 @@ from bridge.model.hand import Hand
 from bridge.service.advisor import BiddingAdvisor
 
 
+class TestBiddingAdvisorCrashFixes:
+    """Regression tests for crash scenarios in advise()."""
+
+    def test_advise_completed_auction(self) -> None:
+        """advise() on a completed auction (1H-P-P-P) should not crash."""
+        advisor = BiddingAdvisor()
+        hand = Hand.from_pbn("AKJ52.KQ3.84.A73")
+        auction = AuctionState(dealer=Seat.NORTH)
+        auction.add_bid(parse_bid("1H"))
+        auction.add_bid(PASS)
+        auction.add_bid(PASS)
+        auction.add_bid(PASS)
+        assert auction.is_complete
+        advice = advisor.advise(hand, auction)
+        assert advice.recommended.bid == PASS
+        assert advice.recommended.rule_name == "auction.complete"
+
+    def test_advise_partner_passed_over_overcall(self) -> None:
+        """advise() when partner passed over an overcall should not crash.
+
+        Scenario: 1H-2C-P-P, back to opener. Partner's last bid is Pass
+        (not a SuitBid), which previously caused an assertion failure in
+        rebid helper functions.
+        """
+        advisor = BiddingAdvisor()
+        hand = Hand.from_pbn("AKJ52.KQ3.84.A73")
+        auction = AuctionState(dealer=Seat.NORTH)
+        auction.add_bid(parse_bid("1H"))  # North opens 1H
+        auction.add_bid(parse_bid("2C"))  # East overcalls 2C
+        auction.add_bid(PASS)  # South passes
+        auction.add_bid(PASS)  # West passes
+        # Back to North (opener) — partner passed, not a suit bid.
+        assert auction.current_seat == Seat.NORTH
+        assert not auction.is_complete
+        advice = advisor.advise(hand, auction)
+        assert advice.recommended.bid is not None
+
+
 class TestBiddingAdvisor:
     def test_advise_opening_hand(self) -> None:
         """17 HCP balanced -> recommended 1NT, phase OPENING."""

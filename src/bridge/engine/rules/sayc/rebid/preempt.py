@@ -25,10 +25,24 @@ from bridge.model.card import Rank, Suit
 
 
 def _my_opened_suit(ctx: BiddingContext) -> Suit:
-    """The suit I opened."""
+    """The suit I opened.
+
+    Only safe to call from select() methods where conditions have already
+    verified the precondition. Use _my_opened_suit_safe() in conditions.
+    """
     assert ctx.my_bids
     bid = ctx.my_bids[0]
     assert is_suit_bid(bid)
+    return bid.suit
+
+
+def _my_opened_suit_safe(ctx: BiddingContext) -> Suit | None:
+    """The suit I opened, or None if no suit bid was made."""
+    if not ctx.my_bids:
+        return None
+    bid = ctx.my_bids[0]
+    if not is_suit_bid(bid):
+        return None
     return bid.suit
 
 
@@ -85,7 +99,9 @@ def _partner_bid_new_suit(ctx: BiddingContext) -> bool:
         return False
     if resp.is_notrump:
         return False
-    return resp.suit != _my_opened_suit(ctx)
+    if (my_suit := _my_opened_suit_safe(ctx)) is None:
+        return False
+    return resp.suit != my_suit
 
 
 def _find_feature(ctx: BiddingContext) -> Suit | None:
@@ -94,7 +110,8 @@ def _find_feature(ctx: BiddingContext) -> Suit | None:
     Returns the suit to bid at the 3-level, or None if no feature.
     Iterates in standard bidding order (C < D < H < S) for cheapest.
     """
-    my_suit = _my_opened_suit(ctx)
+    if (my_suit := _my_opened_suit_safe(ctx)) is None:
+        return None
     for suit in (Suit.CLUBS, Suit.DIAMONDS, Suit.HEARTS, Suit.SPADES):
         if suit == my_suit:
             continue
@@ -112,7 +129,10 @@ def _no_feature(ctx: BiddingContext) -> bool:
 
 
 def _partner_response_suit(ctx: BiddingContext) -> Suit:
-    """Partner's response suit (for HasSuitFit)."""
+    """Partner's response suit (for HasSuitFit).
+
+    Only safe to call when guarded by _partner_bid_new_suit condition.
+    """
     resp = ctx.partner_last_bid
     assert resp is not None and is_suit_bid(resp)
     return resp.suit

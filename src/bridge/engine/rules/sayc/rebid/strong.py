@@ -35,29 +35,45 @@ def _i_opened_2c(ctx: BiddingContext) -> bool:
 
 
 def _partner_bid(ctx: BiddingContext) -> SuitBid:
-    """Partner's response (always a SuitBid in rebid phase after 2C)."""
+    """Partner's response (always a SuitBid in rebid phase after 2C).
+
+    Only safe to call from select() methods where conditions have already
+    verified the precondition. Use _partner_bid_safe() in conditions.
+    """
     resp = ctx.partner_last_bid
     assert resp is not None and is_suit_bid(resp)
+    return resp
+
+
+def _partner_bid_safe(ctx: BiddingContext) -> SuitBid | None:
+    """Partner's response, or None if partner didn't make a suit bid."""
+    resp = ctx.partner_last_bid
+    if resp is None or not is_suit_bid(resp):
+        return None
     return resp
 
 
 @condition("partner bid 2D waiting")
 def _partner_bid_2d_waiting(ctx: BiddingContext) -> bool:
     """Partner responded 2D (waiting)."""
-    resp = _partner_bid(ctx)
+    if (resp := _partner_bid_safe(ctx)) is None:
+        return False
     return resp.level == 2 and resp.suit == Suit.DIAMONDS
 
 
 @condition("partner gave positive response")
 def _partner_positive_response(ctx: BiddingContext) -> bool:
     """Partner made a positive response (anything except 2D waiting)."""
+    if _partner_bid_safe(ctx) is None:
+        return False
     return not _partner_bid_2d_waiting(ctx)
 
 
 @condition("partner bid positive suit")
 def _partner_positive_suit(ctx: BiddingContext) -> bool:
     """Partner made a positive suit response (2H/2S/3C/3D, not 2NT)."""
-    resp = _partner_bid(ctx)
+    if (resp := _partner_bid_safe(ctx)) is None:
+        return False
     if resp.is_notrump:
         return False
     return _partner_positive_response(ctx)
@@ -84,8 +100,9 @@ def _longest_suit(ctx: BiddingContext) -> Suit:
 @condition("5+ card unbid suit")
 def _has_5_plus_unbid_suit(ctx: BiddingContext) -> bool:
     """Whether opener has a 5+ card suit different from partner's."""
-    partner_suit = _partner_bid(ctx).suit
-    return any(ctx.hand.suit_length(s) >= 5 for s in SUITS_SHDC if s != partner_suit)
+    if (resp := _partner_bid_safe(ctx)) is None:
+        return False
+    return any(ctx.hand.suit_length(s) >= 5 for s in SUITS_SHDC if s != resp.suit)
 
 
 def _longest_unbid_suit(ctx: BiddingContext) -> Suit:

@@ -173,12 +173,12 @@ class TestAuctionLegality:
         auction = AuctionState(dealer=Seat.NORTH)
         auction.add_bid(SuitBid(1, Suit.HEARTS))
         auction.add_bid(PASS)
-        with pytest.raises(IllegalBidError, match="own side"):
+        with pytest.raises(IllegalBidError, match="Cannot double"):
             auction.add_bid(DOUBLE)
 
     def test_cannot_double_nothing(self) -> None:
         auction = AuctionState(dealer=Seat.NORTH)
-        with pytest.raises(IllegalBidError, match="no bid to double"):
+        with pytest.raises(IllegalBidError, match="Cannot double"):
             auction.add_bid(DOUBLE)
 
     def test_cannot_double_twice(self) -> None:
@@ -187,7 +187,7 @@ class TestAuctionLegality:
         auction.add_bid(SuitBid(1, Suit.HEARTS))
         auction.add_bid(DOUBLE)
         auction.add_bid(PASS)
-        with pytest.raises(IllegalBidError, match="already doubled"):
+        with pytest.raises(IllegalBidError, match="Cannot double"):
             auction.add_bid(DOUBLE)
 
     def test_redouble_after_double(self) -> None:
@@ -203,14 +203,14 @@ class TestAuctionLegality:
         auction.add_bid(SuitBid(1, Suit.HEARTS))
         auction.add_bid(DOUBLE)
         auction.add_bid(REDOUBLE)
-        with pytest.raises(IllegalBidError, match="already doubled"):
+        with pytest.raises(IllegalBidError, match="Cannot double"):
             auction.add_bid(DOUBLE)
 
     def test_cannot_redouble_without_double(self) -> None:
         auction = AuctionState(dealer=Seat.NORTH)
         auction.add_bid(SuitBid(1, Suit.HEARTS))
         auction.add_bid(PASS)
-        with pytest.raises(IllegalBidError, match="not doubled"):
+        with pytest.raises(IllegalBidError, match="Cannot redouble"):
             auction.add_bid(REDOUBLE)
 
 

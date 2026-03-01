@@ -38,8 +38,11 @@ __all__ = [
 def _i_bid_jacoby_2nt(ctx: BiddingContext) -> bool:
     """I bid Jacoby 2NT (1M->2NT, major only)."""
     opening = opening_bid(ctx)
+    if not ctx.my_bids:
+        return False
     resp = ctx.my_bids[0]
-    assert isinstance(resp, SuitBid)
+    if not isinstance(resp, SuitBid):
+        return False
     return resp.is_notrump and resp.level == 2 and opening.suit.is_major
 
 

@@ -13,10 +13,23 @@ from bridge.model.card import Suit
 
 
 def opening_bid(ctx: BiddingContext) -> SuitBid:
-    """Return partner's opening bid (always a suit bid in this module)."""
+    """Return partner's opening bid (always a suit bid in this module).
+
+    Only safe to call when guarded by partner_opened_1_suit condition.
+    """
     assert ctx.opening_bid is not None
     _, bid = ctx.opening_bid
     assert is_suit_bid(bid)
+    return bid
+
+
+def opening_bid_safe(ctx: BiddingContext) -> SuitBid | None:
+    """Return partner's opening bid, or None if no suit opening exists."""
+    if ctx.opening_bid is None:
+        return None
+    _, bid = ctx.opening_bid
+    if not is_suit_bid(bid):
+        return None
     return bid
 
 
@@ -40,9 +53,20 @@ def my_response_suit(ctx: BiddingContext) -> Suit:
 
 
 def partner_rebid(ctx: BiddingContext) -> SuitBid:
-    """Return partner's rebid (round 3)."""
+    """Return partner's rebid (round 3).
+
+    Only safe to call when guarded by a partner-rebid condition.
+    """
     rebid = ctx.partner_last_bid
     assert rebid is not None and is_suit_bid(rebid)
+    return rebid
+
+
+def partner_rebid_safe(ctx: BiddingContext) -> SuitBid | None:
+    """Return partner's rebid, or None if partner didn't make a suit bid."""
+    rebid = ctx.partner_last_bid
+    if rebid is None or not is_suit_bid(rebid):
+        return None
     return rebid
 
 
@@ -57,7 +81,8 @@ def partner_rebid_suit(ctx: BiddingContext) -> Suit:
 @condition("partner opened 1 of a suit")
 def partner_opened_1_suit(ctx: BiddingContext) -> bool:
     """Guard: partner's opening was 1C/1D/1H/1S."""
-    bid = opening_bid(ctx)
+    if (bid := opening_bid_safe(ctx)) is None:
+        return False
     return bid.level == 1 and not bid.is_notrump
 
 

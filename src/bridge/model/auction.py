@@ -224,30 +224,11 @@ class AuctionState:
                     f"Bid {bid} is not higher than current contract {last_contract}"
                 )
 
-        elif is_double(bid):
-            # Can only double an opponent's last suit bid
-            if last_contract is None:
-                raise IllegalBidError("Cannot double: no bid to double")
-            # Find who made the last contract bid
-            last_bidder: Seat | None = None
-            for s, b in reversed(self.bids):
-                if is_suit_bid(b):
-                    last_bidder = s
-                    break
-            if last_bidder is None:
-                raise IllegalBidError("Cannot double: no bid to double")
-            current = self.current_seat
-            if last_bidder == current or last_bidder == current.partner:
-                raise IllegalBidError("Cannot double your own side's bid")
-            if self.is_doubled or self.is_redoubled:
-                raise IllegalBidError("Bid is already doubled")
+        elif is_double(bid) and not self.can_double:
+            raise IllegalBidError("Cannot double in this position")
 
-        elif is_redouble(bid):
-            # Can only redouble a doubled bid by the opponents
-            if not self.is_doubled:
-                raise IllegalBidError("Cannot redouble: bid is not doubled")
-            if self.is_redoubled:
-                raise IllegalBidError("Bid is already redoubled")
+        elif is_redouble(bid) and not self.can_redouble:
+            raise IllegalBidError("Cannot redouble in this position")
 
         self._bids.append(bid)
 
@@ -304,6 +285,25 @@ class AuctionState:
             if is_redouble(bid):
                 return True
         return False
+
+    @property
+    def can_double(self) -> bool:
+        """Whether a double is legal for the current seat."""
+        if self.last_contract_bid is None:
+            return False
+        if self.is_doubled or self.is_redoubled:
+            return False
+        # Can only double an opponent's bid
+        for seat, bid in reversed(self.bids):
+            if is_suit_bid(bid):
+                current = self.current_seat
+                return seat != current and seat != current.partner
+        return False
+
+    @property
+    def can_redouble(self) -> bool:
+        """Whether a redouble is legal for the current seat."""
+        return self.is_doubled and not self.is_redoubled
 
 
 def parse_auction(
