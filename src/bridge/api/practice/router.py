@@ -1,11 +1,15 @@
 """Practice session API endpoints.
 
-Five endpoints for the solo practice workflow:
+Nine endpoints for the practice workflow:
 - POST   /api/practice              Create a new session
+- GET    /api/practice/join/{code}  Look up session by join code
 - GET    /api/practice/{id}         Get current session state
 - POST   /api/practice/{id}/bid     Place a bid
 - GET    /api/practice/{id}/advise  Get engine advice
 - POST   /api/practice/{id}/redeal  Deal new hands
+- GET    /api/practice/{id}/info    Lightweight session info (for join UI)
+- POST   /api/practice/{id}/join    Join a session at a specific seat
+- POST   /api/practice/{id}/leave   Leave a session
 """
 
 from __future__ import annotations
@@ -14,25 +18,50 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from bridge.api.auth.models import User
 from bridge.api.deps import get_current_user
-from bridge.model.auction import IllegalBidError, Seat
+from bridge.model.auction import IllegalBidError
 
 from .schemas import (
     AdviceResponse,
     BidFeedbackResponse,
     CreatePracticeRequest,
     CreatePracticeResponse,
+    JoinSessionRequest,
     PlaceBidRequest,
     PracticeStateResponse,
+    SessionInfoResponse,
     serialize_practice_state,
+    serialize_session_info,
 )
 from .session import (
+    AlreadySeatedError,
     AuctionCompleteError,
     NotYourTurnError,
     PlayerNotFoundError,
+    PracticeSession,
+    SeatOccupiedError,
 )
-from .state import create_session, get_session
+from .state import create_session, get_session, get_session_by_code
 
 router = APIRouter(prefix="/api/practice", tags=["practice"])
+
+
+# ── Dependencies ─────────────────────────────────────────────────
+
+
+def _resolve_session(session_id: str) -> PracticeSession:
+    """Resolve a session_id path parameter to a PracticeSession.
+
+    Raises 404 if the session doesn't exist. Used as a FastAPI
+    dependency so individual endpoints don't repeat this check.
+    """
+    session = get_session(session_id)
+    if session is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Session not found")
+    return session
+
+
+# ── Routes with fixed path segments must come before /{session_id} ──
+# Otherwise FastAPI would match "join" as a session_id.
 
 
 @router.post(
@@ -47,12 +76,31 @@ def create(
     """Create a new practice session.
 
     Deals hands, runs computer bids until it's the human's turn,
-    and returns the session ID. The frontend redirects to
-    /practice/{id} to fetch the full state.
+    and returns the session ID and join code.
     """
-    seat = Seat.from_str(body.seat)
-    session = create_session(user.id, seat)
-    return CreatePracticeResponse(id=session.id)
+    session = create_session(user.id, body.seat, mode=body.mode, username=user.username)
+    return CreatePracticeResponse(id=session.id, join_code=session.join_code)
+
+
+@router.get(
+    "/join/{code}",
+    response_model=SessionInfoResponse,
+)
+def lookup_by_code(
+    code: str,
+    user: User = Depends(get_current_user),
+) -> SessionInfoResponse:
+    """Look up a session by its 6-character join code.
+
+    Returns session info so the frontend can redirect to the join flow.
+    """
+    session = get_session_by_code(code)
+    if session is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No session found for that code")
+    return serialize_session_info(session)
+
+
+# ── Session-specific routes (use {session_id} path parameter) ────────
 
 
 @router.get(
@@ -60,7 +108,7 @@ def create(
     response_model=PracticeStateResponse,
 )
 def get_state(
-    session_id: str,
+    session: PracticeSession = Depends(_resolve_session),
     user: User = Depends(get_current_user),
 ) -> PracticeStateResponse:
     """Get the current session state (hand, auction, legal bids, etc.).
@@ -68,9 +116,6 @@ def get_state(
     Only shows the requesting user's hand. All hands are revealed
     once the auction is complete.
     """
-    session = get_session(session_id)
-    if session is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Session not found")
     try:
         state = session.get_state(user.id)
     except PlayerNotFoundError:
@@ -86,8 +131,8 @@ def get_state(
     response_model=BidFeedbackResponse,
 )
 def place_bid(
-    session_id: str,
     body: PlaceBidRequest,
+    session: PracticeSession = Depends(_resolve_session),
     user: User = Depends(get_current_user),
 ) -> BidFeedbackResponse:
     """Place a bid and get feedback (matched engine or not).
@@ -95,9 +140,6 @@ def place_bid(
     After the bid is placed, computer seats bid automatically.
     The frontend re-runs the loader to get the updated state.
     """
-    session = get_session(session_id)
-    if session is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Session not found")
     try:
         result = session.place_bid(user.id, body.bid)
     except PlayerNotFoundError:
@@ -128,7 +170,7 @@ def place_bid(
     response_model=AdviceResponse,
 )
 def advise(
-    session_id: str,
+    session: PracticeSession = Depends(_resolve_session),
     user: User = Depends(get_current_user),
 ) -> AdviceResponse:
     """Get the engine's bid recommendation for the current position.
@@ -136,9 +178,6 @@ def advise(
     Returns the recommended bid, alternatives considered, and
     the full thought process (condition traces for each rule).
     """
-    session = get_session(session_id)
-    if session is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Session not found")
     try:
         advice = session.get_advice(user.id)
     except PlayerNotFoundError:
@@ -154,17 +193,14 @@ def advise(
     status_code=200,
 )
 def redeal(
-    session_id: str,
+    session: PracticeSession = Depends(_resolve_session),
     user: User = Depends(get_current_user),
 ) -> dict[str, bool]:
     """Deal new hands, rotate dealer, pick random vulnerability.
 
     The frontend revalidates the loader to get the new state.
     """
-    session = get_session(session_id)
-    if session is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Session not found")
-    # Verify the user is seated (only the host can redeal for now).
+    # Verify the user is seated (only seated players can redeal).
     try:
         session.seat_for(user.id)
     except PlayerNotFoundError:
@@ -173,4 +209,67 @@ def redeal(
             "You are not seated at this session",
         ) from None
     session.redeal()
+    return {"ok": True}
+
+
+@router.get(
+    "/{session_id}/info",
+    response_model=SessionInfoResponse,
+)
+def get_info(
+    session: PracticeSession = Depends(_resolve_session),
+    user: User = Depends(get_current_user),
+) -> SessionInfoResponse:
+    """Lightweight session info for the join UI.
+
+    Returns mode, join code, player names, and available seats.
+    Accessible to any authenticated user (not just seated players).
+    """
+    return serialize_session_info(session)
+
+
+@router.post(
+    "/{session_id}/join",
+    status_code=200,
+)
+def join_session(
+    body: JoinSessionRequest,
+    session: PracticeSession = Depends(_resolve_session),
+    user: User = Depends(get_current_user),
+) -> SessionInfoResponse:
+    """Join a session at a specific seat.
+
+    Returns updated session info after joining.
+    """
+    try:
+        session.join(user.id, body.seat, username=user.username)
+    except SeatOccupiedError:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Seat {body.seat} is already occupied",
+        ) from None
+    except AlreadySeatedError:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "You are already seated at this session",
+        ) from None
+    return serialize_session_info(session)
+
+
+@router.post(
+    "/{session_id}/leave",
+    status_code=200,
+)
+def leave_session(
+    session: PracticeSession = Depends(_resolve_session),
+    user: User = Depends(get_current_user),
+) -> dict[str, bool]:
+    """Leave a session (seat reverts to computer control)."""
+    try:
+        session.leave(user.id)
+    except PlayerNotFoundError:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "You are not seated at this session",
+        ) from None
     return {"ok": True}

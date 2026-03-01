@@ -13,6 +13,9 @@ import type {
   AuthCredentials,
   BidFeedback,
   PracticeState,
+  Seat,
+  SessionInfo,
+  SessionMode,
   User,
 } from "./types";
 
@@ -57,12 +60,18 @@ export async function getMe(): Promise<User> {
 
 /**
  * Create a new practice session.
- * Returns the session ID; redirect to /practice/{id} to fetch full state.
+ * Returns the session ID and join code; redirect to /practice/{id} to fetch full state.
  */
 export async function createPracticeSession(
-  seat: string,
-): Promise<{ id: string }> {
-  const response = await api.post<{ id: string }>("/practice", { seat });
+  seat: Seat,
+  mode?: SessionMode,
+): Promise<{ id: string; join_code: string }> {
+  const body: { seat: Seat; mode?: SessionMode } = { seat };
+  if (mode) body.mode = mode;
+  const response = await api.post<{ id: string; join_code: string }>(
+    "/practice",
+    body,
+  );
   return response.data;
 }
 
@@ -111,5 +120,56 @@ export async function redeal(
   const response = await api.post<{ ok: boolean }>(
     `/practice/${sessionId}/redeal`,
   );
+  return response.data;
+}
+
+/**
+ * Get lightweight session info (seats, mode, join code).
+ * Accessible to any authenticated user, not just seated players.
+ * Used by the join flow when GET /practice/{id} returns 403.
+ */
+export async function getSessionInfo(
+  sessionId: string,
+): Promise<SessionInfo> {
+  const response = await api.get<SessionInfo>(
+    `/practice/${sessionId}/info`,
+  );
+  return response.data;
+}
+
+/**
+ * Join a session at a specific seat.
+ * Returns updated session info after joining.
+ */
+export async function joinSession(
+  sessionId: string,
+  seat: Seat,
+): Promise<SessionInfo> {
+  const response = await api.post<SessionInfo>(
+    `/practice/${sessionId}/join`,
+    { seat },
+  );
+  return response.data;
+}
+
+/**
+ * Leave a session (seat reverts to computer control).
+ * Redirects to the lobby after leaving.
+ */
+export async function leaveSession(
+  sessionId: string,
+): Promise<{ ok: boolean }> {
+  const response = await api.post<{ ok: boolean }>(
+    `/practice/${sessionId}/leave`,
+  );
+  return response.data;
+}
+
+/**
+ * Look up a session by its 6-character join code.
+ * Returns session info so the frontend can redirect to the join flow.
+ */
+export async function lookupByCode(code: string): Promise<SessionInfo> {
+  const response = await api.get<SessionInfo>(`/practice/join/${code}`);
   return response.data;
 }

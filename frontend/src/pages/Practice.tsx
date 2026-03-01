@@ -7,9 +7,17 @@
  *   - BidControls: 7x5 button grid for placing bids
  *   - AdvicePanel: engine recommendation + thought process
  *
+ * Multiplayer support:
+ *   - If the user isn't seated, the loader returns { needsJoin, info }
+ *     and the page shows a JoinPanel with available seats.
+ *   - Once seated, a SessionHeader shows the join code, player names,
+ *     and a leave button.
+ *   - When waiting for another human's bid, polls every 2s via
+ *     useRevalidator() to pick up state changes.
+ *
  * Data flow uses React Router v7 patterns:
  *   - Loader: fetches session state before the page renders (no loading spinner)
- *   - Action: handles bid placement and redeal via form submissions
+ *   - Action: handles bid placement, redeal, join, and leave via form submissions
  *   - Fetcher: loads advice on demand without a full page navigation
  *
  * When the auction completes, the bid controls are replaced with a display
@@ -21,10 +29,18 @@ import {
   useFetcher,
   useLoaderData,
   useNavigation,
+  useRevalidator,
   useSubmit,
 } from "react-router";
 
-import type { Advice, AuctionBid, Hand, PracticeState, Seat } from "@/api/types";
+import type {
+  Advice,
+  AuctionBid,
+  Hand,
+  PracticeState,
+  Seat,
+  SessionInfo,
+} from "@/api/types";
 import { useBidKeyboard } from "@/hooks/useBidKeyboard";
 import { SEAT_LABELS, SUIT_COLORS, SUIT_SYMBOLS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -53,50 +69,53 @@ function countHcp(hand: Hand): number {
     .reduce((sum, rank) => sum + (HCP_VALUES[rank] ?? 0), 0);
 }
 
-/** The loader returns the full practice session state. */
-interface LoaderData {
-  state: PracticeState;
-}
+/**
+ * The loader returns either full session state (user is seated) or
+ * lightweight session info (user needs to join).
+ */
+type LoaderData =
+  | { state: PracticeState; needsJoin?: undefined }
+  | { needsJoin: true; info: SessionInfo };
 
 export default function PracticePage() {
-  // --- Data from React Router ---
+  const data = useLoaderData() as LoaderData;
 
-  /**
-   * useLoaderData: the session state fetched by the loader BEFORE this
-   * component rendered. No loading spinner needed -- the data is ready.
-   */
-  const { state } = useLoaderData() as LoaderData;
+  // If the user isn't seated at this session, show the join panel
+  // where they can pick an available seat.
+  if (data.needsJoin) {
+    return <JoinPanel info={data.info} />;
+  }
 
+  return <PracticeView state={data.state} />;
+}
 
-  /**
-   * useNavigation: tells us if a form submission is in flight. Used to
-   * show a subtle "submitting" state on the bid controls.
-   */
+/**
+ * The full practice UI, shown when the user is seated at the session.
+ * Extracted into its own component so hooks aren't called conditionally
+ * (hooks must run in the same order on every render).
+ */
+function PracticeView({ state }: { state: PracticeState }) {
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
-
-  /**
-   * useFetcher: for the "Advise Me" button. Loads advice from the backend
-   * without a full page navigation (no URL change, no loader re-run).
-   * The fetcher manages its own loading state independently.
-   */
   const adviceFetcher = useFetcher<Advice>();
-
-  /**
-   * useSubmit: programmatic form submission. Used by the keyboard shortcut
-   * hook to submit a bid when the user confirms with Enter/Space.
-   */
   const submit = useSubmit();
+  const revalidator = useRevalidator();
 
-  // Destructure the session state for easier access in the template.
   const { auction, hand, hand_evaluation, legal_bids, is_my_turn } = state;
 
-  /**
-   * Keyboard shortcut hook for bid selection.
-   * Lets the user press level/suit keys to filter the bid grid, then
-   * Enter/Space to confirm. Only active when it's the player's turn
-   * and the auction is still going.
-   */
+  // --- Multiplayer polling ---
+  // When waiting for another human's bid, poll every 2 seconds so we
+  // pick up state changes without requiring WebSockets.
+  useEffect(() => {
+    if (!is_my_turn && !auction.is_complete && state.waiting_for) {
+      const interval = setInterval(() => {
+        if (revalidator.state === "idle") revalidator.revalidate();
+      }, 2000);
+      return () => clearInterval(interval);
+    }
+  }, [is_my_turn, auction.is_complete, state.waiting_for, revalidator]);
+
+  // --- Keyboard shortcuts ---
   const handleBidConfirm = useCallback(
     (bid: string) => {
       submit({ intent: "bid", bid }, { method: "post" });
@@ -109,35 +128,29 @@ export default function PracticePage() {
     onConfirm: handleBidConfirm,
   });
 
-  /**
-   * Track whether advice is visible. Set to true when the user clicks
-   * "Advise Me", reset to false when the legal bids change (i.e., after
-   * a bid is placed and it's a new turn).
-   */
+  // --- Advice visibility ---
   const [showAdvice, setShowAdvice] = useState(false);
   const legalBidsKey = legal_bids.join(",");
   useEffect(() => {
     setShowAdvice(false);
   }, [legalBidsKey]);
 
-  /**
-   * Handle the "Advise Me" button click.
-   * Triggers a GET to the advice loader route, which fetches
-   * engine advice without navigating away from the page.
-   */
   function handleAdvise() {
     setShowAdvice(true);
     adviceFetcher.load(`/practice/${state.id}/advise`);
   }
 
+  // Check whether there are other human players in the session.
+  const hasOtherHumans = Object.entries(state.players).some(
+    ([seat, name]) => name !== null && seat !== state.your_seat,
+  );
 
   return (
     <div className="container mx-auto px-4 py-6">
-      {/* --- Page header: title, hand number, and New Hand button --- */}
+      {/* --- Page header --- */}
       <div className="mb-6">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold">Practice Mode</h1>
-          {/* New Hand button inline with the title */}
           <Form method="post">
             <input type="hidden" name="intent" value="redeal" />
             <Button type="submit" variant="outline" size="sm" disabled={isSubmitting}>
@@ -152,19 +165,27 @@ export default function PracticePage() {
         </p>
       </div>
 
+      {/* Session header: join code, player names, leave button.
+          Shown when there are other human players in the session. */}
+      {hasOtherHumans && (
+        <SessionHeader state={state} isSubmitting={isSubmitting} />
+      )}
+
+      {/* Waiting indicator when another human is bidding */}
+      {!is_my_turn && !auction.is_complete && state.waiting_for && (
+        <div className="text-muted-foreground mb-4 text-sm">
+          Waiting for {SEAT_LABELS[state.waiting_for]} to bid...
+        </div>
+      )}
+
       {/*
        * --- Main content: two-column layout on desktop ---
-       * Left column: hand + advise button + advice panel
-       * Right column: auction grid + feedback + bid controls (or all hands)
+       * Left column: bid controls (or all hands) + advice panel
+       * Right column: auction grid + hand + bid history
        */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* === Left column: controls + advice === */}
         <div className="flex flex-col gap-4">
-
-          {/*
-           * During active bidding: show bid controls.
-           * After auction completes: show contract + all hands + New Hand.
-           */}
           {!auction.is_complete ? (
             <BidControls
               legalBids={legal_bids}
@@ -186,7 +207,6 @@ export default function PracticePage() {
             <AuctionComplete state={state} />
           )}
 
-          {/* Advice panel -- visible after clicking "Advise Me", hidden after bidding */}
           {showAdvice && (
             <AdvicePanel
               advice={adviceFetcher.data ?? null}
@@ -198,7 +218,6 @@ export default function PracticePage() {
         {/* === Right area: hand + auction grid side by side, history below === */}
         <div className="flex flex-col gap-4">
           <div className="flex flex-row items-start gap-4">
-            {/* Auction history grid */}
             <Card className="flex-1">
               <CardHeader>
                 <CardTitle>Auction</CardTitle>
@@ -213,7 +232,6 @@ export default function PracticePage() {
               </CardContent>
             </Card>
 
-            {/* Player's hand with evaluation metrics */}
             <HandDisplay
               hand={hand}
               evaluation={hand_evaluation}
@@ -221,7 +239,6 @@ export default function PracticePage() {
             />
           </div>
 
-          {/* Auction history: every bid with explanations + feedback */}
           {auction.bids.length > 0 && (
             <AuctionHistory
               bids={auction.bids}
@@ -408,4 +425,134 @@ function ContractSuit({ suit }: { suit: string }) {
     );
   }
   return <>{suit}</>;
+}
+
+// ---------------------------------------------------------------------------
+// Multiplayer sub-components
+// ---------------------------------------------------------------------------
+
+/** All four seats in display order. */
+const ALL_SEATS: Seat[] = ["N", "E", "S", "W"];
+
+/**
+ * Shown when the user isn't seated at the session (loader returned 403).
+ * Displays the session info and a seat picker so the user can join.
+ *
+ * Each available seat is a form button that submits intent=join with
+ * the chosen seat. The practiceAction calls joinSession(), then
+ * redirects to trigger a fresh loader run (now returning full state).
+ */
+function JoinPanel({ info }: { info: SessionInfo }) {
+  const navigation = useNavigation();
+  const isSubmitting = navigation.state === "submitting";
+
+  return (
+    <div className="container mx-auto flex flex-col items-center gap-6 px-4 py-12">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle>Join Session</CardTitle>
+          <p className="text-muted-foreground text-sm">
+            Code: <span className="font-mono font-semibold">{info.join_code}</span>
+          </p>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {/* Show who's already seated */}
+          <div className="text-sm">
+            {ALL_SEATS.map((seat) => (
+              <div key={seat} className="flex items-center gap-2 py-0.5">
+                <span className="w-14 font-medium">{SEAT_LABELS[seat]}</span>
+                <span className="text-muted-foreground">
+                  {info.players[seat] ?? "Computer"}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Seat picker: one button per available seat */}
+          <p className="text-sm font-medium">Pick a seat:</p>
+          <div className="flex gap-2">
+            {info.available_seats.map((seat) => (
+              <Form method="post" key={seat}>
+                <input type="hidden" name="intent" value="join" />
+                <input type="hidden" name="seat" value={seat} />
+                <Button type="submit" variant="outline" disabled={isSubmitting}>
+                  {SEAT_LABELS[seat]}
+                </Button>
+              </Form>
+            ))}
+          </div>
+
+          {info.available_seats.length === 0 && (
+            <p className="text-muted-foreground text-sm">
+              No seats available -- the session is full.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+/**
+ * Session header bar shown during multiplayer sessions.
+ * Displays the join code (with a copy button), player names at each
+ * seat, and a leave button.
+ */
+function SessionHeader({
+  state,
+  isSubmitting,
+}: {
+  state: PracticeState;
+  isSubmitting: boolean;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  /** Copy the join code to the clipboard and show a brief "Copied!" label. */
+  function handleCopy() {
+    navigator.clipboard.writeText(state.join_code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
+  return (
+    <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md border bg-card px-4 py-2 text-sm">
+      {/* Join code with copy button */}
+      <div className="flex items-center gap-1.5">
+        <span className="text-muted-foreground">Code:</span>
+        <span className="font-mono font-semibold">{state.join_code}</span>
+        <Button variant="ghost" size="xs" onClick={handleCopy}>
+          {copied ? "Copied!" : "Copy"}
+        </Button>
+      </div>
+
+      {/* Player names at each seat */}
+      <div className="flex items-center gap-3">
+        {ALL_SEATS.map((seat) => {
+          const name = state.players[seat];
+          const isYou = seat === state.your_seat;
+          return (
+            <span key={seat} className={cn(isYou && "font-semibold")}>
+              {SEAT_LABELS[seat]}:{" "}
+              <span className={cn(name === null && "text-muted-foreground")}>
+                {isYou ? "You" : name ?? "CPU"}
+              </span>
+            </span>
+          );
+        })}
+      </div>
+
+      {/* Leave button */}
+      <Form method="post" className="ml-auto">
+        <input type="hidden" name="intent" value="leave" />
+        <Button
+          type="submit"
+          variant="outline"
+          size="xs"
+          disabled={isSubmitting}
+        >
+          Leave
+        </Button>
+      </Form>
+    </div>
+  );
 }

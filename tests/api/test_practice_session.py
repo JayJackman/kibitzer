@@ -7,14 +7,22 @@ import random
 import pytest
 
 from bridge.api.practice.session import (
+    AlreadySeatedError,
     AuctionCompleteError,
     BidResult,
     PlayerNotFoundError,
     PracticeSession,
     PracticeState,
+    SeatOccupiedError,
+    SessionMode,
     compute_legal_bids,
 )
-from bridge.api.practice.state import clear_all, create_session, get_session
+from bridge.api.practice.state import (
+    clear_all,
+    create_session,
+    get_session,
+    get_session_by_code,
+)
 from bridge.model.auction import AuctionState, Seat
 from bridge.model.bid import PASS, SuitBid
 from bridge.model.card import Suit
@@ -311,6 +319,118 @@ class TestComputeLegalBids:
         assert "X" not in legal  # Can't double again.
 
 
+# ── SessionMode and join_code ────────────────────────────────
+
+
+class TestSessionMode:
+    def test_default_mode_is_practice(self, session: PracticeSession) -> None:
+        assert session.mode == SessionMode.PRACTICE
+
+    def test_join_code_generated(self, session: PracticeSession) -> None:
+        assert len(session.join_code) == 6
+        # All characters should be from the unambiguous set.
+        allowed = set("ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
+        assert all(c in allowed for c in session.join_code)
+
+    def test_state_includes_mode_and_join_code(self, session: PracticeSession) -> None:
+        state = session.get_state(1)
+        assert state.mode == SessionMode.PRACTICE
+        assert state.join_code == session.join_code
+
+    def test_state_includes_players(self, session: PracticeSession) -> None:
+        state = session.get_state(1)
+        # South is human (empty string because test didn't provide username),
+        # others are computer (None).
+        assert state.players[Seat.SOUTH] == ""
+        assert state.players[Seat.NORTH] is None
+        assert state.players[Seat.EAST] is None
+        assert state.players[Seat.WEST] is None
+
+    def test_state_waiting_for(self, session: PracticeSession) -> None:
+        state = session.get_state(1)
+        if state.is_my_turn:
+            assert state.waiting_for == Seat.SOUTH
+        else:
+            assert state.waiting_for is None
+
+
+# ── join / leave / available_seats ──────────────────────────
+
+
+class TestJoinLeave:
+    def test_available_seats(self, session: PracticeSession) -> None:
+        available = session.available_seats()
+        assert Seat.SOUTH not in available
+        assert len(available) == 3
+
+    def test_join_seat(self, session: PracticeSession) -> None:
+        session.join(2, Seat.NORTH, username="player2")
+        assert session.players[Seat.NORTH] == 2
+        assert Seat.NORTH not in session.available_seats()
+
+    def test_join_with_username(self, session: PracticeSession) -> None:
+        session.join(2, Seat.NORTH, username="player2")
+        names = session._player_names()
+        assert names[Seat.NORTH] == "player2"
+
+    def test_join_occupied_seat_raises(self, session: PracticeSession) -> None:
+        with pytest.raises(SeatOccupiedError):
+            session.join(2, Seat.SOUTH)
+
+    def test_join_already_seated_raises(self, session: PracticeSession) -> None:
+        with pytest.raises(AlreadySeatedError):
+            session.join(1, Seat.NORTH)
+
+    def test_leave_reverts_to_computer(self, session: PracticeSession) -> None:
+        session.join(2, Seat.NORTH, username="player2")
+        session.leave(2)
+        assert session.players[Seat.NORTH] is None
+        assert Seat.NORTH in session.available_seats()
+
+    def test_leave_not_seated_raises(self, session: PracticeSession) -> None:
+        with pytest.raises(PlayerNotFoundError):
+            session.leave(999)
+
+    def test_join_after_leave(self, session: PracticeSession) -> None:
+        session.join(2, Seat.NORTH, username="player2")
+        session.leave(2)
+        session.join(3, Seat.NORTH, username="player3")
+        assert session.players[Seat.NORTH] == 3
+
+    def test_multiple_humans_get_state(self, advisor: BiddingAdvisor) -> None:
+        """Two humans can each get their own state view."""
+        session = PracticeSession(
+            user_id=1,
+            seat=Seat.SOUTH,
+            advisor=advisor,
+            username="host",
+            rng=random.Random(42),
+        )
+        session.join(2, Seat.NORTH, username="guest")
+        state_s = session.get_state(1)
+        state_n = session.get_state(2)
+        assert state_s.your_seat == Seat.SOUTH
+        assert state_n.your_seat == Seat.NORTH
+        # Each sees their own hand.
+        assert state_s.hand == session.hands[Seat.SOUTH]
+        assert state_n.hand == session.hands[Seat.NORTH]
+
+    def test_computer_stops_at_any_human(self, advisor: BiddingAdvisor) -> None:
+        """Computer bids should stop at any human seat, not just the host."""
+        session = PracticeSession(
+            user_id=1,
+            seat=Seat.SOUTH,
+            advisor=advisor,
+            username="host",
+            rng=random.Random(42),
+        )
+        session.join(2, Seat.NORTH, username="guest")
+        # The auction should be waiting for a human, not completed by computers.
+        if not session.auction.is_complete:
+            current = session.auction.current_seat
+            assert session.players[current] is not None
+
+
 # ── In-memory store ──────────────────────────────────────────
 
 
@@ -337,6 +457,36 @@ class TestSessionStore:
         from bridge.api.practice.state import delete_session
 
         delete_session("nonexistent")  # Should not raise.
+
+    def test_join_code_indexed(self) -> None:
+        session = create_session(user_id=1, seat=Seat.SOUTH)
+        found = get_session_by_code(session.join_code)
+        assert found is session
+
+    def test_join_code_case_insensitive(self) -> None:
+        session = create_session(user_id=1, seat=Seat.SOUTH)
+        found = get_session_by_code(session.join_code.lower())
+        assert found is session
+
+    def test_join_code_missing(self) -> None:
+        assert get_session_by_code("ZZZZZZ") is None
+
+    def test_delete_removes_join_code(self) -> None:
+        from bridge.api.practice.state import delete_session
+
+        session = create_session(user_id=1, seat=Seat.SOUTH)
+        code = session.join_code
+        delete_session(session.id)
+        assert get_session_by_code(code) is None
+
+    def test_create_with_mode(self) -> None:
+        session = create_session(user_id=1, seat=Seat.SOUTH, mode=SessionMode.PRACTICE)
+        assert session.mode == SessionMode.PRACTICE
+
+    def test_create_with_username(self) -> None:
+        session = create_session(user_id=1, seat=Seat.SOUTH, username="testuser")
+        names = session._player_names()
+        assert names[Seat.SOUTH] == "testuser"
 
 
 # ── Full lifecycle ───────────────────────────────────────────

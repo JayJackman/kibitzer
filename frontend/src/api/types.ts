@@ -29,6 +29,9 @@ export interface AuthCredentials {
 /** The four compass seats at a bridge table. */
 export type Seat = "N" | "E" | "S" | "W";
 
+/** Session mode (mirrors backend SessionMode enum values). */
+export type SessionMode = "practice" | "helper";
+
 // --- Practice types ---
 
 /** Cards grouped by suit, each as a list of rank strings (e.g. ["A", "K", "10", "3"]). */
@@ -98,6 +101,8 @@ export interface BidFeedback {
 /** Full session state returned by GET /api/practice/{id}. */
 export interface PracticeState {
   id: string;
+  mode: SessionMode;
+  join_code: string;
   your_seat: Seat;
   hand: Hand;
   hand_evaluation: HandEvaluation;
@@ -108,6 +113,19 @@ export interface PracticeState {
   last_feedback: BidFeedback | null;
   all_hands: Record<Seat, Hand> | null;
   hand_number: number;
+  /** Username per seat (null = computer). */
+  players: Record<Seat, string | null>;
+  /** Which human seat we're waiting on (null if computer's turn or auction complete). */
+  waiting_for: Seat | null;
+}
+
+/** Lightweight session info for the join UI and session lookup. */
+export interface SessionInfo {
+  id: string;
+  mode: SessionMode;
+  join_code: string;
+  players: Record<Seat, string | null>;
+  available_seats: Seat[];
 }
 
 /** A single condition evaluation result in the thought process. */

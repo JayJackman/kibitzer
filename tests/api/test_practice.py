@@ -55,22 +55,25 @@ def _register_and_login(client: TestClient) -> None:
     )
 
 
-def _create_session(client: TestClient, seat: str = "S") -> str:
-    """Create a practice session and return its ID."""
+def _create_session(client: TestClient, seat: str = "S") -> tuple[str, str]:
+    """Create a practice session and return (session_id, join_code)."""
     resp = client.post("/api/practice", json={"seat": seat})
     assert resp.status_code == 201
-    return resp.json()["id"]
+    data = resp.json()
+    return data["id"], data["join_code"]
 
 
 # ── Create session ────────────────────────────────────────────
 
 
 class TestCreateSession:
-    def test_create_returns_id(self, client: TestClient) -> None:
+    def test_create_returns_id_and_join_code(self, client: TestClient) -> None:
         _register_and_login(client)
-        session_id = _create_session(client)
+        session_id, join_code = _create_session(client)
         assert isinstance(session_id, str)
         assert len(session_id) > 0
+        assert isinstance(join_code, str)
+        assert len(join_code) == 6
 
     def test_create_unauthenticated(self, client: TestClient) -> None:
         resp = client.post("/api/practice", json={"seat": "S"})
@@ -88,13 +91,15 @@ class TestCreateSession:
 class TestGetState:
     def test_returns_full_state(self, client: TestClient) -> None:
         _register_and_login(client)
-        session_id = _create_session(client)
+        session_id, join_code = _create_session(client)
 
         resp = client.get(f"/api/practice/{session_id}")
         assert resp.status_code == 200
 
         data = resp.json()
         assert data["id"] == session_id
+        assert data["mode"] == "practice"
+        assert data["join_code"] == join_code
         assert data["your_seat"] == "S"
         assert "spades" in data["hand"]
         assert "hcp" in data["hand_evaluation"]
@@ -102,6 +107,8 @@ class TestGetState:
         assert isinstance(data["legal_bids"], list)
         assert isinstance(data["is_my_turn"], bool)
         assert data["hand_number"] == 1
+        assert isinstance(data["players"], dict)
+        assert data["players"]["S"] is not None  # Human seat
 
     def test_not_found(self, client: TestClient) -> None:
         _register_and_login(client)
@@ -111,7 +118,7 @@ class TestGetState:
     def test_wrong_user(self, client: TestClient) -> None:
         """A different user can't access someone else's session."""
         _register_and_login(client)
-        session_id = _create_session(client)
+        session_id, _ = _create_session(client)
 
         # Register a second user (replaces cookies).
         client.post(
@@ -128,7 +135,7 @@ class TestGetState:
 class TestPlaceBid:
     def test_valid_bid(self, client: TestClient) -> None:
         _register_and_login(client)
-        session_id = _create_session(client)
+        session_id, _ = _create_session(client)
 
         # Get state to find a legal bid.
         state = client.get(f"/api/practice/{session_id}").json()
@@ -150,7 +157,7 @@ class TestPlaceBid:
     def test_illegal_bid(self, client: TestClient) -> None:
         """Bidding below the current contract should fail."""
         _register_and_login(client)
-        session_id = _create_session(client)
+        session_id, _ = _create_session(client)
 
         # First make a high bid so lower bids become illegal.
         state = client.get(f"/api/practice/{session_id}").json()
@@ -183,7 +190,7 @@ class TestPlaceBid:
 class TestAdvise:
     def test_returns_advice(self, client: TestClient) -> None:
         _register_and_login(client)
-        session_id = _create_session(client)
+        session_id, _ = _create_session(client)
 
         resp = client.get(f"/api/practice/{session_id}/advise")
         assert resp.status_code == 200
@@ -210,7 +217,7 @@ class TestAdvise:
 class TestRedeal:
     def test_redeal_rotates_dealer(self, client: TestClient) -> None:
         _register_and_login(client)
-        session_id = _create_session(client)
+        session_id, _ = _create_session(client)
 
         state1 = client.get(f"/api/practice/{session_id}").json()
         dealer1 = state1["auction"]["dealer"]
@@ -240,7 +247,7 @@ class TestFullLifecycle:
     def test_bid_through_completion(self, client: TestClient) -> None:
         """Create -> bid Pass repeatedly -> auction completes -> all hands visible."""
         _register_and_login(client)
-        session_id = _create_session(client)
+        session_id, _ = _create_session(client)
 
         # Bid Pass until the auction completes (max 100 iterations as safety).
         for _ in range(100):
@@ -274,3 +281,186 @@ class TestFullLifecycle:
                 + len(hand["clubs"])
             )
             assert total_cards == 13
+
+
+# ── Session info ─────────────────────────────────────────────
+
+
+class TestGetInfo:
+    def test_returns_session_info(self, client: TestClient) -> None:
+        _register_and_login(client)
+        session_id, join_code = _create_session(client)
+
+        resp = client.get(f"/api/practice/{session_id}/info")
+        assert resp.status_code == 200
+
+        data = resp.json()
+        assert data["id"] == session_id
+        assert data["mode"] == "practice"
+        assert data["join_code"] == join_code
+        assert isinstance(data["players"], dict)
+        assert isinstance(data["available_seats"], list)
+        # South is occupied, 3 seats available.
+        assert len(data["available_seats"]) == 3
+        assert "S" not in data["available_seats"]
+
+    def test_not_found(self, client: TestClient) -> None:
+        _register_and_login(client)
+        resp = client.get("/api/practice/nonexistent/info")
+        assert resp.status_code == 404
+
+    def test_accessible_by_non_seated_user(self, client: TestClient) -> None:
+        """Any authenticated user can view session info (not just seated players)."""
+        _register_and_login(client)
+        session_id, _ = _create_session(client)
+
+        # Register a second user (replaces cookies).
+        client.post(
+            "/api/auth/register",
+            json={"username": "other", "password": "secret123"},
+        )
+        resp = client.get(f"/api/practice/{session_id}/info")
+        assert resp.status_code == 200
+
+
+# ── Join session ─────────────────────────────────────────────
+
+
+class TestJoinSession:
+    def test_join_available_seat(self, client: TestClient) -> None:
+        _register_and_login(client)
+        session_id, _ = _create_session(client)
+
+        # Register a second user.
+        client.post(
+            "/api/auth/register",
+            json={"username": "player2", "password": "secret123"},
+        )
+        resp = client.post(
+            f"/api/practice/{session_id}/join",
+            json={"seat": "N"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "N" not in data["available_seats"]
+        assert data["players"]["N"] == "player2"
+
+    def test_join_occupied_seat(self, client: TestClient) -> None:
+        _register_and_login(client)
+        session_id, _ = _create_session(client)
+
+        client.post(
+            "/api/auth/register",
+            json={"username": "player2", "password": "secret123"},
+        )
+        resp = client.post(
+            f"/api/practice/{session_id}/join",
+            json={"seat": "S"},  # Already occupied by creator.
+        )
+        assert resp.status_code == 409
+
+    def test_join_already_seated(self, client: TestClient) -> None:
+        """A user already in the session can't join another seat."""
+        _register_and_login(client)
+        session_id, _ = _create_session(client)
+
+        resp = client.post(
+            f"/api/practice/{session_id}/join",
+            json={"seat": "N"},
+        )
+        assert resp.status_code == 409
+
+    def test_joined_user_can_get_state(self, client: TestClient) -> None:
+        """After joining, the user can fetch session state."""
+        _register_and_login(client)
+        session_id, _ = _create_session(client)
+
+        client.post(
+            "/api/auth/register",
+            json={"username": "player2", "password": "secret123"},
+        )
+        client.post(
+            f"/api/practice/{session_id}/join",
+            json={"seat": "N"},
+        )
+        resp = client.get(f"/api/practice/{session_id}")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["your_seat"] == "N"
+
+    def test_not_found(self, client: TestClient) -> None:
+        _register_and_login(client)
+        resp = client.post(
+            "/api/practice/nonexistent/join",
+            json={"seat": "N"},
+        )
+        assert resp.status_code == 404
+
+
+# ── Leave session ────────────────────────────────────────────
+
+
+class TestLeaveSession:
+    def test_leave_reverts_to_computer(self, client: TestClient) -> None:
+        _register_and_login(client)
+        session_id, _ = _create_session(client)
+
+        # Join as second user, then leave.
+        client.post(
+            "/api/auth/register",
+            json={"username": "player2", "password": "secret123"},
+        )
+        client.post(
+            f"/api/practice/{session_id}/join",
+            json={"seat": "N"},
+        )
+        resp = client.post(f"/api/practice/{session_id}/leave")
+        assert resp.status_code == 200
+        assert resp.json() == {"ok": True}
+
+        # After leaving, can't get state anymore.
+        resp = client.get(f"/api/practice/{session_id}")
+        assert resp.status_code == 403
+
+    def test_leave_not_seated(self, client: TestClient) -> None:
+        _register_and_login(client)
+        session_id, _ = _create_session(client)
+
+        client.post(
+            "/api/auth/register",
+            json={"username": "player2", "password": "secret123"},
+        )
+        resp = client.post(f"/api/practice/{session_id}/leave")
+        assert resp.status_code == 403
+
+    def test_not_found(self, client: TestClient) -> None:
+        _register_and_login(client)
+        resp = client.post("/api/practice/nonexistent/leave")
+        assert resp.status_code == 404
+
+
+# ── Lookup by code ───────────────────────────────────────────
+
+
+class TestLookupByCode:
+    def test_lookup_returns_session_info(self, client: TestClient) -> None:
+        _register_and_login(client)
+        session_id, join_code = _create_session(client)
+
+        resp = client.get(f"/api/practice/join/{join_code}")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["id"] == session_id
+        assert data["join_code"] == join_code
+
+    def test_lookup_case_insensitive(self, client: TestClient) -> None:
+        _register_and_login(client)
+        _, join_code = _create_session(client)
+
+        resp = client.get(f"/api/practice/join/{join_code.lower()}")
+        assert resp.status_code == 200
+
+    def test_lookup_invalid_code(self, client: TestClient) -> None:
+        _register_and_login(client)
+        resp = client.get("/api/practice/join/ZZZZZZ")
+        assert resp.status_code == 404

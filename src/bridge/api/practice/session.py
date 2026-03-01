@@ -1,7 +1,12 @@
-"""PracticeSession -- core state machine for solo bidding practice."""
+"""PracticeSession -- core state machine for bidding practice.
+
+Supports solo practice (1 human + 3 computers) and multiplayer practice
+(1-4 humans, computers fill remaining seats).
+"""
 
 from __future__ import annotations
 
+import enum
 import random
 import uuid
 from dataclasses import dataclass
@@ -22,6 +27,13 @@ from bridge.model.hand import Hand
 from bridge.service.advisor import BiddingAdvisor
 from bridge.service.deal import deal
 from bridge.service.models import BiddingAdvice, HandEvaluation
+
+
+class SessionMode(enum.Enum):
+    """The type of practice session."""
+
+    PRACTICE = "practice"
+    HELPER = "helper"
 
 
 @dataclass(frozen=True)
@@ -50,6 +62,8 @@ class PracticeState:
     """Filtered view of a session for a specific user."""
 
     id: str
+    mode: SessionMode
+    join_code: str
     your_seat: Seat
     hand: Hand
     hand_evaluation: HandEvaluation
@@ -62,6 +76,8 @@ class PracticeState:
     last_feedback: BidResult | None
     all_hands: dict[Seat, Hand] | None
     hand_number: int
+    players: dict[Seat, str | None]
+    waiting_for: Seat | None
 
 
 _ALL_VULNERABILITIES = [
@@ -82,6 +98,14 @@ class NotYourTurnError(Exception):
 
 class AuctionCompleteError(Exception):
     """Raised when trying to bid after the auction is over."""
+
+
+class SeatOccupiedError(Exception):
+    """Raised when trying to join a seat that already has a human player."""
+
+
+class AlreadySeatedError(Exception):
+    """Raised when a user who is already seated tries to join another seat."""
 
 
 def compute_legal_bids(auction: AuctionState) -> list[str]:
@@ -112,22 +136,34 @@ class PracticeSession:
     changes.
     """
 
+    # Characters for join codes (no ambiguous I/O/0/1).
+    _JOIN_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
     def __init__(
         self,
         user_id: int,
         seat: Seat,
         advisor: BiddingAdvisor,
         *,
+        mode: SessionMode = SessionMode.PRACTICE,
+        username: str = "",
         rng: random.Random | None = None,
     ) -> None:
         self.id: str = uuid.uuid4().hex[:12]
         self.host_user_id: int = user_id
+        self.mode: SessionMode = mode
+        self.join_code: str = "".join(random.choices(self._JOIN_CODE_CHARS, k=6))
         self.advisor: BiddingAdvisor = advisor
         self._rng: random.Random | None = rng
 
         # All seats default to computer (None); assign the human's seat.
         self.players: dict[Seat, int | None] = {s: None for s in Seat}
         self.players[seat] = user_id
+
+        # Maps user_id -> username for display in the UI.
+        self._usernames: dict[int, str] = {}
+        if username:
+            self._usernames[user_id] = username
 
         self.hand_number: int = 1
         self.hands: dict[Seat, Hand] = deal(rng=self._rng)
@@ -161,6 +197,44 @@ class PracticeSession:
                 return seat
         raise PlayerNotFoundError(f"User {user_id} is not seated at this session")
 
+    def available_seats(self) -> list[Seat]:
+        """Return seats not occupied by a human player."""
+        return [seat for seat, uid in self.players.items() if uid is None]
+
+    def join(self, user_id: int, seat: Seat, *, username: str = "") -> None:
+        """Claim an unoccupied seat for a human player."""
+        # Check if user is already seated somewhere.
+        for s, uid in self.players.items():
+            if uid == user_id:
+                raise AlreadySeatedError(f"User {user_id} is already seated at {s}")
+        if self.players[seat] is not None:
+            raise SeatOccupiedError(f"Seat {seat} is already occupied")
+        self.players[seat] = user_id
+        if username:
+            self._usernames[user_id] = username
+
+    def leave(self, user_id: int) -> None:
+        """Revert a human's seat to computer control."""
+        seat = self.seat_for(user_id)  # Raises PlayerNotFoundError if absent.
+        self.players[seat] = None
+        self._usernames.pop(user_id, None)
+
+    def _player_names(self) -> dict[Seat, str | None]:
+        """Map each seat to its player's username (None = computer)."""
+        return {
+            seat: self._usernames.get(uid, "") if uid is not None else None
+            for seat, uid in self.players.items()
+        }
+
+    def _waiting_for(self) -> Seat | None:
+        """Which human seat the session is waiting on, if any."""
+        if self.auction.is_complete:
+            return None
+        current = self.auction.current_seat
+        if self.players[current] is not None:
+            return current
+        return None
+
     def get_state(self, user_id: int) -> PracticeState:
         """Filtered view: only the human's hand, full auction, legal bids."""
         seat = self.seat_for(user_id)
@@ -173,6 +247,8 @@ class PracticeSession:
 
         return PracticeState(
             id=self.id,
+            mode=self.mode,
+            join_code=self.join_code,
             your_seat=seat,
             hand=self.hands[seat],
             hand_evaluation=self._hand_evals[seat],
@@ -185,6 +261,8 @@ class PracticeSession:
             last_feedback=self._last_feedback,
             all_hands=all_hands,
             hand_number=self.hand_number,
+            players=self._player_names(),
+            waiting_for=self._waiting_for(),
         )
 
     def place_bid(self, user_id: int, bid_str: str) -> BidResult:

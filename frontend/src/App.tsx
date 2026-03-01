@@ -17,10 +17,11 @@
  * - /register: public, has an action to handle registration
  * - /logout:   action-only route (no page), clears cookies and redirects
  * - /: protected layout (checks auth via loader), renders nav + Outlet
- *   - /: LobbyPage (child of the protected layout)
+ *   - /: LobbyPage (child of the protected layout), with join-by-code action
  *   - /practice/new: action-only route that creates a session and redirects
- *   - /practice/:id: practice page with loader (state) + action (bid/redeal)
+ *   - /practice/:id: practice page with loader (state) + action (bid/redeal/join/leave)
  *   - /practice/:id/advise: loader-only route for fetcher-based advice loading
+ *   - /join/:code: loader-only route that looks up a join code and redirects
  * - *: catch-all redirects to /
  */
 import {
@@ -32,6 +33,7 @@ import {
 } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { AxiosError } from "axios";
+import type { Seat, SessionMode } from "@/api/types";
 import * as api from "@/api/endpoints";
 import AppLayout from "@/components/layout/AppLayout";
 import LoginPage from "@/pages/Login";
@@ -128,12 +130,14 @@ async function logoutAction() {
 
 /**
  * Action: creates a new practice session and redirects to it.
- * The Lobby page's "Start Practice" form posts here with a seat choice.
+ * The Lobby page's "Start Practice" form posts here with a seat choice
+ * and an optional mode (defaults to "practice").
  */
 async function createPracticeAction({ request }: ActionFunctionArgs) {
   const formData = await request.formData();
-  const seat = (formData.get("seat") as string) || "S";
-  const { id } = await api.createPracticeSession(seat);
+  const seat = ((formData.get("seat") as string) || "S") as Seat;
+  const mode = (formData.get("mode") as string as SessionMode) || undefined;
+  const { id } = await api.createPracticeSession(seat, mode);
   return redirect(`/practice/${id}`);
 }
 
@@ -141,9 +145,21 @@ async function createPracticeAction({ request }: ActionFunctionArgs) {
  * Loader: fetches the full session state before PracticePage renders.
  * Runs on initial load and automatically after any action completes
  * (React Router revalidates loaders after mutations).
+ *
+ * If the user isn't seated at this session (403), catches the error and
+ * fetches lightweight session info instead, returning { needsJoin: true }.
+ * PracticePage then shows a JoinPanel instead of the full practice UI.
  */
 async function practiceLoader({ params }: LoaderFunctionArgs) {
-  return { state: await api.getPracticeState(params.id!) };
+  try {
+    return { state: await api.getPracticeState(params.id!) };
+  } catch (err) {
+    if (err instanceof AxiosError && err.response?.status === 403) {
+      const info = await api.getSessionInfo(params.id!);
+      return { needsJoin: true as const, info };
+    }
+    throw err;
+  }
 }
 
 /**
@@ -151,20 +167,32 @@ async function practiceLoader({ params }: LoaderFunctionArgs) {
  * Reads the hidden "intent" field to distinguish between:
  *   - "bid": places a bid, returns feedback (matched engine or not)
  *   - "redeal": deals new hands, redirects to trigger a loader revalidation
+ *   - "join": join the session at a specific seat, then revalidate
+ *   - "leave": leave the session, redirect to the lobby
  */
 async function practiceAction({ request, params }: ActionFunctionArgs) {
   const formData = await request.formData();
   const intent = formData.get("intent");
 
   if (intent === "bid") {
-    // Place the bid and return the feedback to the page via useActionData().
     return await api.placeBid(params.id!, formData.get("bid") as string);
   }
 
   if (intent === "redeal") {
     await api.redeal(params.id!);
-    // Redirect to the same page to trigger a fresh loader run.
     return redirect(`/practice/${params.id}`);
+  }
+
+  if (intent === "join") {
+    await api.joinSession(params.id!, formData.get("seat") as Seat);
+    // Redirect to trigger a fresh loader run -- now the user is seated,
+    // so getPracticeState will return 200 instead of 403.
+    return redirect(`/practice/${params.id}`);
+  }
+
+  if (intent === "leave") {
+    await api.leaveSession(params.id!);
+    return redirect("/");
   }
 
   return null;
@@ -177,6 +205,34 @@ async function practiceAction({ request, params }: ActionFunctionArgs) {
  */
 async function adviceLoader({ params }: LoaderFunctionArgs) {
   return await api.getAdvice(params.id!);
+}
+
+/**
+ * Action: handles the "Join Session" form on the lobby page.
+ * Looks up a session by join code and redirects to the practice page,
+ * where the practiceLoader will detect 403 and show the join flow.
+ */
+async function joinByCodeAction({ request }: ActionFunctionArgs) {
+  const formData = await request.formData();
+  const code = (formData.get("code") as string).trim();
+  try {
+    const info = await api.lookupByCode(code);
+    return redirect(`/practice/${info.id}`);
+  } catch (err) {
+    if (err instanceof AxiosError && err.response?.status === 404) {
+      return { error: "No session found for that code." };
+    }
+    return { error: "Something went wrong. Please try again." };
+  }
+}
+
+/**
+ * Loader: handles shareable /join/:code URLs.
+ * Looks up the session by code and redirects to /practice/:id.
+ */
+async function joinByCodeLoader({ params }: LoaderFunctionArgs) {
+  const info = await api.lookupByCode(params.code!);
+  return redirect(`/practice/${info.id}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -243,12 +299,15 @@ export const router = createBrowserRouter([
     element: <AppLayout />,
     errorElement: <RootErrorBoundary />,
     children: [
-      { path: "/", element: <LobbyPage /> },
+      // Lobby: home screen with solo/multiplayer cards and join-by-code form.
+      // The action handles the join-by-code form submission.
+      { path: "/", element: <LobbyPage />, action: joinByCodeAction },
 
       // Action-only: POST creates a session, redirects to /practice/:id.
       { path: "/practice/new", action: createPracticeAction },
 
-      // Practice page: loader fetches state, action handles bid + redeal.
+      // Practice page: loader fetches state (or session info for join flow),
+      // action handles bid, redeal, join, and leave.
       {
         path: "/practice/:id",
         element: <PracticePage />,
@@ -258,6 +317,9 @@ export const router = createBrowserRouter([
 
       // Advice loader: used by useFetcher() in PracticePage (no element).
       { path: "/practice/:id/advise", loader: adviceLoader },
+
+      // Shareable join link: looks up the code and redirects to the session.
+      { path: "/join/:code", loader: joinByCodeLoader },
     ],
   },
 

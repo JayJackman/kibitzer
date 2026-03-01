@@ -13,10 +13,10 @@ from typing import Annotated, Any
 
 from pydantic import BaseModel, BeforeValidator, Field
 
-from bridge.model.auction import AuctionState
+from bridge.model.auction import AuctionState, Seat
 from bridge.model.hand import Hand
 
-from .session import PracticeState
+from .session import PracticeSession, PracticeState, SessionMode
 
 # ── Reusable annotated types ─────────────────────────────────────
 # BeforeValidators run during model_validate(), converting domain
@@ -29,6 +29,11 @@ def _seat_to_str(v: Any) -> str:
     return v if isinstance(v, str) else str(v)
 
 
+def _str_to_seat(v: Any) -> Seat:
+    """Parse a seat letter (N/E/S/W) into a Seat enum for request input."""
+    return v if isinstance(v, Seat) else Seat.from_str(v)
+
+
 def _bid_to_str(v: Any) -> str:
     return v if isinstance(v, str) else str(v)
 
@@ -37,9 +42,13 @@ def _suit_to_str(v: Any) -> str:
     return v if isinstance(v, str) else v.letter
 
 
+# Output types: domain enum -> JSON string.
 SeatStr = Annotated[str, BeforeValidator(_seat_to_str)]
 BidStr = Annotated[str, BeforeValidator(_bid_to_str)]
 SuitStr = Annotated[str, BeforeValidator(_suit_to_str)]
+
+# Input type: JSON string -> domain Seat enum.
+SeatInput = Annotated[Seat, BeforeValidator(_str_to_seat)]
 
 
 # ── Request schemas ───────────────────────────────────────────────
@@ -48,10 +57,14 @@ SuitStr = Annotated[str, BeforeValidator(_suit_to_str)]
 class CreatePracticeRequest(BaseModel):
     """POST /api/practice request body."""
 
-    seat: str = Field(
-        description="Seat to occupy: N, E, S, or W",
-        pattern=r"^[NESW]$",
-    )
+    seat: SeatInput
+    mode: SessionMode = SessionMode.PRACTICE
+
+
+class JoinSessionRequest(BaseModel):
+    """POST /api/practice/{id}/join request body."""
+
+    seat: SeatInput
 
 
 class PlaceBidRequest(BaseModel):
@@ -70,6 +83,17 @@ class CreatePracticeResponse(BaseModel):
     """Response from creating a new practice session."""
 
     id: str
+    join_code: str
+
+
+class SessionInfoResponse(BaseModel):
+    """Lightweight session info for the join UI."""
+
+    id: str
+    mode: str
+    join_code: str
+    players: dict[str, str | None]
+    available_seats: list[str]
 
 
 class HandResponse(BaseModel):
@@ -224,6 +248,8 @@ class PracticeStateResponse(BaseModel):
     """Full session state for the practice page."""
 
     id: str
+    mode: str
+    join_code: str
     your_seat: str
     hand: HandResponse
     hand_evaluation: HandEvalResponse
@@ -234,6 +260,8 @@ class PracticeStateResponse(BaseModel):
     last_feedback: BidFeedbackResponse | None = None
     all_hands: dict[str, HandResponse] | None = None
     hand_number: int
+    players: dict[str, str | None]
+    waiting_for: str | None = None
 
 
 # ── Serialization helpers ─────────────────────────────────────────
@@ -316,6 +344,8 @@ def serialize_practice_state(
 
     return PracticeStateResponse(
         id=state.id,
+        mode=state.mode.value,
+        join_code=state.join_code,
         your_seat=str(state.your_seat),
         hand=serialize_hand(state.hand),
         hand_evaluation=HandEvalResponse.model_validate(state.hand_evaluation),
@@ -328,4 +358,20 @@ def serialize_practice_state(
         last_feedback=last_feedback,
         all_hands=all_hands,
         hand_number=state.hand_number,
+        players={str(seat): name for seat, name in state.players.items()},
+        waiting_for=str(state.waiting_for) if state.waiting_for else None,
+    )
+
+
+def serialize_session_info(session: PracticeSession) -> SessionInfoResponse:
+    """Build lightweight session info for the join UI."""
+    return SessionInfoResponse(
+        id=session.id,
+        mode=session.mode.value,
+        join_code=session.join_code,
+        players={
+            str(seat): session._usernames.get(uid) if uid is not None else None
+            for seat, uid in session.players.items()
+        },
+        available_seats=[str(s) for s in session.available_seats()],
     )
