@@ -252,10 +252,15 @@ class PracticeSession:
             self._usernames[user_id] = username
 
     def leave(self, user_id: int) -> None:
-        """Revert a human's seat to computer control."""
+        """Revert a human's seat to computer control.
+
+        After removing the player, run computer bids so the auction
+        doesn't stall if it was this player's turn.
+        """
         seat = self.seat_for(user_id)  # Raises PlayerNotFoundError if absent.
         self.players[seat] = None
         self._usernames.pop(user_id, None)
+        self._last_computer_bids = self._run_computer_bids()
 
     def set_hand(self, user_id: int, seat: Seat, hand: Hand) -> None:
         """Set the hand for a seat (helper mode only).

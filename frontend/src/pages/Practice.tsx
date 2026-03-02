@@ -212,39 +212,7 @@ function PracticeView({ state }: { state: PracticeState }) {
        * Right column: auction grid + hand + bid history
        */}
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* === Left column: controls + advice === */}
-        <div className="flex flex-col gap-4">
-          {!auction.is_complete ? (
-            <BidControls
-              legalBids={legal_bids}
-              disabled={!canBid || isSubmitting}
-              highlightedBids={highlightedBids}
-              forSeat={state.can_proxy_bid ? state.proxy_seat ?? undefined : undefined}
-              bottomRight={
-                canShowAdvice && !showAdvice ? (
-                  <Button
-                    variant="card"
-                    onClick={handleAdvise}
-                    disabled={adviceFetcher.state === "loading"}
-                  >
-                    {adviceFetcher.state === "loading" ? "Thinking..." : "Show Advice"}
-                  </Button>
-                ) : undefined
-              }
-            />
-          ) : (
-            <AuctionComplete state={state} />
-          )}
-
-          {showAdvice && (
-            <AdvicePanel
-              advice={adviceFetcher.data ?? null}
-              isLoading={adviceFetcher.state === "loading"}
-            />
-          )}
-        </div>
-
-        {/* === Right area: hand + auction grid side by side, history below === */}
+        {/* === Left column: hand + auction grid, history below === */}
         <div className="flex flex-col gap-4">
           <div className="flex flex-row items-start gap-4">
             <Card className="flex-1">
@@ -277,11 +245,43 @@ function PracticeView({ state }: { state: PracticeState }) {
             ) : null}
           </div>
 
-
           {auction.bids.length > 0 && (
             <AuctionHistory
               bids={auction.bids}
               yourSeat={state.your_seat}
+            />
+          )}
+        </div>
+
+        {/* === Right column: controls + advice === */}
+        <div className="flex flex-col gap-4">
+          {!auction.is_complete ? (
+            <BidControls
+              legalBids={legal_bids}
+              disabled={!canBid || isSubmitting}
+              highlightedBids={highlightedBids}
+              forSeat={state.can_proxy_bid ? state.proxy_seat ?? undefined : undefined}
+              bottomRight={
+                canShowAdvice ? (
+                  <Button
+                    type="button"
+                    variant="card"
+                    onClick={showAdvice ? () => setShowAdvice(false) : handleAdvise}
+                    disabled={adviceFetcher.state === "loading"}
+                  >
+                    {showAdvice ? "Hide Advice" : "Show Advice"}
+                  </Button>
+                ) : undefined
+              }
+            />
+          ) : (
+            <AuctionComplete state={state} />
+          )}
+
+          {showAdvice && (
+            <AdvicePanel
+              advice={adviceFetcher.data ?? null}
+              isLoading={adviceFetcher.state === "loading"}
             />
           )}
         </div>
@@ -457,6 +457,8 @@ function AuctionHistory({
   const nonPassBids = bids
     .map((entry, i) => ({ entry, origIndex: i }))
     .filter(({ entry }) => entry.bid !== "Pass" || entry.matched_engine === false);
+
+  if (nonPassBids.length === 0) return null;
 
   return (
     <Card>

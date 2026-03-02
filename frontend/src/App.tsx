@@ -54,10 +54,13 @@ async function protectedLoader() {
   try {
     const user = await api.getMe();
     return { user };
-  } catch {
-    // Not authenticated -- throw redirect to bail out immediately.
-    // throw (not return) signals "stop everything, you can't be here."
-    throw redirect("/login");
+  } catch (err) {
+    // Only redirect to login on auth failures (401). Other errors
+    // (network glitches, server 500s) should not log the user out.
+    if (err instanceof AxiosError && err.response?.status === 401) {
+      throw redirect("/login");
+    }
+    throw err;
   }
 }
 

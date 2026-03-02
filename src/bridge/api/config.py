@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./bridge.db"
 
     # How long an access token stays valid before the client must refresh.
-    access_token_expire_minutes: int = 15
+    access_token_expire_minutes: int = 1440  # 24 hours
 
     # How long a refresh token stays valid. After this, the user must log in
     # again. 7 days means "7 days of total inactivity" before re-login.

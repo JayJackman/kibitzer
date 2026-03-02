@@ -130,11 +130,13 @@ export default function AdvicePanel({ advice, isLoading }: AdvicePanelProps) {
               </>
             )}
 
-            {/* --- Thought process trace --- */}
-            {advice.thought_process.steps.length > 0 && (
+            {/* --- Thought process trace (accepted rule only) --- */}
+            {advice.thought_process.steps.some((s) => s.passed) && (
               <>
                 <Separator />
-                <ThoughtProcess steps={advice.thought_process.steps} />
+                <ThoughtProcess
+                  steps={advice.thought_process.steps.filter((s) => s.passed)}
+                />
               </>
             )}
           </>
