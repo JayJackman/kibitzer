@@ -312,6 +312,11 @@ const SUIT_FIELDS = [
 /** Valid rank characters (case-insensitive). */
 const VALID_RANKS = new Set("AKQJT98765432");
 
+/** Rank sort order: A highest (0), 2 lowest (12). */
+const RANK_ORDER: Record<string, number> = Object.fromEntries(
+  "AKQJT98765432".split("").map((r, i) => [r, i]),
+);
+
 /**
  * Parse rank characters from a suit input string.
  * Normalises "10" to "T" and uppercases everything.
@@ -319,7 +324,27 @@ const VALID_RANKS = new Set("AKQJT98765432");
  */
 function parseRanks(raw: string): string[] {
   const s = raw.toUpperCase().replace(/10/g, "T");
-  return [...s].filter((ch) => VALID_RANKS.has(ch));
+  return [...s].filter((char) => VALID_RANKS.has(char));
+}
+
+/**
+ * Filter raw rank input: uppercase, strip invalid or duplicate characters,
+ * clamp to `maxCards` so the total hand never exceeds 13, and sort
+ * high-to-low (A K Q J T 9 ... 2).
+ */
+function filterRankInput(raw: string, maxCards: number): string {
+  const seen = new Set<string>();
+  return raw
+    .toUpperCase()
+    .split("")
+    .filter((char) => {
+      if (!VALID_RANKS.has(char) || seen.has(char)) return false;
+      seen.add(char);
+      return true;
+    })
+    .slice(0, maxCards)
+    .sort((a, b) => RANK_ORDER[a] - RANK_ORDER[b])
+    .join("");
 }
 
 /**
@@ -395,20 +420,13 @@ function HandEntryForm({ sessionSeat }: { sessionSeat: Seat }) {
                 <Input
                   value={suits[key]}
                   onChange={(e) => {
-                    // Strip invalid chars, normalise to uppercase,
-                    // and drop duplicate ranks within this suit.
-                    const seen = new Set<string>();
-                    const filtered = e.target.value
-                      .toUpperCase()
-                      .replace(/10/g, "T")
-                      .split("")
-                      .filter((ch) => {
-                        if (!VALID_RANKS.has(ch) || seen.has(ch)) return false;
-                        seen.add(ch);
-                        return true;
-                      })
-                      .join("");
-                    setSuits((prev) => ({ ...prev, [key]: filtered }));
+                    // How many cards the other three suits already use.
+                    const otherCount = SUIT_FIELDS.reduce(
+                      (n, f) => n + (f.key === key ? 0 : parseRanks(suits[f.key]).length),
+                      0,
+                    );
+                    const value = filterRankInput(e.target.value, 13 - otherCount);
+                    setSuits((prev) => ({ ...prev, [key]: value }));
                     setError(null);
                   }}
                   placeholder={placeholder}
