@@ -14,12 +14,16 @@ export const SUIT_SYMBOLS = {
   C: "\u2663", // ♣ clubs
 } as const;
 
-/** Tailwind CSS color classes for each suit. */
+/**
+ * Tailwind CSS color classes for each suit.
+ * Uses theme variables (--suit-*) defined in index.css so colors
+ * can be tuned from the theme without touching component code.
+ */
 export const SUIT_COLORS = {
-  S: "text-blue-600", // Spades: blue
-  H: "text-red-600", // Hearts: red
-  D: "text-orange-500", // Diamonds: orange
-  C: "text-green-600", // Clubs: green
+  S: "text-suit-spades", // Spades: blue
+  H: "text-suit-hearts", // Hearts: red
+  D: "text-suit-diamonds", // Diamonds: orange
+  C: "text-suit-clubs", // Clubs: green
 } as const;
 
 /** Seat labels for display. */

@@ -25,7 +25,7 @@ export default function ThoughtProcess({ steps }: ThoughtProcessProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      <h4 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+      <h4 className="text-card-muted-foreground text-xs font-medium uppercase tracking-wide">
         Thought Process
       </h4>
 
@@ -47,7 +47,7 @@ export default function ThoughtProcess({ steps }: ThoughtProcessProps) {
               <span className="font-medium">{step.rule_name}</span>
               {/* Show the bid this rule would have produced (if any). */}
               {step.bid && (
-                <span className="text-muted-foreground">
+                <span className="text-card-muted-foreground">
                   &rarr; {step.bid}
                 </span>
               )}
@@ -68,7 +68,7 @@ export default function ThoughtProcess({ steps }: ThoughtProcessProps) {
                     {/* Condition label in medium weight, detail in muted. */}
                     <span className="font-medium">{cond.label}</span>
                     {cond.detail && (
-                      <span className="text-muted-foreground">
+                      <span className="text-card-muted-foreground">
                         {" "}
                         ({cond.detail})
                       </span>

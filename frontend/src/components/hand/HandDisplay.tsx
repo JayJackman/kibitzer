@@ -52,7 +52,7 @@ export default function HandDisplay({
 
         {/* Optional evaluation summary below the cards */}
         {evaluation && (
-          <div className="text-muted-foreground mt-2 border-t pt-2 text-xs">
+          <div className="text-card-muted-foreground mt-2 border-t pt-2 text-xs">
             <span>{evaluation.hcp} HCP</span>
             <span className="mx-1">/</span>
             <span>{evaluation.shape.join("-")}</span>

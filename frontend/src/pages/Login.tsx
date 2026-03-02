@@ -88,7 +88,7 @@ export default function LoginPage() {
               {isSubmitting ? "Logging in..." : "Log in"}
             </Button>
 
-            <p className="text-center text-sm text-muted-foreground">
+            <p className="text-center text-sm text-card-muted-foreground">
               {"Don't have an account? "}
               <Link to="/register" className="underline">
                 Register

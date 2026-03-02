@@ -15,7 +15,6 @@ import { useState } from "react";
 import { Form, useActionData, useNavigation, useRouteLoaderData } from "react-router";
 import type { Seat, User } from "@/api/types";
 import { SEAT_LABELS } from "@/lib/constants";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -79,7 +78,7 @@ export default function LobbyPage() {
                 className="w-32 font-mono uppercase"
                 required
               />
-              <Button type="submit" variant="secondary" disabled={isSubmitting}>
+              <Button type="submit" variant="outline" disabled={isSubmitting}>
                 Join
               </Button>
             </Form>
@@ -106,7 +105,7 @@ export default function LobbyPage() {
             <Form method="post" action="/practice/new" className="flex flex-col gap-4">
               <input type="hidden" name="seat" value={practiceSeat} />
               <SeatPicker selected={practiceSeat} onSelect={setPracticeSeat} />
-              <Button type="submit" className="w-fit" disabled={isSubmitting}>
+              <Button type="submit" variant="action" className="w-fit" disabled={isSubmitting}>
                 Start Practice
               </Button>
             </Form>
@@ -152,7 +151,7 @@ export default function LobbyPage() {
                 <VulnPicker selected={helperVuln} onSelect={setHelperVuln} />
               </div>
 
-              <Button type="submit" className="w-fit" disabled={isSubmitting}>
+              <Button type="submit" variant="action" className="w-fit" disabled={isSubmitting}>
                 Create Session
               </Button>
             </Form>
@@ -187,11 +186,8 @@ function SeatPicker({
         <Button
           key={seat}
           type="button"
-          variant={selected === seat ? "default" : "outline"}
-          className={cn(
-            "min-w-16",
-            selected !== seat && "text-muted-foreground",
-          )}
+          variant={selected === seat ? "action" : "outline"}
+          className="min-w-16"
           onClick={() => onSelect(seat)}
         >
           {SEAT_LABELS[seat]}
@@ -218,11 +214,8 @@ function VulnPicker({
         <Button
           key={value}
           type="button"
-          variant={selected === value ? "default" : "outline"}
-          className={cn(
-            "min-w-16",
-            selected !== value && "text-muted-foreground",
-          )}
+          variant={selected === value ? "action" : "outline"}
+          className="min-w-16"
           onClick={() => onSelect(value)}
         >
           {label}

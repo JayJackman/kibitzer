@@ -116,22 +116,22 @@ function PracticeView({ state }: { state: PracticeState }) {
   // or they can proxy-bid for an unoccupied seat in helper mode.
   const canBid = is_my_turn || state.can_proxy_bid;
 
-  // --- Multiplayer polling ---
-  // When waiting for another human's bid, poll every 2 seconds so we
-  // pick up state changes without requiring WebSockets.
+  // --- Session polling ---
+  // Poll every 2 seconds to pick up state changes from other browsers
+  // (bids, hand entries, redeals, new players joining, etc.) without
+  // requiring WebSockets. Every session has a join code so anyone could
+  // join at any time -- always poll to stay in sync.
   // NOTE: revalidator is intentionally omitted from deps -- useRevalidator()
   // returns a new object reference each render, which would tear down and
   // recreate the interval continuously. We access it inside the callback
   // via closure, which always reads the latest value.
   useEffect(() => {
-    if (!is_my_turn && !auction.is_complete && state.waiting_for) {
-      const interval = setInterval(() => {
-        if (revalidator.state === "idle") revalidator.revalidate();
-      }, 2000);
-      return () => clearInterval(interval);
-    }
+    const interval = setInterval(() => {
+      if (revalidator.state === "idle") revalidator.revalidate();
+    }, 2000);
+    return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [is_my_turn, auction.is_complete, state.waiting_for]);
+  }, []);
 
   // --- Keyboard shortcuts ---
   // Include for_seat when proxy-bidding so the action handler knows
@@ -170,7 +170,7 @@ function PracticeView({ state }: { state: PracticeState }) {
 
   // Whether to show the "Show Advice" button. Available when it's
   // the player's turn (or proxy turn) and the hand has been entered.
-  const canShowAdvice = canBid && hand !== null;
+  const canShowAdvice = is_my_turn && hand !== null;
 
   return (
     <div className="container mx-auto px-4 py-6">
@@ -223,7 +223,7 @@ function PracticeView({ state }: { state: PracticeState }) {
               bottomRight={
                 canShowAdvice && !showAdvice ? (
                   <Button
-                    variant="secondary"
+                    variant="card"
                     onClick={handleAdvise}
                     disabled={adviceFetcher.state === "loading"}
                   >
@@ -423,7 +423,7 @@ function HandEntryForm({ sessionSeat }: { sessionSeat: Seat }) {
           <div className="flex items-center gap-3">
             <span className={cn(
               "text-xs",
-              cardCount === 13 ? "text-green-600" : "text-muted-foreground",
+              cardCount === 13 ? "text-green-600" : "text-card-muted-foreground",
             )}>
               {cardCount}/13 cards
             </span>
@@ -472,8 +472,8 @@ function AuctionHistory({
           return (
             <div key={origIndex} className={cn(
               "flex items-baseline gap-2 rounded px-2 py-0.5",
-              isPlayer && matched === true && "bg-green-100",
-              isPlayer && matched === false && "bg-amber-100",
+              isPlayer && matched === true && "bg-correct",
+              isPlayer && matched === false && "bg-incorrect",
             )}>
               {/* Seat label */}
               <span className={cn("w-12 shrink-0 font-medium", isPlayer && "text-primary")}>
@@ -485,7 +485,7 @@ function AuctionHistory({
 
               {/* Explanation */}
               {entry.explanation && (
-                <span className="text-muted-foreground text-xs italic">
+                <span className="text-card-muted-foreground text-xs italic">
                   {entry.explanation}
                 </span>
               )}
@@ -651,7 +651,7 @@ function JoinPanel({ info }: { info: SessionInfo }) {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Join Session</CardTitle>
-          <p className="text-muted-foreground text-sm">
+          <p className="text-card-muted-foreground text-sm">
             Code: <span className="font-mono font-semibold">{info.join_code}</span>
           </p>
         </CardHeader>
@@ -661,7 +661,7 @@ function JoinPanel({ info }: { info: SessionInfo }) {
             {ALL_SEATS.map((seat) => (
               <div key={seat} className="flex items-center gap-2 py-0.5">
                 <span className="w-14 font-medium">{SEAT_LABELS[seat]}</span>
-                <span className="text-muted-foreground">
+                <span className="text-card-muted-foreground">
                   {info.players[seat] ?? "Computer"}
                 </span>
               </div>
@@ -683,7 +683,7 @@ function JoinPanel({ info }: { info: SessionInfo }) {
           </div>
 
           {info.available_seats.length === 0 && (
-            <p className="text-muted-foreground text-sm">
+            <p className="text-card-muted-foreground text-sm">
               No seats available -- the session is full.
             </p>
           )}
@@ -715,10 +715,10 @@ function SessionHeader({
   }
 
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md border bg-card px-4 py-2 text-sm">
+    <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md border bg-card text-card-foreground px-4 py-2 text-sm">
       {/* Join code with copy button */}
       <div className="flex items-center gap-1.5">
-        <span className="text-muted-foreground">Code:</span>
+        <span className="text-card-muted-foreground">Code:</span>
         <span className="font-mono font-semibold">{state.join_code}</span>
         <Button variant="outline" size="xs" onClick={handleCopy} className="px-1.5">
           {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
@@ -733,7 +733,7 @@ function SessionHeader({
           return (
             <span key={seat} className={cn(isYou && "font-semibold")}>
               {SEAT_LABELS[seat]}:{" "}
-              <span className={cn(name === null && "text-muted-foreground")}>
+              <span className={cn(name === null && "text-card-muted-foreground")}>
                 {isYou ? "You" : name ?? "CPU"}
               </span>
             </span>

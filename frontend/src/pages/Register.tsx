@@ -63,7 +63,7 @@ export default function RegisterPage() {
                 required
                 minLength={6}
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-card-muted-foreground">
                 Must be at least 6 characters.
               </p>
             </div>
@@ -86,7 +86,7 @@ export default function RegisterPage() {
               {isSubmitting ? "Creating account..." : "Create account"}
             </Button>
 
-            <p className="text-center text-sm text-muted-foreground">
+            <p className="text-center text-sm text-card-muted-foreground">
               Already have an account?{" "}
               <Link to="/login" className="underline">
                 Log in

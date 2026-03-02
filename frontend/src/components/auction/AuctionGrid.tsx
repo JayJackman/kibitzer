@@ -89,7 +89,7 @@ function BidCell({ bid }: { bid: string }) {
 
   // Non-suit bids: Pass, X (double), XX (redouble), NT bids
   if (bid === "Pass") {
-    return <span className="text-muted-foreground">Pass</span>;
+    return <span className="text-card-muted-foreground">Pass</span>;
   }
   if (bid === "X") {
     return <span className="font-semibold text-red-600">X</span>;
@@ -207,7 +207,7 @@ export default function AuctionGrid({
               <td key={colIndex} className="px-3 py-1">
                 {cell.kind === "empty" && <span />}
                 {cell.kind === "pending" && (
-                  <span className="text-muted-foreground animate-pulse">?</span>
+                  <span className="text-card-muted-foreground animate-pulse">?</span>
                 )}
                 {cell.kind === "bid" && <BidCell bid={cell.data.bid} />}
               </td>
@@ -220,7 +220,7 @@ export default function AuctionGrid({
           <tr>
             <td
               colSpan={4}
-              className="text-muted-foreground px-3 py-4 text-center"
+              className="text-card-muted-foreground px-3 py-4 text-center"
             >
               No bids yet
             </td>

@@ -58,7 +58,7 @@ export default function AdvicePanel({ advice, isLoading }: AdvicePanelProps) {
       <CardContent className="flex flex-col gap-4">
         {/* Loading state while the fetcher is in flight. */}
         {isLoading && (
-          <p className="text-muted-foreground animate-pulse text-sm">
+          <p className="text-card-muted-foreground animate-pulse text-sm">
             Thinking...
           </p>
         )}
@@ -82,7 +82,7 @@ export default function AdvicePanel({ advice, isLoading }: AdvicePanelProps) {
 
               {/* Rule name and explanation text. */}
               <p className="text-sm">{advice.recommended.explanation}</p>
-              <p className="text-muted-foreground text-xs">
+              <p className="text-card-muted-foreground text-xs">
                 Rule: {advice.recommended.rule_name}
               </p>
 
@@ -103,7 +103,7 @@ export default function AdvicePanel({ advice, isLoading }: AdvicePanelProps) {
               <>
                 <Separator />
                 <div className="flex flex-col gap-2">
-                  <h4 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+                  <h4 className="text-card-muted-foreground text-xs font-medium uppercase tracking-wide">
                     Alternatives
                   </h4>
                   {advice.alternatives.map((alt, i) => {
@@ -120,7 +120,7 @@ export default function AdvicePanel({ advice, isLoading }: AdvicePanelProps) {
                             </Badge>
                           )}
                         </div>
-                        <p className="text-muted-foreground text-xs">
+                        <p className="text-card-muted-foreground text-xs">
                           {alt.explanation}
                         </p>
                       </div>

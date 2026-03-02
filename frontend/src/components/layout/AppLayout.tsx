@@ -31,7 +31,7 @@ export default function AppLayout() {
   return (
     <div className="min-h-screen bg-background">
       {/* --- Top navigation bar --- */}
-      <nav className="border-b bg-card">
+      <nav className="border-b bg-card text-card-foreground">
         <div className="container mx-auto flex items-center justify-between px-4 py-3">
           {/* App name / logo area */}
           <Link to="/lobby" className="text-2xl font-bold hover:opacity-80">
@@ -40,7 +40,7 @@ export default function AppLayout() {
 
           {/* Right side: username + logout */}
           <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground">
+            <span className="text-sm text-card-muted-foreground">
               {user.username}
             </span>
             {/*

@@ -90,13 +90,6 @@ export default function BidControls({
       {forSeat && <input type="hidden" name="for_seat" value={forSeat} />}
 
       <div className="flex flex-col gap-3">
-        {/* Banner shown when proxy-bidding for an unoccupied seat */}
-        {forSeat && (
-          <div className="rounded-md bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700">
-            Bidding for {SEAT_LABELS[forSeat]}
-          </div>
-        )}
-
         {/*
          * --- 7x5 bid grid ---
          * Rows = levels (1-7), Columns = suits (C, D, H, S, NT).
@@ -154,8 +147,17 @@ export default function BidControls({
             highlighted={highlightedBids?.has("XX") ?? false}
             anyHighlighted={anyHighlighted}
           />
-          {/* Push extra content to the right */}
-          {bottomRight && <div className="ml-auto">{bottomRight}</div>}
+          {/* Proxy-bid banner + any extra content pushed to the right */}
+          {(forSeat || bottomRight) && (
+            <div className="ml-auto flex items-center gap-2">
+              {forSeat && (
+                <span className="rounded-md border-2 bg-card px-3 py-1.5 text-sm font-medium text-card-foreground">
+                  Bidding for {SEAT_LABELS[forSeat]}
+                </span>
+              )}
+              {bottomRight}
+            </div>
+          )}
         </div>
       </div>
     </Form>
@@ -203,7 +205,7 @@ function BidButton({
       type="submit"
       name="bid"
       value={bid}
-      variant="outline"
+      variant="card"
       size="sm"
       disabled={!legal || submitting}
       className={cn(
