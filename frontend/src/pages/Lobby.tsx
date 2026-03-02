@@ -14,7 +14,6 @@
 import { useState } from "react";
 import { Form, useActionData, useNavigation, useRouteLoaderData } from "react-router";
 import type { Seat, User } from "@/api/types";
-import { SEAT_LABELS } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -24,17 +23,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-
-/** The four seats the player can choose from. */
-const SEATS: Seat[] = ["N", "E", "S", "W"];
-
-/** Vulnerability options for the helper mode card. */
-const VULN_OPTIONS = [
-  { value: "None", label: "None" },
-  { value: "NS", label: "N-S" },
-  { value: "EW", label: "E-W" },
-  { value: "Both", label: "Both" },
-] as const;
+import SeatPicker from "@/components/ui/SeatPicker";
+import VulnPicker from "@/components/ui/VulnPicker";
 
 export default function LobbyPage() {
   const { user } = useRouteLoaderData("protected") as { user: User };
@@ -159,68 +149,6 @@ export default function LobbyPage() {
         </Card>
       </div>
 
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Shared picker components
-// ---------------------------------------------------------------------------
-
-/**
- * Row of toggle buttons for picking a seat (N/E/S/W).
- * The selected seat is highlighted with the primary variant;
- * unselected seats use the outline variant with muted text.
- * Reused for both "your seat" and "dealer" selection.
- */
-function SeatPicker({
-  selected,
-  onSelect,
-}: {
-  selected: Seat;
-  onSelect: (seat: Seat) => void;
-}) {
-  return (
-    <div className="flex gap-2">
-      {SEATS.map((seat) => (
-        <Button
-          key={seat}
-          type="button"
-          variant={selected === seat ? "action" : "outline"}
-          className="min-w-16"
-          onClick={() => onSelect(seat)}
-        >
-          {SEAT_LABELS[seat]}
-        </Button>
-      ))}
-    </div>
-  );
-}
-
-/**
- * Row of toggle buttons for picking vulnerability (None/NS/EW/Both).
- * Same visual style as SeatPicker.
- */
-function VulnPicker({
-  selected,
-  onSelect,
-}: {
-  selected: string;
-  onSelect: (vuln: string) => void;
-}) {
-  return (
-    <div className="flex gap-2">
-      {VULN_OPTIONS.map(({ value, label }) => (
-        <Button
-          key={value}
-          type="button"
-          variant={selected === value ? "action" : "outline"}
-          className="min-w-16"
-          onClick={() => onSelect(value)}
-        >
-          {label}
-        </Button>
-      ))}
     </div>
   );
 }

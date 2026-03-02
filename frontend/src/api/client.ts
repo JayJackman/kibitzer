@@ -97,8 +97,8 @@ api.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError);
         // Refresh failed -- the user's session has fully expired.
-        // We don't redirect here; React's ProtectedRoute component
-        // handles the redirect to /login when user is null.
+        // We don't redirect here; the protectedLoader in App.tsx
+        // handles the redirect to /login on 401.
         // Using window.location.href would cause an infinite loop:
         // page reload → getMe() → 401 → refresh → 401 → redirect → repeat.
         return Promise.reject(refreshError);

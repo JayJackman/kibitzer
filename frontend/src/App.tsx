@@ -34,6 +34,17 @@ import {
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { AxiosError } from "axios";
 import type { Seat, SessionMode } from "@/api/types";
+
+/**
+ * Extract a user-facing error message from a caught exception.
+ * FastAPI returns errors as { detail: "..." }; fall back to a generic message.
+ */
+function actionError(err: unknown): { error: string } {
+  if (err instanceof AxiosError && err.response?.data?.detail) {
+    return { error: err.response.data.detail as string };
+  }
+  return { error: "Something went wrong. Please try again." };
+}
 import * as api from "@/api/endpoints";
 import AppLayout from "@/components/layout/AppLayout";
 import LoginPage from "@/pages/Login";
@@ -83,10 +94,7 @@ async function loginAction({ request }: ActionFunctionArgs) {
     // which calls getMe() and finds the user is now authenticated.
     return redirect("/");
   } catch (err) {
-    if (err instanceof AxiosError && err.response?.data?.detail) {
-      return { error: err.response.data.detail as string };
-    }
-    return { error: "Something went wrong. Please try again." };
+    return actionError(err);
   }
 }
 
@@ -111,10 +119,7 @@ async function registerAction({ request }: ActionFunctionArgs) {
     });
     return redirect("/");
   } catch (err) {
-    if (err instanceof AxiosError && err.response?.data?.detail) {
-      return { error: err.response.data.detail as string };
-    }
-    return { error: "Something went wrong. Please try again." };
+    return actionError(err);
   }
 }
 
@@ -248,7 +253,7 @@ async function joinByCodeAction({ request }: ActionFunctionArgs) {
     if (err instanceof AxiosError && err.response?.status === 404) {
       return { error: "No session found for that code." };
     }
-    return { error: "Something went wrong. Please try again." };
+    return actionError(err);
   }
 }
 

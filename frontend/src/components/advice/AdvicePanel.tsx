@@ -13,7 +13,7 @@
  *   - Thought process trace (expandable rule evaluation)
  */
 import type { Advice } from "@/api/types";
-import { SUIT_COLORS, SUIT_SYMBOLS } from "@/lib/constants";
+import { formatBid } from "@/lib/bridge";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,21 +26,6 @@ interface AdvicePanelProps {
   advice: Advice | null;
   /** True while the fetcher is loading advice from the backend. */
   isLoading: boolean;
-}
-
-/**
- * Format a bid string for display: replace trailing suit letter with
- * the Unicode symbol. "1S" becomes "1♠", "Pass" stays "Pass", etc.
- */
-function formatBid(bid: string): { text: string; color: string | null } {
-  const last = bid[bid.length - 1];
-  if (last === "S" || last === "H" || last === "D" || last === "C") {
-    return {
-      text: bid.slice(0, -1) + SUIT_SYMBOLS[last],
-      color: SUIT_COLORS[last],
-    };
-  }
-  return { text: bid, color: null };
 }
 
 export default function AdvicePanel({ advice, isLoading }: AdvicePanelProps) {
@@ -130,13 +115,11 @@ export default function AdvicePanel({ advice, isLoading }: AdvicePanelProps) {
               </>
             )}
 
-            {/* --- Thought process trace (accepted rule only) --- */}
-            {advice.thought_process.steps.some((s) => s.passed) && (
+            {/* --- Thought process trace --- */}
+            {advice.thought_process.steps.length > 0 && (
               <>
                 <Separator />
-                <ThoughtProcess
-                  steps={advice.thought_process.steps.filter((s) => s.passed)}
-                />
+                <ThoughtProcess steps={advice.thought_process.steps} />
               </>
             )}
           </>

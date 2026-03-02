@@ -1,12 +1,14 @@
 /**
  * Displays the engine's rule evaluation trace -- how it reached its bid.
  *
- * Each step is a rule that was evaluated, with a list of conditions that
- * either passed or failed. The winning rule (the one that produced the
- * recommended bid) is shown prominently; other rules are muted.
+ * Receives ALL steps from the engine (both passed and failed). Currently
+ * only renders the passed rules; failed rules are filtered out here.
+ * The opacity-50 styling for failed rules is kept for when we improve
+ * the engine's filtering of near-miss rules (right now it sends too
+ * much noise, so we hide them entirely).
  *
- * Conditions are shown as a checklist with green checkmarks for passing
- * conditions and red X marks for failures, so the user can see exactly
+ * Conditions are shown as a checklist with green dots for passing
+ * conditions and red dots for failures, so the user can see exactly
  * which criteria were met and which weren't.
  */
 import type { ThoughtStep } from "@/api/types";
@@ -19,7 +21,11 @@ interface ThoughtProcessProps {
 }
 
 export default function ThoughtProcess({ steps }: ThoughtProcessProps) {
-  if (steps.length === 0) {
+  // TODO: once the engine's near-miss filtering improves, show failed
+  // rules too (they already have opacity-50 styling ready to go).
+  const visibleSteps = steps.filter((s) => s.passed);
+
+  if (visibleSteps.length === 0) {
     return null;
   }
 
@@ -29,7 +35,7 @@ export default function ThoughtProcess({ steps }: ThoughtProcessProps) {
         Thought Process
       </h4>
 
-      {steps.map((step, index) => (
+      {visibleSteps.map((step, index) => (
         <div key={index}>
           {/* Separator between steps (not before the first one). */}
           {index > 0 && <Separator className="mb-2" />}

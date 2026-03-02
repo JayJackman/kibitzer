@@ -6,34 +6,32 @@
  * pad the first row before the dealer's column (e.g., if dealer is East,
  * North gets an empty cell in row 1).
  *
- * Each bid cell is colored by suit using SUIT_COLORS. When the auction
- * is still active, the current seat's next cell shows a "?" marker.
- * Completed auctions show no marker.
+ * Each bid cell is colored by suit using the shared BidText component.
+ * When the auction is still active, the current seat's next cell shows
+ * a "?" marker. Completed auctions show no marker.
  *
  * The grid uses a simple HTML table for clean alignment of the 4 columns.
  */
 import type { AuctionBid, Seat } from "@/api/types";
-import { SUIT_COLORS, SUIT_SYMBOLS } from "@/lib/constants";
+import { ALL_SEATS } from "@/lib/bridge";
 import { cn } from "@/lib/utils";
-
-/** Canonical compass order used as the base for column rotation. */
-const SEAT_ORDER: Seat[] = ["N", "E", "S", "W"];
+import BidText from "@/components/ui/BidText";
 
 /**
- * Rotate SEAT_ORDER so that `yourSeat` is the rightmost (last) column.
+ * Rotate ALL_SEATS so that `yourSeat` is the rightmost (last) column.
  * The seat to the left of the player (i.e. the next seat clockwise)
  * becomes the leftmost column.
  *
- * Example: yourSeat = "S" → columns = ["W", "N", "E", "S"]
+ * Example: yourSeat = "S" -> columns = ["W", "N", "E", "S"]
  */
 function columnsForSeat(yourSeat: Seat): Seat[] {
-  const idx = SEAT_ORDER.indexOf(yourSeat);
+  const idx = ALL_SEATS.indexOf(yourSeat);
   // Start from the seat after ours (wrapping around).
   return [
-    SEAT_ORDER[(idx + 1) % 4],
-    SEAT_ORDER[(idx + 2) % 4],
-    SEAT_ORDER[(idx + 3) % 4],
-    SEAT_ORDER[idx],
+    ALL_SEATS[(idx + 1) % 4],
+    ALL_SEATS[(idx + 2) % 4],
+    ALL_SEATS[(idx + 3) % 4],
+    ALL_SEATS[idx],
   ];
 }
 
@@ -48,57 +46,6 @@ interface AuctionGridProps {
   isComplete: boolean;
   /** The player's seat -- displayed as the rightmost column. */
   yourSeat: Seat;
-}
-
-/**
- * Extract the suit letter from a bid string for coloring.
- * Returns the suit key ("S", "H", "D", "C") or null for Pass/X/XX.
- */
-function bidSuit(bid: string): "S" | "H" | "D" | "C" | null {
-  // Suit bids look like "1S", "3NT", "2H", etc.
-  // The suit letter is the last character for single-suit bids.
-  const last = bid[bid.length - 1];
-  if (last === "S" || last === "H" || last === "D" || last === "C") {
-    return last;
-  }
-  // NT bids and special bids (Pass, X, XX) have no single suit color.
-  return null;
-}
-
-/**
- * Render a single bid cell with suit coloring and symbol substitution.
- * "1S" becomes "1♠", "Pass" stays "Pass", etc.
- */
-function BidCell({ bid }: { bid: string }) {
-  const suit = bidSuit(bid);
-
-  if (suit) {
-    // Replace the trailing suit letter with the Unicode symbol.
-    // e.g., "1S" -> "1" + "♠", "3NT" won't match (suit is null).
-    const level = bid.slice(0, -1);
-    const symbol = SUIT_SYMBOLS[suit];
-    const color = SUIT_COLORS[suit];
-
-    return (
-      <span className={cn("font-semibold", color)}>
-        {level}
-        {symbol}
-      </span>
-    );
-  }
-
-  // Non-suit bids: Pass, X (double), XX (redouble), NT bids
-  if (bid === "Pass") {
-    return <span className="text-card-muted-foreground">Pass</span>;
-  }
-  if (bid === "X") {
-    return <span className="font-semibold text-red-600">X</span>;
-  }
-  if (bid === "XX") {
-    return <span className="font-semibold text-blue-600">XX</span>;
-  }
-  // NT bids (e.g., "1NT", "3NT")
-  return <span className="font-semibold">{bid}</span>;
 }
 
 /**
@@ -209,7 +156,7 @@ export default function AuctionGrid({
                 {cell.kind === "pending" && (
                   <span className="text-card-muted-foreground animate-pulse">?</span>
                 )}
-                {cell.kind === "bid" && <BidCell bid={cell.data.bid} />}
+                {cell.kind === "bid" && <BidText bid={cell.data.bid} />}
               </td>
             ))}
           </tr>
