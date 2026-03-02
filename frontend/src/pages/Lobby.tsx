@@ -1,16 +1,15 @@
 /**
  * Lobby page -- the home screen after login.
  *
- * Shows a welcome message and three activity cards:
+ * Shows a welcome card (with join-by-code) and two activity cards:
  *   1. Practice -- create a session, bid against the engine, share the
  *      join code with friends if you want multiplayer
  *   2. Helper Mode -- companion for physical bridge (enter real hands, get advice)
- *   3. Join Session -- enter a 6-character code to join an existing session
  *
  * Practice and Helper both post to /practice/new, which creates the session
- * and redirects to /practice/:id. The Join form posts to the lobby route's
- * own action (joinByCodeAction in App.tsx), which looks up the code and
- * redirects to the session's practice page.
+ * and redirects to /practice/:id. The join-by-code form in the welcome card
+ * posts to the lobby route's own action (joinByCodeAction in App.tsx), which
+ * looks up the code and redirects to the session's practice page.
  */
 import { useState } from "react";
 import { Form, useActionData, useNavigation, useRouteLoaderData } from "react-router";
@@ -56,117 +55,111 @@ export default function LobbyPage() {
 
   return (
     <div className="container mx-auto flex flex-col gap-6 px-4 py-8">
-      {/* Welcome card */}
+      {/* Welcome card with join-by-code on the right */}
       <Card>
         <CardHeader>
-          <CardTitle>Welcome, {user.username}!</CardTitle>
-          <CardDescription>
-            Choose an activity below to get started.
-          </CardDescription>
-        </CardHeader>
-      </Card>
-
-      {/* --- Practice --- */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Practice</CardTitle>
-          <CardDescription>
-            Practice bidding against the engine. Share the join code with
-            friends to practice together.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form method="post" action="/practice/new" className="flex flex-col gap-4">
-            <input type="hidden" name="seat" value={practiceSeat} />
-            <SeatPicker selected={practiceSeat} onSelect={setPracticeSeat} />
-            <Button type="submit" className="w-fit" disabled={isSubmitting}>
-              Start Practice
-            </Button>
-          </Form>
-        </CardContent>
-      </Card>
-
-      {/* --- Helper Mode --- */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Helper Mode</CardTitle>
-          <CardDescription>
-            Companion for physical bridge. Enter your real hands, record bids
-            as they happen, and get engine advice when you need it.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {/*
-           * Posts to /practice/new with mode="helper" plus dealer and
-           * vulnerability from the pickers below. The createPracticeAction
-           * in App.tsx reads these extra fields and passes them to the API.
-           */}
-          <Form method="post" action="/practice/new" className="flex flex-col gap-4">
-            <input type="hidden" name="mode" value="helper" />
-            <input type="hidden" name="seat" value={helperSeat} />
-            <input type="hidden" name="dealer" value={helperDealer} />
-            <input type="hidden" name="vulnerability" value={helperVuln} />
-
-            {/* Your seat */}
+          <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="mb-1.5 text-sm font-medium">Your Seat</p>
-              <SeatPicker selected={helperSeat} onSelect={setHelperSeat} />
+              <CardTitle>Welcome, {user.username}!</CardTitle>
+              <CardDescription>
+                Choose an activity below to get started.
+              </CardDescription>
             </div>
-
-            {/* Dealer at the physical table */}
-            <div>
-              <p className="mb-1.5 text-sm font-medium">Dealer</p>
-              <SeatPicker selected={helperDealer} onSelect={setHelperDealer} />
-            </div>
-
-            {/* Vulnerability at the physical table */}
-            <div>
-              <p className="mb-1.5 text-sm font-medium">Vulnerability</p>
-              <VulnPicker selected={helperVuln} onSelect={setHelperVuln} />
-            </div>
-
-            <Button type="submit" className="w-fit" disabled={isSubmitting}>
-              Create Session
-            </Button>
-          </Form>
-        </CardContent>
-      </Card>
-
-      {/* --- Join Session --- */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Join Session</CardTitle>
-          <CardDescription>
-            Enter a 6-character code to join a friend's session.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {/*
-           * This form posts to the lobby route itself (no action= needed).
-           * The joinByCodeAction in App.tsx handles the submission: looks up
-           * the code via the API and redirects to /practice/{id}, where the
-           * practiceLoader detects 403 and shows the seat picker.
-           */}
-          <Form method="post" className="flex flex-col gap-4">
-            <div className="flex gap-2">
+            {/*
+             * Join-by-code form. Posts to the lobby route itself (no action=
+             * needed). The joinByCodeAction in App.tsx looks up the code and
+             * redirects to /practice/{id}, where the practiceLoader detects
+             * 403 and shows the seat picker.
+             */}
+            <Form method="post" className="flex items-center gap-2">
               <Input
                 name="code"
-                placeholder="ABC123"
+                placeholder="Join code"
                 maxLength={6}
                 className="w-32 font-mono uppercase"
                 required
               />
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" variant="secondary" disabled={isSubmitting}>
                 Join
               </Button>
-            </div>
-            {/* Error message from the action (e.g., invalid code) */}
-            {actionData?.error && (
-              <p className="text-sm text-destructive">{actionData.error}</p>
-            )}
-          </Form>
-        </CardContent>
+            </Form>
+          </div>
+          {/* Error message from the action (e.g., invalid code) */}
+          {actionData?.error && (
+            <p className="mt-2 text-sm text-destructive">{actionData.error}</p>
+          )}
+        </CardHeader>
       </Card>
+
+      {/* Practice and Helper Mode side by side */}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        {/* --- Practice --- */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Practice</CardTitle>
+            <CardDescription>
+              Practice bidding against the engine. Share the join code with
+              friends to practice together.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form method="post" action="/practice/new" className="flex flex-col gap-4">
+              <input type="hidden" name="seat" value={practiceSeat} />
+              <SeatPicker selected={practiceSeat} onSelect={setPracticeSeat} />
+              <Button type="submit" className="w-fit" disabled={isSubmitting}>
+                Start Practice
+              </Button>
+            </Form>
+          </CardContent>
+        </Card>
+
+        {/* --- Helper Mode --- */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Helper Mode</CardTitle>
+            <CardDescription>
+              Companion for physical bridge. Enter your real hands, record bids
+              as they happen, and get engine advice when you need it.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {/*
+             * Posts to /practice/new with mode="helper" plus dealer and
+             * vulnerability from the pickers below. The createPracticeAction
+             * in App.tsx reads these extra fields and passes them to the API.
+             */}
+            <Form method="post" action="/practice/new" className="flex flex-col gap-4">
+              <input type="hidden" name="mode" value="helper" />
+              <input type="hidden" name="seat" value={helperSeat} />
+              <input type="hidden" name="dealer" value={helperDealer} />
+              <input type="hidden" name="vulnerability" value={helperVuln} />
+
+              {/* Your seat */}
+              <div>
+                <p className="mb-1.5 text-sm font-medium">Your Seat</p>
+                <SeatPicker selected={helperSeat} onSelect={setHelperSeat} />
+              </div>
+
+              {/* Dealer at the physical table */}
+              <div>
+                <p className="mb-1.5 text-sm font-medium">Dealer</p>
+                <SeatPicker selected={helperDealer} onSelect={setHelperDealer} />
+              </div>
+
+              {/* Vulnerability at the physical table */}
+              <div>
+                <p className="mb-1.5 text-sm font-medium">Vulnerability</p>
+                <VulnPicker selected={helperVuln} onSelect={setHelperVuln} />
+              </div>
+
+              <Button type="submit" className="w-fit" disabled={isSubmitting}>
+                Create Session
+              </Button>
+            </Form>
+          </CardContent>
+        </Card>
+      </div>
+
     </div>
   );
 }

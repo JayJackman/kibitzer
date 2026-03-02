@@ -53,6 +53,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Check, Copy } from "lucide-react";
 import HandDisplay from "@/components/hand/HandDisplay";
 import AuctionGrid from "@/components/auction/AuctionGrid";
 import BidControls from "@/components/auction/BidControls";
@@ -118,6 +119,10 @@ function PracticeView({ state }: { state: PracticeState }) {
   // --- Multiplayer polling ---
   // When waiting for another human's bid, poll every 2 seconds so we
   // pick up state changes without requiring WebSockets.
+  // NOTE: revalidator is intentionally omitted from deps -- useRevalidator()
+  // returns a new object reference each render, which would tear down and
+  // recreate the interval continuously. We access it inside the callback
+  // via closure, which always reads the latest value.
   useEffect(() => {
     if (!is_my_turn && !auction.is_complete && state.waiting_for) {
       const interval = setInterval(() => {
@@ -125,7 +130,8 @@ function PracticeView({ state }: { state: PracticeState }) {
       }, 2000);
       return () => clearInterval(interval);
     }
-  }, [is_my_turn, auction.is_complete, state.waiting_for, revalidator]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [is_my_turn, auction.is_complete, state.waiting_for]);
 
   // --- Keyboard shortcuts ---
   // Include for_seat when proxy-bidding so the action handler knows
@@ -158,14 +164,9 @@ function PracticeView({ state }: { state: PracticeState }) {
     adviceFetcher.load(`/practice/${state.id}/advise`);
   }
 
-  // Check whether there are other human players in the session.
-  const hasOtherHumans = Object.entries(state.players).some(
-    ([seat, name]) => name !== null && seat !== state.your_seat,
-  );
-
-  // Show the session header in helper mode (for join code) or when
-  // there are other human players.
-  const showSessionHeader = hasOtherHumans || isHelper;
+  // Always show the session header -- it displays the join code so
+  // the player can invite friends at any time.
+  const showSessionHeader = true;
 
   // Whether to show the "Show Advice" button. Available when it's
   // the player's turn (or proxy turn) and the hand has been entered.
@@ -256,6 +257,7 @@ function PracticeView({ state }: { state: PracticeState }) {
                   dealer={auction.dealer}
                   currentSeat={auction.current_seat}
                   isComplete={auction.is_complete}
+                  yourSeat={state.your_seat}
                 />
               </CardContent>
             </Card>
@@ -275,11 +277,6 @@ function PracticeView({ state }: { state: PracticeState }) {
             ) : null}
           </div>
 
-          {/* In helper mode, always show the hand entry form so the user can
-           * enter hands for other seats (even after their own hand is set). */}
-          {isHelper && hand !== null && (
-            <HandEntryForm sessionSeat={state.your_seat} compact />
-          )}
 
           {auction.bids.length > 0 && (
             <AuctionHistory
@@ -298,78 +295,139 @@ function PracticeView({ state }: { state: PracticeState }) {
 // ---------------------------------------------------------------------------
 
 /**
- * Form for entering a hand in PBN format (helper mode).
+ * Form for entering a hand by suit (helper mode).
  *
- * Shown prominently when the player's own hand hasn't been entered yet,
- * and as a compact form afterwards so they can enter other seats' hands.
- * The seat picker defaults to the player's seat but can be changed.
+ * Four labeled inputs (one per suit) with suit symbols and colors.
+ * Tab moves between them. On submit, the four values are joined
+ * into PBN format (Spades.Hearts.Diamonds.Clubs) for the API.
+ * Each input accepts rank characters like "AKJ52" (case-insensitive).
  */
-function HandEntryForm({
-  sessionSeat,
-  compact,
-}: {
-  /** The player's own seat (used as the default for the seat picker). */
-  sessionSeat: Seat;
-  /** If true, render a more compact version (for entering other seats). */
-  compact?: boolean;
-}) {
-  const ALL_SEATS: Seat[] = ["N", "E", "S", "W"];
+const SUIT_FIELDS = [
+  { key: "S", symbol: SUIT_SYMBOLS.S, color: SUIT_COLORS.S, placeholder: "--" },
+  { key: "H", symbol: SUIT_SYMBOLS.H, color: SUIT_COLORS.H, placeholder: "--" },
+  { key: "D", symbol: SUIT_SYMBOLS.D, color: SUIT_COLORS.D, placeholder: "--" },
+  { key: "C", symbol: SUIT_SYMBOLS.C, color: SUIT_COLORS.C, placeholder: "--" },
+] as const;
+
+/** Valid rank characters (case-insensitive). */
+const VALID_RANKS = new Set("AKQJT98765432");
+
+/**
+ * Parse rank characters from a suit input string.
+ * Normalises "10" to "T" and uppercases everything.
+ * Returns the list of rank chars (e.g. ["A", "K", "J", "5", "2"]).
+ */
+function parseRanks(raw: string): string[] {
+  const s = raw.toUpperCase().replace(/10/g, "T");
+  return [...s].filter((ch) => VALID_RANKS.has(ch));
+}
+
+/**
+ * Validate the four suit inputs. Returns an error message string
+ * or null if the hand is valid (exactly 13 unique cards).
+ */
+function validateHand(suits: Record<string, string>): string | null {
+  const allCards: string[] = [];
+  for (const [suitKey, raw] of Object.entries(suits)) {
+    for (const rank of parseRanks(raw)) {
+      allCards.push(`${rank}${suitKey}`);
+    }
+  }
+  if (allCards.length === 0) return "Enter your cards";
+  if (allCards.length !== 13) return `${allCards.length} cards entered (need 13)`;
+
+  // Check for duplicates within the hand.
+  const seen = new Set<string>();
+  for (const card of allCards) {
+    if (seen.has(card)) return `Duplicate card: ${card}`;
+    seen.add(card);
+  }
+  return null;
+}
+
+function HandEntryForm({ sessionSeat }: { sessionSeat: Seat }) {
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
 
-  // Default seat: the player's own seat when not compact,
-  // North (first non-self seat) when compact.
-  const defaultSeat = compact
-    ? ALL_SEATS.find((s) => s !== sessionSeat) ?? "N"
-    : sessionSeat;
-  const [seat, setSeat] = useState<Seat>(defaultSeat);
+  // Controlled state for each suit so we can assemble PBN on submit.
+  const [suits, setSuits] = useState({ S: "", H: "", D: "", C: "" });
+  const [error, setError] = useState<string | null>(null);
+
+  // Assemble PBN: "AKJ52.KQ3.84.A73" (empty suits become "" which is valid).
+  // Normalise "10" to "T" for the backend PBN parser.
+  const pbn = SUIT_FIELDS.map(({ key }) =>
+    parseRanks(suits[key]).join(""),
+  ).join(".");
+
+  // Total card count for the live counter.
+  const cardCount = SUIT_FIELDS.reduce(
+    (n, { key }) => n + parseRanks(suits[key]).length,
+    0,
+  );
+
+  /** Validate before allowing the form to submit. */
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    const err = validateHand(suits);
+    if (err) {
+      e.preventDefault();
+      setError(err);
+    }
+  }
 
   return (
-    <Card className={cn("w-full", !compact && "py-2")}>
+    <Card className="w-full py-2">
       <CardHeader className="px-3">
-        <CardTitle className={compact ? "text-sm" : undefined}>
-          {compact ? "Enter Another Hand" : "Enter Your Hand"}
-        </CardTitle>
+        <CardTitle>Enter Your Hand</CardTitle>
       </CardHeader>
       <CardContent className="px-3">
-        <Form method="post" className="flex flex-col gap-3">
+        <Form method="post" className="flex flex-col gap-3" onSubmit={handleSubmit}>
           <input type="hidden" name="intent" value="set_hand" />
-          <input type="hidden" name="seat" value={seat} />
+          <input type="hidden" name="seat" value={sessionSeat} />
+          <input type="hidden" name="hand_pbn" value={pbn} />
 
-          {/* Seat picker: which seat is this hand for? */}
-          <div>
-            <p className="mb-1 text-xs font-medium text-muted-foreground">Seat</p>
-            <div className="flex gap-1">
-              {ALL_SEATS.map((s) => (
-                <Button
-                  key={s}
-                  type="button"
-                  variant={seat === s ? "default" : "outline"}
-                  size="sm"
-                  className={cn(
-                    "min-w-10",
-                    seat !== s && "text-muted-foreground",
-                  )}
-                  onClick={() => setSeat(s)}
-                >
-                  {SEAT_LABELS[s]}
-                </Button>
-              ))}
-            </div>
+          {/* One input per suit, each prefixed with the colored suit symbol. */}
+          <div className="flex flex-col gap-2">
+            {SUIT_FIELDS.map(({ key, symbol, color, placeholder }, i) => (
+              <div key={key} className="flex items-center gap-2">
+                <span className={cn("text-lg font-bold w-5 text-center", color)}>
+                  {symbol}
+                </span>
+                <Input
+                  value={suits[key]}
+                  onChange={(e) => {
+                    // Strip invalid chars, normalise to uppercase,
+                    // and drop duplicate ranks within this suit.
+                    const seen = new Set<string>();
+                    const filtered = e.target.value
+                      .toUpperCase()
+                      .replace(/10/g, "T")
+                      .split("")
+                      .filter((ch) => {
+                        if (!VALID_RANKS.has(ch) || seen.has(ch)) return false;
+                        seen.add(ch);
+                        return true;
+                      })
+                      .join("");
+                    setSuits((prev) => ({ ...prev, [key]: filtered }));
+                    setError(null);
+                  }}
+                  placeholder={placeholder}
+                  className="font-mono flex-1"
+                  autoFocus={i === 0}
+                />
+              </div>
+            ))}
           </div>
 
-          {/* PBN text input */}
-          <div>
-            <Input
-              name="hand_pbn"
-              placeholder="AKJ52.KQ3.84.A73"
-              className="font-mono"
-              required
-              autoFocus={!compact}
-            />
-            <p className="text-muted-foreground mt-1 text-xs">
-              Format: Spades.Hearts.Diamonds.Clubs
-            </p>
+          {/* Live card count + validation error */}
+          <div className="flex items-center gap-3">
+            <span className={cn(
+              "text-xs",
+              cardCount === 13 ? "text-green-600" : "text-muted-foreground",
+            )}>
+              {cardCount}/13 cards
+            </span>
+            {error && <span className="text-xs text-destructive">{error}</span>}
           </div>
 
           <Button type="submit" size="sm" className="w-fit" disabled={isSubmitting}>
@@ -455,8 +513,22 @@ function AuctionHistory({
  * In helper mode, some seats may not have hands entered -- those
  * positions are left empty in the compass layout.
  */
+/** Placeholder hand with empty suits, used when a seat's hand isn't set. */
+const EMPTY_HAND: Hand = { spades: [], hearts: [], diamonds: [], clubs: [] };
+
 function AuctionComplete({ state }: { state: PracticeState }) {
   const { auction, all_hands } = state;
+
+  /** Get the hand for a seat, falling back to an empty placeholder. */
+  function handFor(seat: Seat) {
+    return all_hands?.[seat] ?? EMPTY_HAND;
+  }
+
+  /** Title with HCP if the hand has cards, just the seat name otherwise. */
+  function titleFor(seat: Seat, label: string) {
+    const h = all_hands?.[seat];
+    return h ? `${label} (${countHcp(h)})` : label;
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -465,38 +537,28 @@ function AuctionComplete({ state }: { state: PracticeState }) {
        *            North
        *   West   [Contract]   East
        *            South
-       * Seats without hands (helper mode) render as empty placeholders.
+       * Seats without hands render with empty suit rows.
        */}
-      {all_hands && (
-        <div className="grid grid-cols-3 gap-2">
-          {/* Top row: North in the center */}
-          <div />
-          {all_hands.N ? (
-            <HandDisplay hand={all_hands.N} title={`North (${countHcp(all_hands.N)})`} isPlayer={state.your_seat === "N"} />
-          ) : <div />}
-          <div />
+      <div className="grid grid-cols-3 gap-2">
+        {/* Top row: North in the center */}
+        <div />
+        <HandDisplay hand={handFor("N")} title={titleFor("N", "North")} isPlayer={state.your_seat === "N"} />
+        <div />
 
-          {/* Middle row: West, Contract, East */}
-          {all_hands.W ? (
-            <HandDisplay hand={all_hands.W} title={`West (${countHcp(all_hands.W)})`} isPlayer={state.your_seat === "W"} />
-          ) : <div />}
-          {auction.contract ? (
-            <ContractDisplay contract={auction.contract} />
-          ) : (
-            <div />
-          )}
-          {all_hands.E ? (
-            <HandDisplay hand={all_hands.E} title={`East (${countHcp(all_hands.E)})`} isPlayer={state.your_seat === "E"} />
-          ) : <div />}
+        {/* Middle row: West, Contract, East */}
+        <HandDisplay hand={handFor("W")} title={titleFor("W", "West")} isPlayer={state.your_seat === "W"} />
+        {auction.contract ? (
+          <ContractDisplay contract={auction.contract} />
+        ) : (
+          <div />
+        )}
+        <HandDisplay hand={handFor("E")} title={titleFor("E", "East")} isPlayer={state.your_seat === "E"} />
 
-          {/* Bottom row: South in the center */}
-          <div />
-          {all_hands.S ? (
-            <HandDisplay hand={all_hands.S} title={`South (${countHcp(all_hands.S)})`} isPlayer={state.your_seat === "S"} />
-          ) : <div />}
-          <div />
-        </div>
-      )}
+        {/* Bottom row: South in the center */}
+        <div />
+        <HandDisplay hand={handFor("S")} title={titleFor("S", "South")} isPlayer={state.your_seat === "S"} />
+        <div />
+      </div>
     </div>
   );
 }
@@ -658,8 +720,8 @@ function SessionHeader({
       <div className="flex items-center gap-1.5">
         <span className="text-muted-foreground">Code:</span>
         <span className="font-mono font-semibold">{state.join_code}</span>
-        <Button variant="ghost" size="xs" onClick={handleCopy}>
-          {copied ? "Copied!" : "Copy"}
+        <Button variant="outline" size="xs" onClick={handleCopy} className="px-1.5">
+          {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
         </Button>
       </div>
 

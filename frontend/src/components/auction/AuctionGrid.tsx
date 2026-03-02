@@ -16,8 +16,26 @@ import type { AuctionBid, Seat } from "@/api/types";
 import { SUIT_COLORS, SUIT_SYMBOLS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
-/** Column order for the auction grid (standard bridge display). */
-const COLUMNS = ["N", "E", "S", "W"] as const;
+/** Canonical compass order used as the base for column rotation. */
+const SEAT_ORDER: Seat[] = ["N", "E", "S", "W"];
+
+/**
+ * Rotate SEAT_ORDER so that `yourSeat` is the rightmost (last) column.
+ * The seat to the left of the player (i.e. the next seat clockwise)
+ * becomes the leftmost column.
+ *
+ * Example: yourSeat = "S" → columns = ["W", "N", "E", "S"]
+ */
+function columnsForSeat(yourSeat: Seat): Seat[] {
+  const idx = SEAT_ORDER.indexOf(yourSeat);
+  // Start from the seat after ours (wrapping around).
+  return [
+    SEAT_ORDER[(idx + 1) % 4],
+    SEAT_ORDER[(idx + 2) % 4],
+    SEAT_ORDER[(idx + 3) % 4],
+    SEAT_ORDER[idx],
+  ];
+}
 
 interface AuctionGridProps {
   /** Bid history in chronological order. */
@@ -28,6 +46,8 @@ interface AuctionGridProps {
   currentSeat: Seat | null;
   /** Whether the auction has finished (3 consecutive passes after a bid, or 4 initial passes). */
   isComplete: boolean;
+  /** The player's seat -- displayed as the rightmost column. */
+  yourSeat: Seat;
 }
 
 /**
@@ -104,8 +124,9 @@ function buildCells(
   dealer: Seat,
   currentSeat: Seat | null,
   isComplete: boolean,
+  columns: Seat[],
 ): GridCell[] {
-  const dealerIndex = COLUMNS.indexOf(dealer);
+  const dealerIndex = columns.indexOf(dealer);
   const cells: GridCell[] = [];
 
   // Pad with empty cells up to the dealer's column.
@@ -153,16 +174,18 @@ export default function AuctionGrid({
   dealer,
   currentSeat,
   isComplete,
+  yourSeat,
 }: AuctionGridProps) {
-  const cells = buildCells(bids, dealer, currentSeat, isComplete);
+  const columns = columnsForSeat(yourSeat);
+  const cells = buildCells(bids, dealer, currentSeat, isComplete, columns);
   const rows = buildRows(cells);
 
   return (
     <table className="w-full text-center text-sm">
-      {/* Column headers: N, E, S, W */}
+      {/* Column headers rotated so yourSeat is rightmost. */}
       <thead>
         <tr>
-          {COLUMNS.map((seat) => (
+          {columns.map((seat) => (
             <th
               key={seat}
               className={cn(
