@@ -84,7 +84,7 @@
     --attention-foreground: oklch(0.35 0.15 25);
     --correct: oklch(0.87 0.08 145);
     --incorrect: oklch(0.83 0.08 85);
-    --outline: oklch(0.45 0.1 145);
+    --outline: oklch(0.6 0.4 145);
     --suit-spades: oklch(0.55 0.21 260);
     --suit-hearts: oklch(0.55 0.25 25);
     --suit-diamonds: oklch(0.65 0.2 55);
