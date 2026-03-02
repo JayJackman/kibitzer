@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from functools import cache
 
-from bridge.model.auction import Seat
+from bridge.model.auction import Seat, Vulnerability
 from bridge.service.advisor import BiddingAdvisor
 
 from .session import PracticeSession, SessionMode
@@ -33,10 +33,18 @@ def create_session(
     *,
     mode: SessionMode = SessionMode.PRACTICE,
     username: str = "",
+    dealer: Seat | None = None,
+    vulnerability: Vulnerability | None = None,
 ) -> PracticeSession:
     """Create a new practice session and store it."""
     session = PracticeSession(
-        user_id, seat, _get_advisor(), mode=mode, username=username
+        user_id,
+        seat,
+        _get_advisor(),
+        mode=mode,
+        username=username,
+        dealer=dealer,
+        vulnerability=vulnerability,
     )
     _sessions[session.id] = session
     _join_codes[session.join_code] = session.id

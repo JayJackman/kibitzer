@@ -16,7 +16,8 @@
  */
 import { Form, useNavigation } from "react-router";
 
-import { SUIT_COLORS, SUIT_SYMBOLS } from "@/lib/constants";
+import type { Seat } from "@/api/types";
+import { SEAT_LABELS, SUIT_COLORS, SUIT_SYMBOLS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -33,6 +34,12 @@ interface BidControlsProps {
   highlightedBids?: Set<string>;
   /** Optional extra content rendered to the right of Pass/Dbl/Rdbl row. */
   bottomRight?: React.ReactNode;
+  /**
+   * When set, a hidden "for_seat" field is included in the form so the
+   * action handler knows this is a proxy bid for an unoccupied seat
+   * (helper mode). A banner is shown above the grid.
+   */
+  forSeat?: Seat;
 }
 
 /**
@@ -56,6 +63,7 @@ export default function BidControls({
   disabled,
   highlightedBids,
   bottomRight,
+  forSeat,
 }: BidControlsProps) {
   /**
    * useNavigation() tells us if a form submission is in flight.
@@ -77,8 +85,18 @@ export default function BidControls({
        * (as opposed to a "redeal" intent, which uses a different form).
        */}
       <input type="hidden" name="intent" value="bid" />
+      {/* In helper mode, for_seat tells the backend which unoccupied seat
+       * this proxy bid is for. Omitted for normal (own-seat) bids. */}
+      {forSeat && <input type="hidden" name="for_seat" value={forSeat} />}
 
       <div className="flex flex-col gap-3">
+        {/* Banner shown when proxy-bidding for an unoccupied seat */}
+        {forSeat && (
+          <div className="rounded-md bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700">
+            Bidding for {SEAT_LABELS[forSeat]}
+          </div>
+        )}
+
         {/*
          * --- 7x5 bid grid ---
          * Rows = levels (1-7), Columns = suits (C, D, H, S, NT).

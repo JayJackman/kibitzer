@@ -104,8 +104,10 @@ export interface PracticeState {
   mode: SessionMode;
   join_code: string;
   your_seat: Seat;
-  hand: Hand;
-  hand_evaluation: HandEvaluation;
+  /** Player's hand (null in helper mode before hand entry via set_hand). */
+  hand: Hand | null;
+  /** Hand metrics (null when hand is null). */
+  hand_evaluation: HandEvaluation | null;
   auction: Auction;
   computer_bids: ComputerBid[];
   is_my_turn: boolean;
@@ -117,6 +119,10 @@ export interface PracticeState {
   players: Record<Seat, string | null>;
   /** Which human seat we're waiting on (null if computer's turn or auction complete). */
   waiting_for: Seat | null;
+  /** True when an unoccupied seat needs to bid and the caller can proxy-bid (helper mode). */
+  can_proxy_bid: boolean;
+  /** The unoccupied seat to proxy-bid for (set when can_proxy_bid is true). */
+  proxy_seat: Seat | null;
 }
 
 /** Lightweight session info for the join UI and session lookup. */

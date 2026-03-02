@@ -15,9 +15,15 @@
  *   - When waiting for another human's bid, polls every 2s via
  *     useRevalidator() to pick up state changes.
  *
+ * Helper mode support:
+ *   - Shows a HandEntryForm instead of HandDisplay when hand is null.
+ *   - Proxy bidding: BidControls enabled for unoccupied seats with
+ *     a "Bidding for [Seat]" banner and for_seat hidden field.
+ *   - Always shows SessionHeader (for join code sharing).
+ *
  * Data flow uses React Router v7 patterns:
  *   - Loader: fetches session state before the page renders (no loading spinner)
- *   - Action: handles bid placement, redeal, join, and leave via form submissions
+ *   - Action: handles bid placement, redeal, set_hand, join, and leave via form submissions
  *   - Fetcher: loads advice on demand without a full page navigation
  *
  * When the auction completes, the bid controls are replaced with a display
@@ -45,6 +51,7 @@ import { useBidKeyboard } from "@/hooks/useBidKeyboard";
 import { SEAT_LABELS, SUIT_COLORS, SUIT_SYMBOLS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import HandDisplay from "@/components/hand/HandDisplay";
 import AuctionGrid from "@/components/auction/AuctionGrid";
@@ -102,6 +109,11 @@ function PracticeView({ state }: { state: PracticeState }) {
   const revalidator = useRevalidator();
 
   const { auction, hand, hand_evaluation, legal_bids, is_my_turn } = state;
+  const isHelper = state.mode === "helper";
+
+  // Whether the user can place a bid right now -- either it's their turn
+  // or they can proxy-bid for an unoccupied seat in helper mode.
+  const canBid = is_my_turn || state.can_proxy_bid;
 
   // --- Multiplayer polling ---
   // When waiting for another human's bid, poll every 2 seconds so we
@@ -116,15 +128,21 @@ function PracticeView({ state }: { state: PracticeState }) {
   }, [is_my_turn, auction.is_complete, state.waiting_for, revalidator]);
 
   // --- Keyboard shortcuts ---
+  // Include for_seat when proxy-bidding so the action handler knows
+  // which unoccupied seat this bid is for.
   const handleBidConfirm = useCallback(
     (bid: string) => {
-      submit({ intent: "bid", bid }, { method: "post" });
+      const data: Record<string, string> = { intent: "bid", bid };
+      if (state.can_proxy_bid && state.proxy_seat) {
+        data.for_seat = state.proxy_seat;
+      }
+      submit(data, { method: "post" });
     },
-    [submit],
+    [submit, state.can_proxy_bid, state.proxy_seat],
   );
   const { highlightedBids } = useBidKeyboard({
     legalBids: legal_bids,
-    enabled: is_my_turn && !auction.is_complete && !isSubmitting,
+    enabled: canBid && !auction.is_complete && !isSubmitting,
     onConfirm: handleBidConfirm,
   });
 
@@ -145,12 +163,22 @@ function PracticeView({ state }: { state: PracticeState }) {
     ([seat, name]) => name !== null && seat !== state.your_seat,
   );
 
+  // Show the session header in helper mode (for join code) or when
+  // there are other human players.
+  const showSessionHeader = hasOtherHumans || isHelper;
+
+  // Whether to show the "Show Advice" button. Available when it's
+  // the player's turn (or proxy turn) and the hand has been entered.
+  const canShowAdvice = canBid && hand !== null;
+
   return (
     <div className="container mx-auto px-4 py-6">
       {/* --- Page header --- */}
       <div className="mb-6">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold">Practice Mode</h1>
+          <h1 className="text-2xl font-bold">
+            {isHelper ? "Helper Mode" : "Practice Mode"}
+          </h1>
           <Form method="post">
             <input type="hidden" name="intent" value="redeal" />
             <Button type="submit" variant="outline" size="sm" disabled={isSubmitting}>
@@ -165,9 +193,8 @@ function PracticeView({ state }: { state: PracticeState }) {
         </p>
       </div>
 
-      {/* Session header: join code, player names, leave button.
-          Shown when there are other human players in the session. */}
-      {hasOtherHumans && (
+      {/* Session header: join code, player names, leave button. */}
+      {showSessionHeader && (
         <SessionHeader state={state} isSubmitting={isSubmitting} />
       )}
 
@@ -189,10 +216,11 @@ function PracticeView({ state }: { state: PracticeState }) {
           {!auction.is_complete ? (
             <BidControls
               legalBids={legal_bids}
-              disabled={!is_my_turn || isSubmitting}
+              disabled={!canBid || isSubmitting}
               highlightedBids={highlightedBids}
+              forSeat={state.can_proxy_bid ? state.proxy_seat ?? undefined : undefined}
               bottomRight={
-                is_my_turn && !showAdvice ? (
+                canShowAdvice && !showAdvice ? (
                   <Button
                     variant="secondary"
                     onClick={handleAdvise}
@@ -232,12 +260,26 @@ function PracticeView({ state }: { state: PracticeState }) {
               </CardContent>
             </Card>
 
-            <HandDisplay
-              hand={hand}
-              evaluation={hand_evaluation}
-              title="Your Hand"
-            />
+            {/*
+             * Show HandDisplay when the player's hand is available,
+             * or HandEntryForm in helper mode when hand hasn't been entered yet.
+             */}
+            {hand ? (
+              <HandDisplay
+                hand={hand}
+                evaluation={hand_evaluation ?? undefined}
+                title="Your Hand"
+              />
+            ) : isHelper ? (
+              <HandEntryForm sessionSeat={state.your_seat} />
+            ) : null}
           </div>
+
+          {/* In helper mode, always show the hand entry form so the user can
+           * enter hands for other seats (even after their own hand is set). */}
+          {isHelper && hand !== null && (
+            <HandEntryForm sessionSeat={state.your_seat} compact />
+          )}
 
           {auction.bids.length > 0 && (
             <AuctionHistory
@@ -254,6 +296,90 @@ function PracticeView({ state }: { state: PracticeState }) {
 // ---------------------------------------------------------------------------
 // Sub-components used only by PracticePage
 // ---------------------------------------------------------------------------
+
+/**
+ * Form for entering a hand in PBN format (helper mode).
+ *
+ * Shown prominently when the player's own hand hasn't been entered yet,
+ * and as a compact form afterwards so they can enter other seats' hands.
+ * The seat picker defaults to the player's seat but can be changed.
+ */
+function HandEntryForm({
+  sessionSeat,
+  compact,
+}: {
+  /** The player's own seat (used as the default for the seat picker). */
+  sessionSeat: Seat;
+  /** If true, render a more compact version (for entering other seats). */
+  compact?: boolean;
+}) {
+  const ALL_SEATS: Seat[] = ["N", "E", "S", "W"];
+  const navigation = useNavigation();
+  const isSubmitting = navigation.state === "submitting";
+
+  // Default seat: the player's own seat when not compact,
+  // North (first non-self seat) when compact.
+  const defaultSeat = compact
+    ? ALL_SEATS.find((s) => s !== sessionSeat) ?? "N"
+    : sessionSeat;
+  const [seat, setSeat] = useState<Seat>(defaultSeat);
+
+  return (
+    <Card className={cn("w-full", !compact && "py-2")}>
+      <CardHeader className="px-3">
+        <CardTitle className={compact ? "text-sm" : undefined}>
+          {compact ? "Enter Another Hand" : "Enter Your Hand"}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="px-3">
+        <Form method="post" className="flex flex-col gap-3">
+          <input type="hidden" name="intent" value="set_hand" />
+          <input type="hidden" name="seat" value={seat} />
+
+          {/* Seat picker: which seat is this hand for? */}
+          <div>
+            <p className="mb-1 text-xs font-medium text-muted-foreground">Seat</p>
+            <div className="flex gap-1">
+              {ALL_SEATS.map((s) => (
+                <Button
+                  key={s}
+                  type="button"
+                  variant={seat === s ? "default" : "outline"}
+                  size="sm"
+                  className={cn(
+                    "min-w-10",
+                    seat !== s && "text-muted-foreground",
+                  )}
+                  onClick={() => setSeat(s)}
+                >
+                  {SEAT_LABELS[s]}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          {/* PBN text input */}
+          <div>
+            <Input
+              name="hand_pbn"
+              placeholder="AKJ52.KQ3.84.A73"
+              className="font-mono"
+              required
+              autoFocus={!compact}
+            />
+            <p className="text-muted-foreground mt-1 text-xs">
+              Format: Spades.Hearts.Diamonds.Clubs
+            </p>
+          </div>
+
+          <Button type="submit" size="sm" className="w-fit" disabled={isSubmitting}>
+            {isSubmitting ? "Saving..." : "Submit Hand"}
+          </Button>
+        </Form>
+      </CardContent>
+    </Card>
+  );
+}
 
 /**
  * Running auction history showing every bid with explanations.
@@ -325,6 +451,9 @@ function AuctionHistory({
 /**
  * Shown when the auction is complete: displays the final contract
  * and all 4 hands arranged in a compass layout.
+ *
+ * In helper mode, some seats may not have hands entered -- those
+ * positions are left empty in the compass layout.
  */
 function AuctionComplete({ state }: { state: PracticeState }) {
   const { auction, all_hands } = state;
@@ -336,26 +465,35 @@ function AuctionComplete({ state }: { state: PracticeState }) {
        *            North
        *   West   [Contract]   East
        *            South
+       * Seats without hands (helper mode) render as empty placeholders.
        */}
       {all_hands && (
         <div className="grid grid-cols-3 gap-2">
           {/* Top row: North in the center */}
           <div />
-          <HandDisplay hand={all_hands.N} title={`North (${countHcp(all_hands.N)})`} isPlayer={state.your_seat === "N"} />
+          {all_hands.N ? (
+            <HandDisplay hand={all_hands.N} title={`North (${countHcp(all_hands.N)})`} isPlayer={state.your_seat === "N"} />
+          ) : <div />}
           <div />
 
           {/* Middle row: West, Contract, East */}
-          <HandDisplay hand={all_hands.W} title={`West (${countHcp(all_hands.W)})`} isPlayer={state.your_seat === "W"} />
+          {all_hands.W ? (
+            <HandDisplay hand={all_hands.W} title={`West (${countHcp(all_hands.W)})`} isPlayer={state.your_seat === "W"} />
+          ) : <div />}
           {auction.contract ? (
             <ContractDisplay contract={auction.contract} />
           ) : (
             <div />
           )}
-          <HandDisplay hand={all_hands.E} title={`East (${countHcp(all_hands.E)})`} isPlayer={state.your_seat === "E"} />
+          {all_hands.E ? (
+            <HandDisplay hand={all_hands.E} title={`East (${countHcp(all_hands.E)})`} isPlayer={state.your_seat === "E"} />
+          ) : <div />}
 
           {/* Bottom row: South in the center */}
           <div />
-          <HandDisplay hand={all_hands.S} title={`South (${countHcp(all_hands.S)})`} isPlayer={state.your_seat === "S"} />
+          {all_hands.S ? (
+            <HandDisplay hand={all_hands.S} title={`South (${countHcp(all_hands.S)})`} isPlayer={state.your_seat === "S"} />
+          ) : <div />}
           <div />
         </div>
       )}
@@ -494,7 +632,7 @@ function JoinPanel({ info }: { info: SessionInfo }) {
 }
 
 /**
- * Session header bar shown during multiplayer sessions.
+ * Session header bar shown during multiplayer and helper mode sessions.
  * Displays the join code (with a copy button), player names at each
  * seat, and a leave button.
  */

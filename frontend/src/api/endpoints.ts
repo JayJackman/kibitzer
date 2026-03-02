@@ -61,13 +61,25 @@ export async function getMe(): Promise<User> {
 /**
  * Create a new practice session.
  * Returns the session ID and join code; redirect to /practice/{id} to fetch full state.
+ *
+ * In helper mode, `dealer` and `vulnerability` specify the physical table's
+ * dealer and vulnerability instead of using random/auto-assigned values.
  */
 export async function createPracticeSession(
   seat: Seat,
   mode?: SessionMode,
+  dealer?: Seat,
+  vulnerability?: string,
 ): Promise<{ id: string; join_code: string }> {
-  const body: { seat: Seat; mode?: SessionMode } = { seat };
+  const body: {
+    seat: Seat;
+    mode?: SessionMode;
+    dealer?: Seat;
+    vulnerability?: string;
+  } = { seat };
   if (mode) body.mode = mode;
+  if (dealer) body.dealer = dealer;
+  if (vulnerability) body.vulnerability = vulnerability;
   const response = await api.post<{ id: string; join_code: string }>(
     "/practice",
     body,
@@ -89,14 +101,20 @@ export async function getPracticeState(
  * Place a bid in the practice session.
  * Returns feedback on whether the bid matched the engine's recommendation.
  * After this call, computer seats bid automatically -- refetch state to see updates.
+ *
+ * In helper mode, `forSeat` enables proxy bidding: a seated player can bid
+ * on behalf of an unoccupied seat.
  */
 export async function placeBid(
   sessionId: string,
   bid: string,
+  forSeat?: Seat,
 ): Promise<BidFeedback> {
+  const body: { bid: string; for_seat?: Seat } = { bid };
+  if (forSeat) body.for_seat = forSeat;
   const response = await api.post<BidFeedback>(
     `/practice/${sessionId}/bid`,
-    { bid },
+    body,
   );
   return response.data;
 }
@@ -119,6 +137,23 @@ export async function redeal(
 ): Promise<{ ok: boolean }> {
   const response = await api.post<{ ok: boolean }>(
     `/practice/${sessionId}/redeal`,
+  );
+  return response.data;
+}
+
+/**
+ * Set the hand for a seat (helper mode only).
+ * Accepts PBN format: "AKJ52.KQ3.84.A73" (Spades.Hearts.Diamonds.Clubs).
+ * Any seated player can set any seat's hand.
+ */
+export async function setHand(
+  sessionId: string,
+  seat: Seat,
+  handPbn: string,
+): Promise<{ ok: boolean }> {
+  const response = await api.post<{ ok: boolean }>(
+    `/practice/${sessionId}/hand`,
+    { hand_pbn: handPbn, seat },
   );
   return response.data;
 }

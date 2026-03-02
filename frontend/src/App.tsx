@@ -132,12 +132,17 @@ async function logoutAction() {
  * Action: creates a new practice session and redirects to it.
  * The Lobby page's "Start Practice" form posts here with a seat choice
  * and an optional mode (defaults to "practice").
+ *
+ * Helper mode also sends dealer and vulnerability from the lobby form.
  */
 async function createPracticeAction({ request }: ActionFunctionArgs) {
   const formData = await request.formData();
   const seat = ((formData.get("seat") as string) || "S") as Seat;
   const mode = (formData.get("mode") as string as SessionMode) || undefined;
-  const { id } = await api.createPracticeSession(seat, mode);
+  // Helper mode sends dealer and vulnerability from the lobby form.
+  const dealer = (formData.get("dealer") as string as Seat) || undefined;
+  const vulnerability = (formData.get("vulnerability") as string) || undefined;
+  const { id } = await api.createPracticeSession(seat, mode, dealer, vulnerability);
   return redirect(`/practice/${id}`);
 }
 
@@ -165,7 +170,9 @@ async function practiceLoader({ params }: LoaderFunctionArgs) {
 /**
  * Action: handles form submissions on the practice page.
  * Reads the hidden "intent" field to distinguish between:
- *   - "bid": places a bid, returns feedback (matched engine or not)
+ *   - "bid": places a bid, returns feedback (matched engine or not).
+ *            In helper mode, may include for_seat for proxy bidding.
+ *   - "set_hand": set a seat's hand via PBN (helper mode only)
  *   - "redeal": deals new hands, redirects to trigger a loader revalidation
  *   - "join": join the session at a specific seat, then revalidate
  *   - "leave": leave the session, redirect to the lobby
@@ -175,7 +182,23 @@ async function practiceAction({ request, params }: ActionFunctionArgs) {
   const intent = formData.get("intent");
 
   if (intent === "bid") {
-    return await api.placeBid(params.id!, formData.get("bid") as string);
+    // for_seat is set when proxy-bidding for an unoccupied seat in helper mode.
+    const forSeat = (formData.get("for_seat") as string as Seat) || undefined;
+    return await api.placeBid(
+      params.id!,
+      formData.get("bid") as string,
+      forSeat,
+    );
+  }
+
+  if (intent === "set_hand") {
+    await api.setHand(
+      params.id!,
+      formData.get("seat") as Seat,
+      formData.get("hand_pbn") as string,
+    );
+    // Redirect to trigger a fresh loader run so the hand appears in state.
+    return redirect(`/practice/${params.id}`);
   }
 
   if (intent === "redeal") {

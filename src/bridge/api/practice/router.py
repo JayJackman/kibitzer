@@ -1,12 +1,13 @@
 """Practice session API endpoints.
 
-Nine endpoints for the practice workflow:
+Ten endpoints for the practice workflow:
 - POST   /api/practice              Create a new session
 - GET    /api/practice/join/{code}  Look up session by join code
 - GET    /api/practice/{id}         Get current session state
 - POST   /api/practice/{id}/bid     Place a bid
 - GET    /api/practice/{id}/advise  Get engine advice
-- POST   /api/practice/{id}/redeal  Deal new hands
+- POST   /api/practice/{id}/redeal  Deal new hands / reset (helper mode)
+- POST   /api/practice/{id}/hand    Set hand for a seat (helper mode only)
 - GET    /api/practice/{id}/info    Lightweight session info (for join UI)
 - POST   /api/practice/{id}/join    Join a session at a specific seat
 - POST   /api/practice/{id}/leave   Leave a session
@@ -18,7 +19,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from bridge.api.auth.models import User
 from bridge.api.deps import get_current_user
-from bridge.model.auction import IllegalBidError
+from bridge.model.auction import IllegalBidError, Vulnerability
+from bridge.model.hand import Hand
 
 from .schemas import (
     AdviceResponse,
@@ -28,13 +30,18 @@ from .schemas import (
     JoinSessionRequest,
     PlaceBidRequest,
     PracticeStateResponse,
+    RedealRequest,
     SessionInfoResponse,
+    SetHandRequest,
     serialize_practice_state,
     serialize_session_info,
 )
 from .session import (
     AlreadySeatedError,
     AuctionCompleteError,
+    DuplicateCardError,
+    HandNotSetError,
+    HelperModeOnlyError,
     NotYourTurnError,
     PlayerNotFoundError,
     PracticeSession,
@@ -75,10 +82,19 @@ def create(
 ) -> CreatePracticeResponse:
     """Create a new practice session.
 
-    Deals hands, runs computer bids until it's the human's turn,
-    and returns the session ID and join code.
+    Practice mode: deals hands and runs computer bids until the human's turn.
+    Helper mode: starts with empty hands; dealer and vulnerability can be
+    specified in the request body.
     """
-    session = create_session(user.id, body.seat, mode=body.mode, username=user.username)
+    vuln = Vulnerability.from_str(body.vulnerability) if body.vulnerability else None
+    session = create_session(
+        user.id,
+        body.seat,
+        mode=body.mode,
+        username=user.username,
+        dealer=body.dealer,
+        vulnerability=vuln,
+    )
     return CreatePracticeResponse(id=session.id, join_code=session.join_code)
 
 
@@ -137,11 +153,14 @@ def place_bid(
 ) -> BidFeedbackResponse:
     """Place a bid and get feedback (matched engine or not).
 
-    After the bid is placed, computer seats bid automatically.
-    The frontend re-runs the loader to get the updated state.
+    In helper mode, ``for_seat`` enables proxy bidding: a seated player
+    can bid on behalf of an unoccupied seat.
+
+    After the bid is placed, computer seats bid automatically (practice
+    mode only). The frontend re-runs the loader to get the updated state.
     """
     try:
-        result = session.place_bid(user.id, body.bid)
+        result = session.place_bid(user.id, body.bid, for_seat=body.for_seat)
     except PlayerNotFoundError:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
@@ -156,6 +175,11 @@ def place_bid(
         raise HTTPException(
             status.HTTP_409_CONFLICT,
             "The auction is already complete",
+        ) from None
+    except HelperModeOnlyError as e:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            str(e),
         ) from None
     except IllegalBidError as e:
         raise HTTPException(
@@ -177,6 +201,7 @@ def advise(
 
     Returns the recommended bid, alternatives considered, and
     the full thought process (condition traces for each rule).
+    In helper mode, the hand must be entered first via POST /{id}/hand.
     """
     try:
         advice = session.get_advice(user.id)
@@ -184,6 +209,11 @@ def advise(
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
             "You are not seated at this session",
+        ) from None
+    except HandNotSetError as e:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            str(e),
         ) from None
     return AdviceResponse.model_validate(advice)
 
@@ -193,12 +223,16 @@ def advise(
     status_code=200,
 )
 def redeal(
+    body: RedealRequest | None = None,
     session: PracticeSession = Depends(_resolve_session),
     user: User = Depends(get_current_user),
 ) -> dict[str, bool]:
-    """Deal new hands, rotate dealer, pick random vulnerability.
+    """Start a new hand.
 
-    The frontend revalidates the loader to get the new state.
+    Practice mode: deals new random hands, rotates dealer, picks random vulnerability.
+    Helper mode: clears all hands (re-enter via POST /{id}/hand),
+    resets auction. Optionally specify ``dealer`` and ``vulnerability``
+    in the request body (helper mode only; ignored in practice mode).
     """
     # Verify the user is seated (only seated players can redeal).
     try:
@@ -208,7 +242,53 @@ def redeal(
             status.HTTP_403_FORBIDDEN,
             "You are not seated at this session",
         ) from None
-    session.redeal()
+    dealer = body.dealer if body else None
+    vuln_str = body.vulnerability if body else None
+    vuln = Vulnerability.from_str(vuln_str) if vuln_str else None
+    session.redeal(dealer=dealer, vulnerability=vuln)
+    return {"ok": True}
+
+
+@router.post(
+    "/{session_id}/hand",
+    status_code=200,
+)
+def set_hand(
+    body: SetHandRequest,
+    session: PracticeSession = Depends(_resolve_session),
+    user: User = Depends(get_current_user),
+) -> dict[str, bool]:
+    """Set the hand for a seat (helper mode only).
+
+    Accepts a hand in PBN format (e.g. 'AKJ52.KQ3.84.A73' for
+    S.H.D.C). Any seated player can set any seat's hand.
+    Validates 13 cards, no internal duplicates, and no cards
+    duplicated across seats.
+    """
+    try:
+        hand = Hand.from_pbn(body.hand_pbn)
+    except ValueError as e:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            f"Invalid PBN hand: {e}",
+        ) from None
+    try:
+        session.set_hand(user.id, body.seat, hand)
+    except PlayerNotFoundError:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "You are not seated at this session",
+        ) from None
+    except HelperModeOnlyError as e:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            str(e),
+        ) from None
+    except DuplicateCardError as e:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            str(e),
+        ) from None
     return {"ok": True}
 
 

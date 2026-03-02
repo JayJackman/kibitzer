@@ -55,10 +55,20 @@ SeatInput = Annotated[Seat, BeforeValidator(_str_to_seat)]
 
 
 class CreatePracticeRequest(BaseModel):
-    """POST /api/practice request body."""
+    """POST /api/practice request body.
+
+    In helper mode, ``dealer`` and ``vulnerability`` let the creator
+    specify the physical table's dealer and vulnerability instead of
+    using random/auto-assigned values.
+    """
 
     seat: SeatInput
     mode: SessionMode = SessionMode.PRACTICE
+    dealer: SeatInput | None = None
+    vulnerability: str | None = Field(
+        default=None,
+        description="Vulnerability: 'None', 'NS', 'EW', or 'Both'",
+    )
 
 
 class JoinSessionRequest(BaseModel):
@@ -68,11 +78,44 @@ class JoinSessionRequest(BaseModel):
 
 
 class PlaceBidRequest(BaseModel):
-    """POST /api/practice/{id}/bid request body."""
+    """POST /api/practice/{id}/bid request body.
+
+    ``for_seat`` enables proxy bidding in helper mode: a seated player
+    can place a bid on behalf of an unoccupied seat.
+    """
 
     bid: str = Field(
         description="Bid string: e.g. '1S', 'Pass', 'X', 'XX'",
         min_length=1,
+    )
+    for_seat: SeatInput | None = None
+
+
+class SetHandRequest(BaseModel):
+    """POST /api/practice/{id}/hand request body (helper mode only).
+
+    ``hand_pbn`` uses PBN format: 'AKJ52.KQ3.84.A73' (S.H.D.C order).
+    ``seat`` specifies which seat to set the hand for -- any seated
+    player can enter any seat's hand.
+    """
+
+    hand_pbn: str = Field(
+        description="Hand in PBN format: Spades.Hearts.Diamonds.Clubs",
+        min_length=7,
+    )
+    seat: SeatInput
+
+
+class RedealRequest(BaseModel):
+    """POST /api/practice/{id}/redeal request body.
+
+    Optional overrides for helper mode. In practice mode these are ignored.
+    """
+
+    dealer: SeatInput | None = None
+    vulnerability: str | None = Field(
+        default=None,
+        description="Vulnerability: 'None', 'NS', 'EW', or 'Both'",
     )
 
 
@@ -251,8 +294,8 @@ class PracticeStateResponse(BaseModel):
     mode: str
     join_code: str
     your_seat: str
-    hand: HandResponse
-    hand_evaluation: HandEvalResponse
+    hand: HandResponse | None = None
+    hand_evaluation: HandEvalResponse | None = None
     auction: AuctionResponse
     computer_bids: list[ComputerBidResponse]
     is_my_turn: bool
@@ -262,6 +305,8 @@ class PracticeStateResponse(BaseModel):
     hand_number: int
     players: dict[str, str | None]
     waiting_for: str | None = None
+    can_proxy_bid: bool = False
+    proxy_seat: str | None = None
 
 
 # ── Serialization helpers ─────────────────────────────────────────
@@ -347,8 +392,12 @@ def serialize_practice_state(
         mode=state.mode.value,
         join_code=state.join_code,
         your_seat=str(state.your_seat),
-        hand=serialize_hand(state.hand),
-        hand_evaluation=HandEvalResponse.model_validate(state.hand_evaluation),
+        hand=serialize_hand(state.hand) if state.hand is not None else None,
+        hand_evaluation=(
+            HandEvalResponse.model_validate(state.hand_evaluation)
+            if state.hand_evaluation is not None
+            else None
+        ),
         auction=auction_resp,
         computer_bids=[
             ComputerBidResponse.model_validate(cb) for cb in state.computer_bids
@@ -360,6 +409,8 @@ def serialize_practice_state(
         hand_number=state.hand_number,
         players={str(seat): name for seat, name in state.players.items()},
         waiting_for=str(state.waiting_for) if state.waiting_for else None,
+        can_proxy_bid=state.can_proxy_bid,
+        proxy_seat=str(state.proxy_seat) if state.proxy_seat else None,
     )
 
 

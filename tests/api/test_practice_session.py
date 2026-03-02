@@ -10,6 +10,10 @@ from bridge.api.practice.session import (
     AlreadySeatedError,
     AuctionCompleteError,
     BidResult,
+    DuplicateCardError,
+    HandNotSetError,
+    HelperModeOnlyError,
+    NotYourTurnError,
     PlayerNotFoundError,
     PracticeSession,
     PracticeState,
@@ -23,9 +27,16 @@ from bridge.api.practice.state import (
     get_session,
     get_session_by_code,
 )
-from bridge.model.auction import AuctionState, Seat
+from bridge.model.auction import (
+    NO_VULNERABILITY,
+    NS_VULNERABLE,
+    AuctionState,
+    Seat,
+    Vulnerability,
+)
 from bridge.model.bid import PASS, SuitBid
 from bridge.model.card import Suit
+from bridge.model.hand import Hand
 from bridge.service.advisor import BiddingAdvisor
 
 
@@ -533,3 +544,320 @@ def _bid_to_str(bid: object) -> str:
     if hasattr(bid, "level") and hasattr(bid, "suit"):
         return f"{bid.level}{bid.suit.letter}"  # type: ignore[union-attr]
     return str(bid)
+
+
+# ── Helper mode fixtures ────────────────────────────────────
+
+# Four non-overlapping 13-card hands in PBN format for testing.
+# Generated from deal(rng=Random(42)): 52 unique cards, no overlaps.
+_HAND_W_PBN = "T9873.643.KT3.T3"
+_HAND_N_PBN = "KJ5.AKQT85.A9.92"
+_HAND_E_PBN = "Q62.7.Q7542.K765"
+_HAND_S_PBN = "A4.J92.J86.AQJ84"
+
+_HAND_N = Hand.from_pbn(_HAND_N_PBN)
+_HAND_E = Hand.from_pbn(_HAND_E_PBN)
+_HAND_S = Hand.from_pbn(_HAND_S_PBN)
+_HAND_W = Hand.from_pbn(_HAND_W_PBN)
+
+
+@pytest.fixture()
+def helper_session(advisor: BiddingAdvisor) -> PracticeSession:
+    """A helper-mode session with South seated."""
+    return PracticeSession(
+        user_id=1,
+        seat=Seat.SOUTH,
+        advisor=advisor,
+        mode=SessionMode.HELPER,
+        dealer=Seat.NORTH,
+        vulnerability=NS_VULNERABLE,
+    )
+
+
+# ── Helper mode construction ────────────────────────────────
+
+
+class TestHelperConstruction:
+    def test_mode_is_helper(self, helper_session: PracticeSession) -> None:
+        assert helper_session.mode == SessionMode.HELPER
+
+    def test_no_hands_dealt(self, helper_session: PracticeSession) -> None:
+        for seat in Seat:
+            assert helper_session.hands[seat] is None
+
+    def test_dealer_from_param(self, helper_session: PracticeSession) -> None:
+        assert helper_session.auction.dealer == Seat.NORTH
+
+    def test_vulnerability_from_param(self, helper_session: PracticeSession) -> None:
+        assert helper_session.auction.vulnerability == NS_VULNERABLE
+
+    def test_no_computer_bids(self, helper_session: PracticeSession) -> None:
+        assert len(helper_session.auction.bids) == 0
+
+    def test_state_hand_is_none(self, helper_session: PracticeSession) -> None:
+        state = helper_session.get_state(1)
+        assert state.hand is None
+        assert state.hand_evaluation is None
+
+    def test_default_dealer_vuln(self, advisor: BiddingAdvisor) -> None:
+        """Without explicit dealer/vuln, helper defaults to seat and None."""
+        session = PracticeSession(
+            user_id=1,
+            seat=Seat.EAST,
+            advisor=advisor,
+            mode=SessionMode.HELPER,
+        )
+        assert session.auction.dealer == Seat.EAST
+        assert session.auction.vulnerability == NO_VULNERABILITY
+
+
+# ── set_hand ─────────────────────────────────────────────────
+
+
+class TestSetHand:
+    def test_set_hand_stores_hand(self, helper_session: PracticeSession) -> None:
+        helper_session.set_hand(1, Seat.SOUTH, _HAND_S)
+        assert helper_session.hands[Seat.SOUTH] == _HAND_S
+
+    def test_set_hand_computes_eval(self, helper_session: PracticeSession) -> None:
+        helper_session.set_hand(1, Seat.SOUTH, _HAND_S)
+        state = helper_session.get_state(1)
+        assert state.hand_evaluation is not None
+        assert state.hand_evaluation.hcp >= 0
+
+    def test_set_any_seat(self, helper_session: PracticeSession) -> None:
+        """Any seated player can set any seat's hand."""
+        helper_session.set_hand(1, Seat.NORTH, _HAND_N)
+        assert helper_session.hands[Seat.NORTH] == _HAND_N
+
+    def test_cross_hand_duplicates_rejected(
+        self, helper_session: PracticeSession
+    ) -> None:
+        helper_session.set_hand(1, Seat.NORTH, _HAND_N)
+        with pytest.raises(DuplicateCardError):
+            # Try to set South with the same cards as North.
+            helper_session.set_hand(1, Seat.SOUTH, _HAND_N)
+
+    def test_replacing_own_hand_ok(self, helper_session: PracticeSession) -> None:
+        """Replacing a seat's hand with new cards should work."""
+        helper_session.set_hand(1, Seat.SOUTH, _HAND_S)
+        # Replace with a different hand.
+        helper_session.set_hand(1, Seat.SOUTH, _HAND_E)
+        assert helper_session.hands[Seat.SOUTH] == _HAND_E
+
+    def test_practice_mode_rejects(self, session: PracticeSession) -> None:
+        with pytest.raises(HelperModeOnlyError):
+            session.set_hand(1, Seat.SOUTH, _HAND_S)
+
+    def test_not_seated_raises(self, helper_session: PracticeSession) -> None:
+        with pytest.raises(PlayerNotFoundError):
+            helper_session.set_hand(999, Seat.NORTH, _HAND_N)
+
+
+# ── Proxy bidding ────────────────────────────────────────────
+
+
+class TestProxyBidding:
+    def _setup_helper_with_hands(self, advisor: BiddingAdvisor) -> PracticeSession:
+        """Create a helper session with all 4 hands entered, dealer=North."""
+        session = PracticeSession(
+            user_id=1,
+            seat=Seat.SOUTH,
+            advisor=advisor,
+            mode=SessionMode.HELPER,
+            dealer=Seat.NORTH,
+        )
+        session.set_hand(1, Seat.NORTH, _HAND_N)
+        session.set_hand(1, Seat.EAST, _HAND_E)
+        session.set_hand(1, Seat.SOUTH, _HAND_S)
+        session.set_hand(1, Seat.WEST, _HAND_W)
+        return session
+
+    def test_proxy_bid_for_unoccupied_seat(self, advisor: BiddingAdvisor) -> None:
+        session = self._setup_helper_with_hands(advisor)
+        # Dealer is North (unoccupied), South is seated.
+        assert session.auction.current_seat == Seat.NORTH
+        result = session.place_bid(1, "Pass", for_seat=Seat.NORTH)
+        assert isinstance(result, BidResult)
+        # Bid was placed -- auction should have advanced.
+        assert len(session.auction.bids) >= 1
+
+    def test_proxy_bid_wrong_seat_raises(self, advisor: BiddingAdvisor) -> None:
+        session = self._setup_helper_with_hands(advisor)
+        # Dealer is North, trying to proxy bid for East (not current seat).
+        with pytest.raises(NotYourTurnError):
+            session.place_bid(1, "Pass", for_seat=Seat.EAST)
+
+    def test_proxy_bid_for_occupied_seat_raises(self, advisor: BiddingAdvisor) -> None:
+        session = self._setup_helper_with_hands(advisor)
+        # Advance to South's turn (South is occupied).
+        session.place_bid(1, "Pass", for_seat=Seat.NORTH)  # N passes
+        session.place_bid(1, "Pass", for_seat=Seat.EAST)  # E passes
+        assert session.auction.current_seat == Seat.SOUTH
+        with pytest.raises(NotYourTurnError):
+            session.place_bid(1, "Pass", for_seat=Seat.SOUTH)
+
+    def test_proxy_not_allowed_in_practice(self, session: PracticeSession) -> None:
+        with pytest.raises(HelperModeOnlyError):
+            session.place_bid(1, "Pass", for_seat=Seat.NORTH)
+
+    def test_can_proxy_bid_state_field(self, advisor: BiddingAdvisor) -> None:
+        session = self._setup_helper_with_hands(advisor)
+        state = session.get_state(1)
+        # Dealer is North (unoccupied), so South can proxy bid.
+        assert state.can_proxy_bid is True
+        assert state.proxy_seat == Seat.NORTH
+
+    def test_no_proxy_when_own_turn(self, advisor: BiddingAdvisor) -> None:
+        session = self._setup_helper_with_hands(advisor)
+        # Advance to South's turn.
+        session.place_bid(1, "Pass", for_seat=Seat.NORTH)
+        session.place_bid(1, "Pass", for_seat=Seat.EAST)
+        state = session.get_state(1)
+        assert state.is_my_turn is True
+        assert state.can_proxy_bid is False
+
+    def test_legal_bids_provided_for_proxy(self, advisor: BiddingAdvisor) -> None:
+        session = self._setup_helper_with_hands(advisor)
+        state = session.get_state(1)
+        # Even though it's not our turn, legal bids are provided for proxy.
+        assert state.can_proxy_bid is True
+        assert len(state.legal_bids) > 0
+        assert "Pass" in state.legal_bids
+
+    def test_proxy_bid_without_hand_still_works(
+        self, helper_session: PracticeSession
+    ) -> None:
+        """Proxy bidding works even if hands aren't entered (no engine comparison)."""
+        # Dealer is North (no hand set).
+        result = helper_session.place_bid(1, "Pass", for_seat=Seat.NORTH)
+        assert isinstance(result, BidResult)
+        # No engine comparison possible.
+        assert result.engine_bid == ""
+
+
+# ── get_advice with None hand ───────────────────────────────
+
+
+class TestHelperAdvice:
+    def test_advice_raises_when_hand_not_set(
+        self, helper_session: PracticeSession
+    ) -> None:
+        with pytest.raises(HandNotSetError):
+            helper_session.get_advice(1)
+
+    def test_advice_works_after_set_hand(self, helper_session: PracticeSession) -> None:
+        helper_session.set_hand(1, Seat.SOUTH, _HAND_S)
+        advice = helper_session.get_advice(1)
+        assert advice.recommended.bid is not None
+
+
+# ── Helper mode redeal ──────────────────────────────────────
+
+
+class TestHelperRedeal:
+    def test_redeal_clears_hands(self, helper_session: PracticeSession) -> None:
+        helper_session.set_hand(1, Seat.SOUTH, _HAND_S)
+        helper_session.redeal()
+        for seat in Seat:
+            assert helper_session.hands[seat] is None
+
+    def test_redeal_rotates_dealer(self, helper_session: PracticeSession) -> None:
+        # Dealer starts as North.
+        helper_session.redeal()
+        assert helper_session.auction.dealer == Seat.EAST
+
+    def test_redeal_keeps_vulnerability(self, helper_session: PracticeSession) -> None:
+        # Started with NS vulnerable.
+        helper_session.redeal()
+        assert helper_session.auction.vulnerability == NS_VULNERABLE
+
+    def test_redeal_with_override(self, helper_session: PracticeSession) -> None:
+        helper_session.redeal(
+            dealer=Seat.WEST,
+            vulnerability=Vulnerability(ns_vulnerable=False, ew_vulnerable=True),
+        )
+        assert helper_session.auction.dealer == Seat.WEST
+        assert helper_session.auction.vulnerability.ew_vulnerable is True
+
+    def test_redeal_increments_hand_number(
+        self, helper_session: PracticeSession
+    ) -> None:
+        helper_session.redeal()
+        assert helper_session.hand_number == 2
+
+    def test_redeal_clears_auction(self, helper_session: PracticeSession) -> None:
+        helper_session.place_bid(1, "Pass", for_seat=Seat.NORTH)
+        helper_session.redeal()
+        assert len(helper_session.auction.bids) == 0
+
+    def test_no_computer_bids_after_redeal(
+        self, helper_session: PracticeSession
+    ) -> None:
+        helper_session.redeal()
+        assert len(helper_session.auction.bids) == 0
+
+
+# ── Helper full lifecycle ───────────────────────────────────
+
+
+class TestHelperLifecycle:
+    def test_full_helper_flow(self, advisor: BiddingAdvisor) -> None:
+        """Create session, set hands, bid through auction, redeal."""
+        session = PracticeSession(
+            user_id=1,
+            seat=Seat.SOUTH,
+            advisor=advisor,
+            mode=SessionMode.HELPER,
+            dealer=Seat.NORTH,
+        )
+
+        # Enter all four hands.
+        session.set_hand(1, Seat.NORTH, _HAND_N)
+        session.set_hand(1, Seat.EAST, _HAND_E)
+        session.set_hand(1, Seat.SOUTH, _HAND_S)
+        session.set_hand(1, Seat.WEST, _HAND_W)
+
+        # Bid all passes (proxy for N, E, W; direct for S).
+        turns = 0
+        while not session.auction.is_complete:
+            current = session.auction.current_seat
+            if current == Seat.SOUTH:
+                session.place_bid(1, "Pass")
+            else:
+                session.place_bid(1, "Pass", for_seat=current)
+            turns += 1
+            if turns > 20:
+                pytest.fail("Auction did not complete")
+
+        state = session.get_state(1)
+        assert state.auction.is_complete
+
+        # Redeal and verify clean state.
+        session.redeal()
+        state2 = session.get_state(1)
+        assert state2.hand_number == 2
+        assert state2.hand is None
+        assert not state2.auction.is_complete
+
+
+# ── Store with helper mode ──────────────────────────────────
+
+
+class TestStoreHelperMode:
+    def setup_method(self) -> None:
+        clear_all()
+
+    def test_create_helper_session(self) -> None:
+        session = create_session(
+            user_id=1,
+            seat=Seat.SOUTH,
+            mode=SessionMode.HELPER,
+            dealer=Seat.NORTH,
+            vulnerability=NS_VULNERABLE,
+        )
+        assert session.mode == SessionMode.HELPER
+        assert session.auction.dealer == Seat.NORTH
+        assert session.auction.vulnerability == NS_VULNERABLE
+        found = get_session(session.id)
+        assert found is session

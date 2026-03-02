@@ -1,7 +1,12 @@
 """PracticeSession -- core state machine for bidding practice.
 
-Supports solo practice (1 human + 3 computers) and multiplayer practice
-(1-4 humans, computers fill remaining seats).
+Supports three modes:
+- Solo practice: 1 human + 3 computers, random deals, engine feedback.
+- Multiplayer practice: 1-4 humans + computers, random deals, engine feedback.
+- Helper mode: companion for physical bridge. Players enter real hands,
+  enter bids as they happen at the table, and get engine advice on demand.
+  No random dealing, no computer auto-bidding. Any seated player can
+  proxy-bid for unoccupied seats.
 """
 
 from __future__ import annotations
@@ -20,9 +25,10 @@ from bridge.model.auction import (
     AuctionState,
     Contract,
     Seat,
+    Vulnerability,
 )
 from bridge.model.bid import Bid, SuitBid, parse_bid
-from bridge.model.card import Suit
+from bridge.model.card import Card, Suit
 from bridge.model.hand import Hand
 from bridge.service.advisor import BiddingAdvisor
 from bridge.service.deal import deal
@@ -65,8 +71,8 @@ class PracticeState:
     mode: SessionMode
     join_code: str
     your_seat: Seat
-    hand: Hand
-    hand_evaluation: HandEvaluation
+    hand: Hand | None
+    hand_evaluation: HandEvaluation | None
     auction: AuctionState
     computer_bids: list[ComputerBidRecord]
     bid_explanations: dict[int, str]
@@ -78,6 +84,8 @@ class PracticeState:
     hand_number: int
     players: dict[Seat, str | None]
     waiting_for: Seat | None
+    can_proxy_bid: bool
+    proxy_seat: Seat | None
 
 
 _ALL_VULNERABILITIES = [
@@ -106,6 +114,18 @@ class SeatOccupiedError(Exception):
 
 class AlreadySeatedError(Exception):
     """Raised when a user who is already seated tries to join another seat."""
+
+
+class HelperModeOnlyError(Exception):
+    """Raised when an operation is only allowed in helper mode."""
+
+
+class HandNotSetError(Exception):
+    """Raised when an operation requires a hand that hasn't been entered yet."""
+
+
+class DuplicateCardError(Exception):
+    """Raised when a hand contains cards that already appear in another seat's hand."""
 
 
 def compute_legal_bids(auction: AuctionState) -> list[str]:
@@ -148,6 +168,8 @@ class PracticeSession:
         mode: SessionMode = SessionMode.PRACTICE,
         username: str = "",
         rng: random.Random | None = None,
+        dealer: Seat | None = None,
+        vulnerability: Vulnerability | None = None,
     ) -> None:
         self.id: str = uuid.uuid4().hex[:12]
         self.host_user_id: int = user_id
@@ -166,10 +188,25 @@ class PracticeSession:
             self._usernames[user_id] = username
 
         self.hand_number: int = 1
-        self.hands: dict[Seat, Hand] = deal(rng=self._rng)
-        self.auction: AuctionState = AuctionState(
-            dealer=seat, vulnerability=random.choice(_ALL_VULNERABILITIES)
-        )
+
+        if mode == SessionMode.HELPER:
+            # Helper mode: no random deal -- hands entered manually via set_hand().
+            self.hands: dict[Seat, Hand | None] = {s: None for s in Seat}
+            self.auction: AuctionState = AuctionState(
+                dealer=dealer if dealer is not None else seat,
+                vulnerability=(
+                    vulnerability if vulnerability is not None else NO_VULNERABILITY
+                ),
+            )
+        else:
+            # Practice mode: random deal, auto-assign dealer/vulnerability.
+            # Explicit annotation widens dict[Seat, Hand] to dict[Seat, Hand | None]
+            # (dict is invariant, so assignment alone would fail the type check).
+            self.hands = dict[Seat, Hand | None](deal(rng=self._rng))
+            self.auction = AuctionState(
+                dealer=seat,
+                vulnerability=random.choice(_ALL_VULNERABILITIES),
+            )
 
         # Cache hand evaluations per seat (computed once per deal, since
         # eval depends only on the hand, not the auction state).
@@ -185,6 +222,7 @@ class PracticeSession:
         self._bid_matched: dict[int, bool] = {}
 
         # Run any computer bids before the human's first turn.
+        # Helper mode skips this entirely (no computer auto-bidding).
         self._last_computer_bids: list[ComputerBidRecord] = self._run_computer_bids()
         self._last_feedback: BidResult | None = None
 
@@ -219,6 +257,31 @@ class PracticeSession:
         self.players[seat] = None
         self._usernames.pop(user_id, None)
 
+    def set_hand(self, user_id: int, seat: Seat, hand: Hand) -> None:
+        """Set the hand for a seat (helper mode only).
+
+        Any seated player can set any seat's hand (e.g., one player enters
+        all four hands from the physical deal). Validates that no card in
+        the new hand duplicates a card already in another seat's hand.
+        """
+        if self.mode != SessionMode.HELPER:
+            raise HelperModeOnlyError("set_hand is only allowed in helper mode")
+        self.seat_for(user_id)  # Raises PlayerNotFoundError if not seated.
+
+        # Cross-hand duplicate check: collect all cards from other seats.
+        existing_cards: set[Card] = set()
+        for s in Seat:
+            other = self.hands[s]
+            if s != seat and other is not None:
+                existing_cards |= other.cards
+        overlap = hand.cards & existing_cards
+        if overlap:
+            names = ", ".join(str(c) for c in sorted(overlap))
+            raise DuplicateCardError(f"Cards already in another hand: {names}")
+
+        self.hands[seat] = hand
+        self._hand_evals[seat] = self._compute_eval(hand)
+
     def _player_names(self) -> dict[Seat, str | None]:
         """Map each seat to its player's username (None = computer)."""
         return {
@@ -243,7 +306,27 @@ class PracticeSession:
         legal_bids = compute_legal_bids(self.auction) if is_my_turn else []
 
         # Reveal all hands only when the auction is complete.
-        all_hands = dict(self.hands) if self.auction.is_complete else None
+        # In helper mode, only include seats that have a hand set.
+        all_hands: dict[Seat, Hand] | None = None
+        if self.auction.is_complete:
+            all_hands = {s: h for s, h in self.hands.items() if h is not None}
+
+        # Helper mode: proxy bidding lets any seated player bid for
+        # unoccupied seats. Compute whether the current seat is unoccupied
+        # and the caller is seated (already verified above via seat_for).
+        can_proxy = False
+        proxy_seat: Seat | None = None
+        if (
+            self.mode == SessionMode.HELPER
+            and not self.auction.is_complete
+            and not is_my_turn
+        ):
+            current = self.auction.current_seat
+            if self.players[current] is None:
+                can_proxy = True
+                proxy_seat = current
+                # In proxy mode, also provide legal bids for the proxy seat.
+                legal_bids = compute_legal_bids(self.auction)
 
         return PracticeState(
             id=self.id,
@@ -251,7 +334,7 @@ class PracticeSession:
             join_code=self.join_code,
             your_seat=seat,
             hand=self.hands[seat],
-            hand_evaluation=self._hand_evals[seat],
+            hand_evaluation=self._hand_evals.get(seat),
             auction=self.auction,
             computer_bids=list(self._last_computer_bids),
             bid_explanations=dict(self._bid_explanations),
@@ -263,40 +346,76 @@ class PracticeSession:
             hand_number=self.hand_number,
             players=self._player_names(),
             waiting_for=self._waiting_for(),
+            can_proxy_bid=can_proxy,
+            proxy_seat=proxy_seat,
         )
 
-    def place_bid(self, user_id: int, bid_str: str) -> BidResult:
-        """Validate and add the human's bid, then run computer bids."""
-        seat = self.seat_for(user_id)
+    def place_bid(
+        self, user_id: int, bid_str: str, *, for_seat: Seat | None = None
+    ) -> BidResult:
+        """Validate and add a bid, then run computer bids.
+
+        In practice mode, the caller bids for their own seat.
+        In helper mode, ``for_seat`` allows any seated player to bid on
+        behalf of an unoccupied seat (proxy bidding).
+        """
+        caller_seat = self.seat_for(user_id)
 
         if self.auction.is_complete:
             raise AuctionCompleteError("The auction is already complete")
-        if self.auction.current_seat != seat:
+
+        # Determine which seat is actually bidding.
+        if for_seat is not None:
+            if self.mode != SessionMode.HELPER:
+                raise HelperModeOnlyError(
+                    "Proxy bidding (for_seat) is only allowed in helper mode"
+                )
+            if self.players[for_seat] is not None:
+                raise NotYourTurnError(
+                    f"Seat {for_seat} is occupied -- they must bid themselves"
+                )
+            bidding_seat = for_seat
+        else:
+            bidding_seat = caller_seat
+
+        if self.auction.current_seat != bidding_seat:
             raise NotYourTurnError("It is not your turn to bid")
 
         bid = parse_bid(bid_str)
 
-        # Get the engine's advice *before* adding the human's bid.
-        advice = self.advisor.advise(self.hands[seat], self.auction)
-        engine_bid = advice.recommended.bid
+        # Get the engine's advice *before* adding the bid (if the hand
+        # is available for comparison).
+        hand = self.hands[bidding_seat]
+        if hand is not None:
+            advice = self.advisor.advise(hand, self.auction)
+            engine_bid = advice.recommended.bid
+            engine_explanation = advice.recommended.explanation
+            matched = bid == engine_bid
+        else:
+            # Hand not set (helper mode) -- can't compare to engine.
+            engine_bid = None
+            engine_explanation = ""
+            matched = False
 
         # Record the engine's explanation and match status for this bid
         # position before adding it (so len(bids) gives us the correct index).
         bid_index = len(self.auction.bids)
-        self._bid_explanations[bid_index] = advice.recommended.explanation
-        self._bid_matched[bid_index] = bid == engine_bid
+        if engine_explanation:
+            self._bid_explanations[bid_index] = engine_explanation
+        if hand is not None:
+            self._bid_matched[bid_index] = matched
 
         # This raises IllegalBidError if the bid is not legal.
         self.auction.add_bid(bid)
 
-        # Run computer bids after the human's bid.
+        # Run computer bids after the bid (no-op in helper mode).
         computer_bids = self._run_computer_bids()
         self._last_computer_bids = computer_bids
 
         result = BidResult(
-            matched_engine=(bid == engine_bid),
-            engine_bid=str(engine_bid),
-            engine_explanation=advice.recommended.explanation,
+            matched_engine=matched,
+            engine_bid=str(engine_bid) if engine_bid is not None else "",
+            engine_explanation=engine_explanation,
             computer_bids=computer_bids,
             auction_complete=self.auction.is_complete,
             contract=self.auction.contract,
@@ -307,18 +426,45 @@ class PracticeSession:
     def get_advice(self, user_id: int) -> BiddingAdvice:
         """Engine recommendation for the human's current position."""
         seat = self.seat_for(user_id)
-        return self.advisor.advise(self.hands[seat], self.auction)
+        hand = self.hands[seat]
+        if hand is None:
+            raise HandNotSetError(f"Hand for seat {seat} has not been entered yet")
+        return self.advisor.advise(hand, self.auction)
 
-    def redeal(self) -> None:
-        """Deal new hands, rotate dealer, pick random vulnerability."""
+    def redeal(
+        self,
+        *,
+        dealer: Seat | None = None,
+        vulnerability: Vulnerability | None = None,
+    ) -> None:
+        """Start a new hand.
+
+        Practice mode: deal new random hands, rotate dealer, random vulnerability.
+        Helper mode: clear all hands (to be re-entered via set_hand()),
+        reset auction. Accepts optional dealer/vulnerability overrides;
+        defaults to rotating dealer and keeping the same vulnerability.
+        """
         self.hand_number += 1
-        self.hands = deal(rng=self._rng)
-        self._hand_evals = self._compute_evals()
         next_dealer = Seat((self.auction.dealer.value + 1) % 4)
-        self.auction = AuctionState(
-            dealer=next_dealer,
-            vulnerability=random.choice(_ALL_VULNERABILITIES),
-        )
+
+        if self.mode == SessionMode.HELPER:
+            self.hands = {s: None for s in Seat}
+            self.auction = AuctionState(
+                dealer=dealer if dealer is not None else next_dealer,
+                vulnerability=(
+                    vulnerability
+                    if vulnerability is not None
+                    else self.auction.vulnerability
+                ),
+            )
+        else:
+            self.hands = dict[Seat, Hand | None](deal(rng=self._rng))
+            self.auction = AuctionState(
+                dealer=next_dealer,
+                vulnerability=random.choice(_ALL_VULNERABILITIES),
+            )
+
+        self._hand_evals = self._compute_evals()
         self._bid_explanations = {}
         self._bid_matched = {}
         self._last_computer_bids = self._run_computer_bids()
@@ -326,35 +472,49 @@ class PracticeSession:
 
     # ── Internals ────────────────────────────────────────────────
 
+    @staticmethod
+    def _compute_eval(hand: Hand) -> HandEvaluation:
+        """Build a HandEvaluation for a single hand."""
+        return HandEvaluation(
+            hcp=evaluate.hcp(hand),
+            length_points=evaluate.length_points(hand),
+            total_points=evaluate.total_points(hand),
+            distribution_points=evaluate.distribution_points(hand),
+            controls=evaluate.controls(hand),
+            quick_tricks=evaluate.quick_tricks(hand),
+            losers=evaluate.losing_trick_count(hand),
+            shape=hand.shape,
+            sorted_shape=hand.sorted_shape,
+            is_balanced=hand.is_balanced,
+            is_semi_balanced=hand.is_semi_balanced,
+            longest_suit=hand.longest_suit,
+        )
+
     def _compute_evals(self) -> dict[Seat, HandEvaluation]:
-        """Build HandEvaluation for each seat from the current hands."""
+        """Build HandEvaluation for each seat that has a hand."""
         evals: dict[Seat, HandEvaluation] = {}
         for seat in Seat:
             hand = self.hands[seat]
-            evals[seat] = HandEvaluation(
-                hcp=evaluate.hcp(hand),
-                length_points=evaluate.length_points(hand),
-                total_points=evaluate.total_points(hand),
-                distribution_points=evaluate.distribution_points(hand),
-                controls=evaluate.controls(hand),
-                quick_tricks=evaluate.quick_tricks(hand),
-                losers=evaluate.losing_trick_count(hand),
-                shape=hand.shape,
-                sorted_shape=hand.sorted_shape,
-                is_balanced=hand.is_balanced,
-                is_semi_balanced=hand.is_semi_balanced,
-                longest_suit=hand.longest_suit,
-            )
+            if hand is not None:
+                evals[seat] = self._compute_eval(hand)
         return evals
 
     def _run_computer_bids(self) -> list[ComputerBidRecord]:
-        """Advance all computer seats until it's a human's turn or auction ends."""
+        """Advance all computer seats until it's a human's turn or auction ends.
+
+        In helper mode, no computer auto-bidding occurs -- all bids are
+        entered manually (either by the seated player or via proxy bidding).
+        """
+        if self.mode == SessionMode.HELPER:
+            return []
         computer_bids: list[ComputerBidRecord] = []
         while not self.auction.is_complete:
             current = self.auction.current_seat
             if self.players[current] is not None:
                 break  # Human's turn
-            advice = self.advisor.advise(self.hands[current], self.auction)
+            hand = self.hands[current]
+            assert hand is not None  # Practice mode always has dealt hands.
+            advice = self.advisor.advise(hand, self.auction)
             self._bid_explanations[len(self.auction.bids)] = (
                 advice.recommended.explanation
             )
