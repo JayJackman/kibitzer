@@ -35,7 +35,7 @@ export default function HandDisplay({
   className,
 }: HandDisplayProps) {
   return (
-    <Card className={cn("w-full py-2", isPlayer && "border-primary border-2", className)}>
+    <Card className={cn(isPlayer && "border-4 border-outline", className)}>
       {/* Only render the header if a title is provided */}
       {title && (
         <CardHeader className="px-3">

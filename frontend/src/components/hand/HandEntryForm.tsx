@@ -115,7 +115,7 @@ export default function HandEntryForm({ sessionSeat }: { sessionSeat: Seat }) {
   }
 
   return (
-    <Card className="w-full py-2">
+    <Card>
       <CardHeader className="px-3">
         <CardTitle>Enter Your Hand</CardTitle>
       </CardHeader>

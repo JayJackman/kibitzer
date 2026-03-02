@@ -10,8 +10,8 @@
  * Multiplayer support:
  *   - If the user isn't seated, the loader returns { needsJoin, info }
  *     and the page shows a JoinPanel with available seats.
- *   - Once seated, a SessionHeader shows the join code, player names,
- *     and a leave button.
+ *   - Once seated, SessionControls shows the join code, copy button,
+ *     and leave button in the page header row.
  *   - When waiting for another human's bid, polls every 2s via
  *     useRevalidator() to pick up state changes.
  *
@@ -19,7 +19,7 @@
  *   - Shows a HandEntryForm instead of HandDisplay when hand is null.
  *   - Proxy bidding: BidControls enabled for unoccupied seats with
  *     a "Bidding for [Seat]" banner and for_seat hidden field.
- *   - Always shows SessionHeader (for join code sharing).
+ *   - Always shows SessionControls (for join code sharing).
  *
  * Data flow uses React Router v7 patterns:
  *   - Loader: fetches session state before the page renders (no loading spinner)
@@ -52,7 +52,7 @@ import AuctionComplete from "@/components/auction/AuctionComplete";
 import BidControls from "@/components/auction/BidControls";
 import AdvicePanel from "@/components/advice/AdvicePanel";
 import JoinPanel from "@/components/session/JoinPanel";
-import SessionHeader from "@/components/session/SessionHeader";
+import SessionControls from "@/components/session/SessionControls";
 
 /**
  * The loader returns either full session state (user is seated) or
@@ -149,16 +149,21 @@ function PracticeView({ state }: { state: PracticeState }) {
     <div className="container mx-auto px-4 py-6">
       {/* --- Page header --- */}
       <div className="mb-6">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold">
-            {isHelper ? "Helper Mode" : "Practice Mode"}
-          </h1>
-          <Form method="post">
-            <input type="hidden" name="intent" value="redeal" />
-            <Button type="submit" variant="outline" size="sm" disabled={isSubmitting}>
-              New Hand
-            </Button>
-          </Form>
+        <div className="flex items-center justify-between">
+          {/* Left: title + new hand */}
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold">
+              {isHelper ? "Helper Mode" : "Practice Mode"}
+            </h1>
+            <Form method="post">
+              <input type="hidden" name="intent" value="redeal" />
+              <Button type="submit" variant="outline" size="sm" disabled={isSubmitting}>
+                New Hand
+              </Button>
+            </Form>
+          </div>
+          {/* Right: join code + copy + leave */}
+          <SessionControls variant="background" state={state} isSubmitting={isSubmitting} />
         </div>
         <p className="text-muted-foreground text-sm">
           Hand #{state.hand_number} &middot; Seat:{" "}
@@ -166,9 +171,6 @@ function PracticeView({ state }: { state: PracticeState }) {
           {auction.vulnerability}
         </p>
       </div>
-
-      {/* Session header: join code, player names, leave button. */}
-      <SessionHeader state={state} isSubmitting={isSubmitting} />
 
       {/* Waiting indicator when another human is bidding */}
       {!is_my_turn && !auction.is_complete && state.waiting_for && (
@@ -185,22 +187,7 @@ function PracticeView({ state }: { state: PracticeState }) {
       <div className="grid gap-6 lg:grid-cols-2">
         {/* === Left column: hand + auction grid, history below === */}
         <div className="flex flex-col gap-4">
-          <div className="flex flex-row items-start gap-4">
-            <Card className="flex-1">
-              <CardHeader>
-                <CardTitle>Auction</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <AuctionGrid
-                  bids={auction.bids}
-                  dealer={auction.dealer}
-                  currentSeat={auction.current_seat}
-                  isComplete={auction.is_complete}
-                  yourSeat={state.your_seat}
-                />
-              </CardContent>
-            </Card>
-
+          <div className="flex items-start gap-4">
             {/*
              * Show HandDisplay when the player's hand is available,
              * or HandEntryForm in helper mode when hand hasn't been entered yet.
@@ -214,6 +201,21 @@ function PracticeView({ state }: { state: PracticeState }) {
             ) : isHelper ? (
               <HandEntryForm sessionSeat={state.your_seat} />
             ) : null}
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Auction</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <AuctionGrid
+                  bids={auction.bids}
+                  dealer={auction.dealer}
+                  currentSeat={auction.current_seat}
+                  isComplete={auction.is_complete}
+                  yourSeat={state.your_seat}
+                />
+              </CardContent>
+            </Card>
           </div>
 
           {auction.bids.length > 0 && (

@@ -49,7 +49,7 @@ export default function AppLayout() {
               and returns redirect("/login").
             */}
             <fetcher.Form method="post" action="/logout">
-              <Button variant="outline" size="sm" type="submit">
+              <Button variant="action" size="sm" type="submit">
                 Log out
               </Button>
             </fetcher.Form>
