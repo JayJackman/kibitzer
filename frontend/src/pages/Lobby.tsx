@@ -1,16 +1,16 @@
 /**
  * Lobby page -- the home screen after login.
  *
- * Shows a welcome message and four activity cards:
- *   1. Solo Practice -- bid against the engine alone
- *   2. Multiplayer Practice -- create a session and invite friends
- *   3. Helper Mode -- companion for physical bridge (enter real hands, get advice)
- *   4. Join Session -- enter a 6-character code to join an existing session
+ * Shows a welcome message and three activity cards:
+ *   1. Practice -- create a session, bid against the engine, share the
+ *      join code with friends if you want multiplayer
+ *   2. Helper Mode -- companion for physical bridge (enter real hands, get advice)
+ *   3. Join Session -- enter a 6-character code to join an existing session
  *
- * Solo, Multiplayer, and Helper all post to /practice/new, which creates
- * the session and redirects to /practice/:id. The Join form posts to the
- * lobby route's own action (joinByCodeAction in App.tsx), which looks up
- * the code and redirects to the session's practice page.
+ * Practice and Helper both post to /practice/new, which creates the session
+ * and redirects to /practice/:id. The Join form posts to the lobby route's
+ * own action (joinByCodeAction in App.tsx), which looks up the code and
+ * redirects to the session's practice page.
  */
 import { useState } from "react";
 import { Form, useActionData, useNavigation, useRouteLoaderData } from "react-router";
@@ -49,12 +49,7 @@ export default function LobbyPage() {
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
 
-  /**
-   * Each card has its own selection state because the user might
-   * browse between cards before deciding.
-   */
-  const [soloSeat, setSoloSeat] = useState<Seat>("S");
-  const [multiSeat, setMultiSeat] = useState<Seat>("S");
+  const [practiceSeat, setPracticeSeat] = useState<Seat>("S");
   const [helperSeat, setHelperSeat] = useState<Seat>("S");
   const [helperDealer, setHelperDealer] = useState<Seat>("N");
   const [helperVuln, setHelperVuln] = useState("None");
@@ -71,47 +66,21 @@ export default function LobbyPage() {
         </CardHeader>
       </Card>
 
-      {/* --- Solo Practice --- */}
+      {/* --- Practice --- */}
       <Card>
         <CardHeader>
-          <CardTitle>Solo Practice</CardTitle>
+          <CardTitle>Practice</CardTitle>
           <CardDescription>
-            Practice bidding against the engine. Pick your seat and start a
-            new hand.
+            Practice bidding against the engine. Share the join code with
+            friends to practice together.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Form method="post" action="/practice/new" className="flex flex-col gap-4">
-            <input type="hidden" name="seat" value={soloSeat} />
-            <SeatPicker selected={soloSeat} onSelect={setSoloSeat} />
+            <input type="hidden" name="seat" value={practiceSeat} />
+            <SeatPicker selected={practiceSeat} onSelect={setPracticeSeat} />
             <Button type="submit" className="w-fit" disabled={isSubmitting}>
               Start Practice
-            </Button>
-          </Form>
-        </CardContent>
-      </Card>
-
-      {/* --- Multiplayer Practice --- */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Multiplayer Practice</CardTitle>
-          <CardDescription>
-            Create a session and share the join code with friends.
-            Other players take human seats; the rest are played by the engine.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {/*
-           * Posts to the same /practice/new action as solo. The only
-           * difference is the explicit mode field (both default to "practice",
-           * but being explicit keeps intent clear for future modes).
-           */}
-          <Form method="post" action="/practice/new" className="flex flex-col gap-4">
-            <input type="hidden" name="seat" value={multiSeat} />
-            <input type="hidden" name="mode" value="practice" />
-            <SeatPicker selected={multiSeat} onSelect={setMultiSeat} />
-            <Button type="submit" className="w-fit" disabled={isSubmitting}>
-              Create Session
             </Button>
           </Form>
         </CardContent>
