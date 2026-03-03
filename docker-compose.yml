@@ -1,0 +1,79 @@
+# =============================================================================
+# Docker Compose configuration
+# =============================================================================
+#
+# Docker Compose lets you define and run multi-container applications with
+# a single command. Even though we only have one service (the app), Compose
+# is still valuable because it:
+#   1. Saves you from typing long `docker run` commands with all the flags
+#   2. Manages volumes (persistent storage) declaratively
+#   3. Makes environment variables easy to configure
+#   4. Scales to multiple services later (e.g. adding PostgreSQL, Redis)
+#
+# Usage:
+#   docker compose up --build       Build the image and start the container
+#   docker compose up -d            Start in the background (detached mode)
+#   docker compose down             Stop and remove the container
+#   docker compose logs -f          Follow the logs (like tail -f)
+#   docker compose ps               List running containers
+#
+# =============================================================================
+
+services:
+  app:
+    # Build the image from the Dockerfile in the current directory.
+    # Docker Compose will automatically rebuild if the Dockerfile or
+    # source files change (when using --build).
+    build: .
+
+    # Map port 8000 on the host to port 8000 in the container.
+    # Format is HOST:CONTAINER. After this, you can visit
+    # http://localhost:8000 in your browser.
+    ports:
+      - "8000:8000"
+
+    # Environment variables passed into the container at runtime.
+    # These override the defaults in bridge/api/config.py.
+    #
+    # IMPORTANT: For real deployments, don't put secrets directly in this
+    # file. Instead, use a .env file (see env_file below) or your
+    # platform's secret management (e.g. Docker secrets, AWS SSM).
+    environment:
+      # REQUIRED in production. Used to sign JWT authentication tokens.
+      # Generate a strong random key:  openssl rand -hex 32
+      # If this stays as the default, anyone can forge auth tokens.
+      - SECRET_KEY=change-me-to-a-real-secret
+
+      # Point the database at a file inside the mounted volume (see below).
+      # The ./data/ directory is mounted from the host, so the database
+      # survives container restarts and rebuilds.
+      - DATABASE_URL=sqlite:///./data/bridge.db
+
+      # Logging level. INFO shows requests and business events.
+      # Set to DEBUG to also see engine rule evaluation traces.
+      - LOG_LEVEL=INFO
+
+      # CORS origins -- leave empty for production (single-origin serving).
+      # The frontend is served from the same origin as the API, so no
+      # cross-origin requests occur and CORS middleware is not needed.
+      # For development with a separate Vite dev server, set to:
+      #   CORS_ORIGINS=["http://localhost:5173"]
+      - CORS_ORIGINS=[]
+
+    # Mount a host directory as a volume inside the container.
+    # This is how we persist the SQLite database across container restarts.
+    #
+    # Without this volume, the database lives inside the container's
+    # filesystem, which is ephemeral -- it gets destroyed when the
+    # container is removed. The volume maps ./data on your host machine
+    # to /app/data inside the container, so the database file is stored
+    # on your actual disk.
+    volumes:
+      - ./data:/app/data
+
+    # Restart policy. "unless-stopped" means:
+    #   - Restart automatically if the process crashes
+    #   - Restart on system reboot (if Docker daemon starts)
+    #   - Don't restart if you explicitly stop it with `docker compose down`
+    # Other options: "no" (never restart), "always", "on-failure"
+    restart: unless-stopped

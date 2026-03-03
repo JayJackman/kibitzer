@@ -1,0 +1,60 @@
+# .dockerignore -- Controls what files are sent to the Docker daemon during
+# a build. Excluding unnecessary files makes builds faster (smaller "context")
+# and keeps the final image clean.
+#
+# Think of it like .gitignore but for Docker. When you run `docker build .`,
+# Docker sends the entire directory to the daemon -- this file prevents
+# large or sensitive files from being included.
+
+# Version control -- the .git directory can be huge and is never needed
+# inside the container.
+.git
+.gitignore
+
+# Python virtual environments -- the container installs its own deps,
+# so we don't want the host's .venv leaking in.
+.venv
+__pycache__
+*.py[cod]
+*.egg-info
+
+# Node modules -- same idea. The Dockerfile runs `npm install` itself
+# inside the build stage, so the host's node_modules would just waste
+# space and possibly cause platform mismatches (e.g. macOS -> Linux).
+frontend/node_modules
+
+# Frontend build output -- the Dockerfile builds the frontend from source
+# in stage 1, so we don't need a pre-existing dist/ directory.
+frontend/dist
+
+# Database files -- the container creates its own database. Shipping a
+# dev database into production would be a security/data integrity risk.
+*.db
+
+# Test files -- not needed in production. Excluding them shrinks the image.
+tests/
+.pytest_cache/
+.hypothesis/
+.coverage
+htmlcov/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Claude Code working files
+.claude/
+
+# OS metadata
+.DS_Store
+
+# Environment files -- these contain secrets! Never bake them into an image.
+# Instead, pass secrets via environment variables at runtime.
+.env
+.env.*
+!.env.example
+
+# Research docs -- useful for development, not needed in the container.
+research/
