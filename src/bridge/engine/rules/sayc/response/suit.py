@@ -196,8 +196,12 @@ class RespondJumpShift(Rule):
         return 380
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_1_suit
+
+    @property
     def conditions(self) -> Condition:
-        return All(_partner_opened_1_suit, HcpRange(min_hcp=19), self._suit)
+        return All(HcpRange(min_hcp=19), self._suit)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._suit.value
@@ -239,8 +243,12 @@ class RespondNewSuit1Level(Rule):
         return 260
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_1_suit
+
+    @property
     def conditions(self) -> Condition:
-        return All(_partner_opened_1_suit, HcpRange(min_hcp=6), self._suit)
+        return All(HcpRange(min_hcp=6), self._suit)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._suit.value
@@ -277,8 +285,12 @@ class Respond2Over1(Rule):
         return 240
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_1_suit
+
+    @property
     def conditions(self) -> Condition:
-        return All(_partner_opened_1_suit, HcpRange(min_hcp=10, max_hcp=18), self._suit)
+        return All(HcpRange(min_hcp=10, max_hcp=18), self._suit)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._suit.value
@@ -311,8 +323,12 @@ class RespondPass(Rule):
         return 50
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_1_suit
+
+    @property
     def conditions(self) -> Condition:
-        return All(_partner_opened_1_suit, HcpRange(max_hcp=5))
+        return HcpRange(max_hcp=5)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -344,9 +360,12 @@ class RespondJacoby2NT(Rule):
         return 340
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_1_major
+
+    @property
     def conditions(self) -> Condition:
         return All(
-            _partner_opened_1_major,
             HasSuitFit(_opener_suit, min_len=4),
             SupportPtsRange(_opener_suit, min_pts=13),
         )
@@ -382,9 +401,12 @@ class RespondGameRaiseMajor(Rule):
         return 320
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_1_major
+
+    @property
     def conditions(self) -> Condition:
         return All(
-            _partner_opened_1_major,
             HasSuitFit(_opener_suit, min_len=5),
             HcpRange(max_hcp=9),
             _has_side_shortness,
@@ -419,9 +441,12 @@ class Respond3NTOverMajor(Rule):
         return 300
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_1_major
+
+    @property
     def conditions(self) -> Condition:
         return All(
-            _partner_opened_1_major,
             HasSuitFit(_opener_suit, min_len=2, max_len=2),
             HcpRange(15, 17),
             Balanced(strict=True),
@@ -454,9 +479,12 @@ class RespondLimitRaiseMajor(Rule):
         return 280
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_1_major
+
+    @property
     def conditions(self) -> Condition:
         return All(
-            _partner_opened_1_major,
             HasSuitFit(_opener_suit, min_len=3),
             SupportPtsRange(_opener_suit, min_pts=10, max_pts=12),
         )
@@ -490,9 +518,12 @@ class RespondSingleRaiseMajor(Rule):
         return 212
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_1_major
+
+    @property
     def conditions(self) -> Condition:
         return All(
-            _partner_opened_1_major,
             HasSuitFit(_opener_suit, min_len=3),
             SupportPtsRange(_opener_suit, min_pts=6, max_pts=10),
         )
@@ -525,9 +556,12 @@ class Respond1NTOverMajor(Rule):
         return 200
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_1_major
+
+    @property
     def conditions(self) -> Condition:
         return All(
-            _partner_opened_1_major,
             HcpRange(6, 10),
             HasSuitFit(_opener_suit, min_len=0, max_len=2),
         )
@@ -562,9 +596,12 @@ class Respond3NTOverMinor(Rule):
         return 310
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_1_minor
+
+    @property
     def conditions(self) -> Condition:
         return All(
-            _partner_opened_1_minor,
             HcpRange(16, 18),
             Balanced(strict=True),
             Not(has_4_card_major),
@@ -597,9 +634,12 @@ class Respond2NTOverMinor(Rule):
         return 290
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_1_minor
+
+    @property
     def conditions(self) -> Condition:
         return All(
-            _partner_opened_1_minor,
             HcpRange(13, 15),
             Balanced(strict=True),
             Not(has_4_card_major),
@@ -637,9 +677,12 @@ class RespondLimitRaiseMinor(Rule):
         return 270
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_1_minor
+
+    @property
     def conditions(self) -> Condition:
         return All(
-            _partner_opened_1_minor,
             HcpRange(10, 12),
             adequate_minor_support,
             Not(has_4_card_major),
@@ -675,9 +718,12 @@ class RespondSingleRaiseMinor(Rule):
         return 215
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_1_minor
+
+    @property
     def conditions(self) -> Condition:
         return All(
-            _partner_opened_1_minor,
             HcpRange(6, 10),
             adequate_minor_support,
             Not(has_4_card_major),
@@ -713,9 +759,12 @@ class Respond1NTOverMinor(Rule):
         return 210
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_1_minor
+
+    @property
     def conditions(self) -> Condition:
         return All(
-            _partner_opened_1_minor,
             HcpRange(6, 10),
             Not(has_4_card_major),
         )

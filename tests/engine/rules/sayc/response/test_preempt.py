@@ -5,8 +5,10 @@ from bridge.engine.rules.sayc.response.preempt import (
     Respond2NTFeatureAsk,
     Respond3NTOver3Level,
     Respond3NTOverWeakTwo,
-    RespondGameRaise3Level,
-    RespondGameRaiseWeakTwo,
+    RespondGameRaise3LevelMajor,
+    RespondGameRaise3LevelMinor,
+    RespondGameRaiseWeakTwoMajor,
+    RespondGameRaiseWeakTwoMinor,
     RespondNewSuitOver3Level,
     RespondNewSuitOverWeakTwo,
     RespondPassOver3Level,
@@ -40,8 +42,8 @@ def _ctx(pbn: str, opening: str) -> BiddingContext:
 # ===========================================================================
 
 
-class TestRespondGameRaiseWeakTwo:
-    rule = RespondGameRaiseWeakTwo()
+class TestRespondGameRaiseWeakTwoMajor:
+    rule = RespondGameRaiseWeakTwoMajor()
 
     def test_game_raise_major_with_values(self) -> None:
         """3+ support, 14+ support points -> 4H."""
@@ -59,6 +61,16 @@ class TestRespondGameRaiseWeakTwo:
         result = self.rule.select(ctx)
         assert str(result.bid) == "4S"
 
+    def test_2_card_support_rejected(self) -> None:
+        """Only 2 cards in partner's suit -> no game raise."""
+        # 15 HCP, 2 hearts
+        ctx = _ctx("AK43.K4.Q432.K43", "2H")
+        assert not self.rule.applies(ctx)
+
+
+class TestRespondGameRaiseWeakTwoMinor:
+    rule = RespondGameRaiseWeakTwoMinor()
+
     def test_game_raise_minor(self) -> None:
         """3+ support, 16+ support pts -> 5D."""
         # 13 HCP, 4 diamonds, singleton heart = +3 -> 16 support points
@@ -71,12 +83,6 @@ class TestRespondGameRaiseWeakTwo:
         """3+ support in minor but <16 support points -> no game raise."""
         # 10 HCP, 3 diamonds, no shortness -> 10 support points
         ctx = _ctx("K43.Q43.Q43.K432", "2D")
-        assert not self.rule.applies(ctx)
-
-    def test_2_card_support_rejected(self) -> None:
-        """Only 2 cards in partner's suit -> no game raise."""
-        # 15 HCP, 2 hearts
-        ctx = _ctx("AK43.K4.Q432.K43", "2H")
         assert not self.rule.applies(ctx)
 
     def test_preemptive_not_for_minor(self) -> None:
@@ -208,8 +214,8 @@ class TestRespondPassOverWeakTwo:
 # ===========================================================================
 
 
-class TestRespondGameRaise3Level:
-    rule = RespondGameRaise3Level()
+class TestRespondGameRaise3LevelMajor:
+    rule = RespondGameRaise3LevelMajor()
 
     def test_game_raise_major(self) -> None:
         """3+ support, 14+ support pts -> 4H over 3H."""
@@ -219,6 +225,16 @@ class TestRespondGameRaise3Level:
         result = self.rule.select(ctx)
         assert str(result.bid) == "4H"
 
+    def test_insufficient_values_rejected(self) -> None:
+        """3 support but <14 support pts -> no game raise."""
+        # 10 HCP, 3 hearts, no shortness
+        ctx = _ctx("K43.Q43.Q43.K432", "3H")
+        assert not self.rule.applies(ctx)
+
+
+class TestRespondGameRaise3LevelMinor:
+    rule = RespondGameRaise3LevelMinor()
+
     def test_game_raise_minor(self) -> None:
         """3+ support, 16+ support pts -> 5C over 3C."""
         # 15 HCP, 4 clubs, singleton heart = +3 -> 18 support points
@@ -226,12 +242,6 @@ class TestRespondGameRaise3Level:
         assert self.rule.applies(ctx)
         result = self.rule.select(ctx)
         assert str(result.bid) == "5C"
-
-    def test_insufficient_values_rejected(self) -> None:
-        """3 support but <14 support pts -> no game raise."""
-        # 10 HCP, 3 hearts, no shortness
-        ctx = _ctx("K43.Q43.Q43.K432", "3H")
-        assert not self.rule.applies(ctx)
 
 
 class TestRespond3NTOver3Level:
@@ -368,7 +378,7 @@ class TestWeakTwoPriorityConflicts:
 
     def test_game_raise_beats_3nt(self) -> None:
         """With fit and stoppers, game raise wins."""
-        r_game = RespondGameRaiseWeakTwo()
+        r_game = RespondGameRaiseWeakTwoMajor()
         r_3nt = Respond3NTOverWeakTwo()
         # 18 HCP, 4 hearts, doubleton D = +1 -> 19 sp; stoppers in S(A), D(A), C(Q+3)
         ctx = _ctx("AK43.KQ43.A4.Q32", "2H")

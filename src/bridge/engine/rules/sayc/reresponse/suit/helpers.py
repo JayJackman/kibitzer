@@ -112,6 +112,8 @@ def partner_rebid_own_suit(ctx: BiddingContext) -> bool:
     my_resp = my_response(ctx)
     rebid = partner_rebid(ctx)
     cheapest = cheapest_bid_in_suit(opening.suit, my_resp)
+    if cheapest is None:
+        return False
     return rebid.suit == opening.suit and rebid.level == cheapest.level
 
 
@@ -122,6 +124,8 @@ def partner_jump_rebid_own_suit(ctx: BiddingContext) -> bool:
     my_resp = my_response(ctx)
     rebid = partner_rebid(ctx)
     cheapest = cheapest_bid_in_suit(opening.suit, my_resp)
+    if cheapest is None:
+        return False
     return rebid.suit == opening.suit and rebid.level == cheapest.level + 1
 
 
@@ -148,6 +152,8 @@ def partner_reversed(ctx: BiddingContext) -> bool:
     # Reverse: higher-ranking suit at 2-level+, at cheapest level (not a jump).
     # A 1-level bid (e.g. 1C->1D->1H) is NOT a reverse.
     cheapest = cheapest_bid_in_suit(rebid.suit, my_response(ctx))
+    if cheapest is None:
+        return False
     return (
         rebid.suit > opening_suit(ctx)
         and rebid.level >= 2
@@ -169,6 +175,8 @@ def partner_jump_shifted(ctx: BiddingContext) -> bool:
     if rebid.suit in (opening_suit(ctx), my_response_suit(ctx)) or rebid.is_notrump:
         return False
     cheapest = cheapest_bid_in_suit(rebid.suit, my_response(ctx))
+    if cheapest is None:
+        return False
     return rebid.level > cheapest.level
 
 
@@ -180,6 +188,8 @@ def partner_raised_my_suit(ctx: BiddingContext) -> bool:
     if my_resp.is_notrump:
         return False
     cheapest = cheapest_bid_in_suit(my_resp.suit, my_resp)
+    if cheapest is None:
+        return False
     return rebid.suit == my_resp.suit and rebid.level == cheapest.level
 
 
@@ -271,6 +281,8 @@ def find_fourth_suit_bid(ctx: BiddingContext) -> SuitBid | None:
         return None
     rebid = partner_rebid(ctx)
     bid = cheapest_bid_in_suit(suit, rebid)
+    if bid is None:
+        return None
     # FSF is only at 2+ level; at the 1-level a new suit is natural, not artificial.
     if bid.level == 1:
         return None

@@ -169,10 +169,12 @@ class RebidShowFeature(Rule):
         return 588
 
     @property
+    def prerequisites(self) -> Condition:
+        return All(_i_opened_weak_two, _partner_bid_2nt)
+
+    @property
     def conditions(self) -> Condition:
-        return All(
-            _i_opened_weak_two, _partner_bid_2nt, HcpRange(min_hcp=9), self._feature
-        )
+        return All(HcpRange(min_hcp=9), self._feature)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._feature.value
@@ -208,10 +210,12 @@ class Rebid3NTAfterFeatureAsk(Rule):
         return 586
 
     @property
+    def prerequisites(self) -> Condition:
+        return All(_i_opened_weak_two, _partner_bid_2nt)
+
+    @property
     def conditions(self) -> Condition:
-        return All(
-            _i_opened_weak_two, _partner_bid_2nt, HcpRange(min_hcp=9), _no_feature
-        )
+        return All(HcpRange(min_hcp=9), _no_feature)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -243,8 +247,12 @@ class RebidOwnSuitAfterFeatureAsk(Rule):
         return 584
 
     @property
+    def prerequisites(self) -> Condition:
+        return All(_i_opened_weak_two, _partner_bid_2nt)
+
+    @property
     def conditions(self) -> Condition:
-        return All(_i_opened_weak_two, _partner_bid_2nt, HcpRange(max_hcp=8))
+        return HcpRange(max_hcp=8)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _my_opened_suit(ctx)
@@ -280,12 +288,12 @@ class RebidRaiseNewSuitWeakTwo(Rule):
         return 582
 
     @property
+    def prerequisites(self) -> Condition:
+        return All(_i_opened_weak_two, _partner_bid_new_suit)
+
+    @property
     def conditions(self) -> Condition:
-        return All(
-            _i_opened_weak_two,
-            _partner_bid_new_suit,
-            HasSuitFit(_partner_response_suit, min_len=3),
-        )
+        return HasSuitFit(_partner_response_suit, min_len=3)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         resp = ctx.partner_last_bid
@@ -321,8 +329,12 @@ class RebidOwnSuitAfterNewSuitWeakTwo(Rule):
         return 579
 
     @property
-    def conditions(self) -> Condition:
+    def prerequisites(self) -> Condition:
         return All(_i_opened_weak_two, _partner_bid_new_suit)
+
+    @property
+    def conditions(self) -> Condition:
+        return All()
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _my_opened_suit(ctx)
@@ -359,8 +371,12 @@ class RebidPassAfterWeakTwo(Rule):
         return 577
 
     @property
-    def conditions(self) -> Condition:
+    def prerequisites(self) -> Condition:
         return _i_opened_weak_two
+
+    @property
+    def conditions(self) -> Condition:
+        return All()
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -397,12 +413,12 @@ class RebidRaiseAfterNewSuit3Level(Rule):
         return 576
 
     @property
+    def prerequisites(self) -> Condition:
+        return All(_i_opened_3_level, _partner_bid_new_suit)
+
+    @property
     def conditions(self) -> Condition:
-        return All(
-            _i_opened_3_level,
-            _partner_bid_new_suit,
-            HasSuitFit(_partner_response_suit, min_len=3),
-        )
+        return HasSuitFit(_partner_response_suit, min_len=3)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         resp = ctx.partner_last_bid
@@ -438,8 +454,12 @@ class RebidOwnSuitAfterNewSuit3Level(Rule):
         return 573
 
     @property
-    def conditions(self) -> Condition:
+    def prerequisites(self) -> Condition:
         return All(_i_opened_3_level, _partner_bid_new_suit)
+
+    @property
+    def conditions(self) -> Condition:
+        return All()
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _my_opened_suit(ctx)
@@ -473,8 +493,12 @@ class RebidPassAfter3Level(Rule):
         return 571
 
     @property
-    def conditions(self) -> Condition:
+    def prerequisites(self) -> Condition:
         return _i_opened_3_level
+
+    @property
+    def conditions(self) -> Condition:
+        return All()
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -509,8 +533,12 @@ class RebidPassAfter4Level(Rule):
         return 568
 
     @property
-    def conditions(self) -> Condition:
+    def prerequisites(self) -> Condition:
         return _i_opened_4_level
+
+    @property
+    def conditions(self) -> Condition:
+        return All()
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(

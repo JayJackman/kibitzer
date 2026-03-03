@@ -78,15 +78,20 @@ class Rule(ABC):
     with 15-17 HCP and balanced shape", "respond 2H with 6-10 points and 3+
     card support", and so on.
 
-    The engine evaluates rules through a two-step lifecycle:
+    The engine evaluates rules through a three-step lifecycle:
 
-    1. ``conditions`` — a declarative ``Condition`` tree that determines
-       whether this rule is relevant. The ``applies(ctx)`` method evaluates
-       these conditions and returns a boolean.
+    1. ``prerequisites`` — auction-state guards that determine whether this
+       rule is even *relevant* to the current auction (e.g. "partner opened
+       1 of a suit", "partner single-raised"). If prerequisites fail, the
+       rule is silently skipped — it doesn't appear in the thought process.
 
-    2. ``select(ctx)`` — called only when ``applies()`` returned True. This
-       method produces the concrete bid along with metadata (explanation text,
-       alert flags, forcing status).
+    2. ``conditions`` — hand-evaluation predicates that determine whether the
+       player's hand matches the rule (e.g. "15-17 HCP", "balanced shape").
+       These are what the thought process displays to the user.
+
+    3. ``select(ctx)`` — called only when both prerequisites and conditions
+       passed. Produces the concrete bid along with metadata (explanation
+       text, alert flags, forcing status).
 
     Rules are organized by **category** (the auction phase they belong to, such
     as OPENING or RESPONSE) and **priority** (which rule wins when multiple
@@ -113,21 +118,67 @@ class Rule(ABC):
         """Higher wins. See ``Priority`` for band definitions."""
 
     @property
+    def prerequisites(self) -> Condition | None:
+        """Auction-state guards checked before hand conditions.
+
+        Return a Condition tree that tests auction state (e.g. "partner
+        opened 1 of a suit"). If this returns None (the default), the
+        rule has no prerequisites and is always considered.
+
+        When prerequisites fail, the rule is silently skipped — it won't
+        appear in the thought process at all.
+        """
+        return None
+
+    @property
     @abstractmethod
     def conditions(self) -> Condition:
-        """Declarative preconditions checked before ``select()``."""
+        """Hand-evaluation conditions checked after prerequisites pass."""
 
     def applies(self, ctx: BiddingContext) -> bool:
         """Check whether this rule is relevant for the given context."""
         return self.check(ctx).passed
 
     def check(self, ctx: BiddingContext) -> CheckResult:
-        """Full condition evaluation with per-condition pass/fail details."""
+        """Full condition evaluation with per-condition pass/fail details.
+
+        Evaluates prerequisites first. If they fail, returns immediately
+        with ``prerequisite_passed=False`` and no hand condition results.
+        If they pass (or are None), evaluates hand conditions normally.
+        """
+        prereqs = self.prerequisites
+        if prereqs is not None:
+            if isinstance(prereqs, (All, Any)):
+                prereq_result = prereqs.check_all(ctx)
+            else:
+                r = prereqs.check(ctx)
+                prereq_result = CheckResult(
+                    passed=r.passed,
+                    prerequisite_passed=r.passed,
+                    results=(r,),
+                )
+            if not prereq_result.passed:
+                return CheckResult(
+                    passed=False,
+                    prerequisite_passed=False,
+                    results=(),
+                )
+
         conds = self.conditions
         if isinstance(conds, (All, Any)):
-            return conds.check_all(ctx)
-        r = conds.check(ctx)
-        return CheckResult(passed=r.passed, results=(r,))
+            result = conds.check_all(ctx)
+        else:
+            r = conds.check(ctx)
+            result = CheckResult(
+                passed=r.passed,
+                prerequisite_passed=True,
+                results=(r,),
+            )
+        return CheckResult(
+            passed=result.passed,
+            prerequisite_passed=True,
+            results=result.results,
+        )
 
     @abstractmethod
     def select(self, ctx: BiddingContext) -> RuleResult:

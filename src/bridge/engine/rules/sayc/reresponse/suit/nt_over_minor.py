@@ -72,12 +72,16 @@ class ThreeNTAfter2NTMinorMajor(Rule):
         return 355
 
     @property
-    def conditions(self) -> Condition:
+    def prerequisites(self) -> Condition:
         return All(
             partner_opened_1_suit,
             _i_bid_2nt_over_minor,
             _partner_rebid_suit_is_major,
         )
+
+    @property
+    def conditions(self) -> Condition:
+        return All()
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -109,12 +113,16 @@ class ThreeNTAfter2NTMinorRebid(Rule):
         return 354
 
     @property
-    def conditions(self) -> Condition:
+    def prerequisites(self) -> Condition:
         return All(
             partner_opened_1_suit,
             _i_bid_2nt_over_minor,
             partner_rebid_own_suit,
         )
+
+    @property
+    def conditions(self) -> Condition:
+        return All()
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -146,12 +154,16 @@ class PassAfter2NTMinor3NT(Rule):
         return 92
 
     @property
-    def conditions(self) -> Condition:
+    def prerequisites(self) -> Condition:
         return All(
             partner_opened_1_suit,
             _i_bid_2nt_over_minor,
             partner_rebid_3nt,
         )
+
+    @property
+    def conditions(self) -> Condition:
+        return All()
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -184,13 +196,16 @@ class AcceptQuantitative4NTMinor(Rule):
         return 370
 
     @property
-    def conditions(self) -> Condition:
+    def prerequisites(self) -> Condition:
         return All(
             partner_opened_1_suit,
             _i_bid_2nt_over_minor,
             _partner_rebid_4nt,
-            HcpRange(min_hcp=14),
         )
+
+    @property
+    def conditions(self) -> Condition:
+        return HcpRange(min_hcp=14)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -220,13 +235,16 @@ class DeclineQuantitative4NTMinor(Rule):
         return 92
 
     @property
-    def conditions(self) -> Condition:
+    def prerequisites(self) -> Condition:
         return All(
             partner_opened_1_suit,
             _i_bid_2nt_over_minor,
             _partner_rebid_4nt,
-            HcpRange(max_hcp=13),
         )
+
+    @property
+    def conditions(self) -> Condition:
+        return HcpRange(max_hcp=13)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(

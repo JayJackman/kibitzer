@@ -9,13 +9,17 @@ from bridge.model.bid import SuitBid
 from bridge.model.card import Suit
 
 
-def cheapest_bid_in_suit(suit: Suit, above: SuitBid) -> SuitBid:
-    """Return the cheapest legal bid in the given suit above the given bid."""
+def cheapest_bid_in_suit(suit: Suit, above: SuitBid) -> SuitBid | None:
+    """Return the cheapest legal bid in the given suit above the given bid.
+
+    Returns None if no legal bid exists (e.g., trying to bid diamonds
+    above 7H -- there is no 8-level).
+    """
     for level in range(1, 8):
         candidate = SuitBid(level, suit)
         if candidate > above:
             return candidate
-    raise ValueError(f"Cannot bid {suit} above {above}")
+    return None
 
 
 def suit_hcp(ctx: BiddingContext, suit: Suit) -> int:

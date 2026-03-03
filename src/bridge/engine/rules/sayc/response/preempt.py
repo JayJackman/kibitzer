@@ -146,19 +146,19 @@ def _find_new_suit_over_3(ctx: BiddingContext) -> Suit | None:
 # ===========================================================================
 
 
-class RespondGameRaiseWeakTwo(Rule):
-    """Game raise over partner's weak two.
+class RespondGameRaiseWeakTwoMajor(Rule):
+    """Game raise over partner's weak two in a major.
 
-    e.g. 2H->4H, 2S->4S, 2D->5D
+    e.g. 2H->4H, 2S->4S
 
     SAYC: "Jump raise to game -- to play; may be preemptive with
-    good support."  3+ support with game values, or 5+ support
-    (preemptive, majors only).
+    good support."  3+ support with 14+ support pts (game values),
+    or 5+ support (preemptive).
     """
 
     @property
     def name(self) -> str:
-        return "response.game_raise_weak_two"
+        return "response.game_raise_weak_two_major"
 
     @property
     def category(self) -> Category:
@@ -169,32 +169,67 @@ class RespondGameRaiseWeakTwo(Rule):
         return 488
 
     @property
+    def prerequisites(self) -> Condition:
+        return All(_partner_opened_weak_2, _opener_is_major)
+
+    @property
     def conditions(self) -> Condition:
-        return All(
-            _partner_opened_weak_2,
-            Any(
-                # Preemptive: 5+ support in a major
-                All(_opener_is_major, HasSuitFit(_opening_suit, min_len=5)),
-                # Game values: 14+ support pts (major)
-                All(
-                    _opener_is_major,
-                    HasSuitFit(_opening_suit, min_len=3),
-                    SupportPtsRange(_opening_suit, min_pts=14),
-                ),
-                # Game values: 16+ support pts (minor)
-                All(
-                    _opener_is_minor,
-                    HasSuitFit(_opening_suit, min_len=3),
-                    SupportPtsRange(_opening_suit, min_pts=16),
-                ),
+        return Any(
+            # Preemptive: 5+ support
+            HasSuitFit(_opening_suit, min_len=5),
+            # Game values: 14+ support pts
+            All(
+                HasSuitFit(_opening_suit, min_len=3),
+                SupportPtsRange(_opening_suit, min_pts=14),
             ),
         )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _opening_suit(ctx)
-        level = 4 if suit.is_major else 5
         return RuleResult(
-            bid=SuitBid(level, suit),
+            bid=SuitBid(4, suit),
+            rule_name=self.name,
+            explanation=f"Game raise over weak {suit.name.lower()} -- to play",
+            forcing=False,
+        )
+
+
+class RespondGameRaiseWeakTwoMinor(Rule):
+    """Game raise over partner's weak two in a minor.
+
+    e.g. 2D->5D
+
+    SAYC: "Jump raise to game -- to play."
+    3+ support with 16+ support pts (game values).
+    """
+
+    @property
+    def name(self) -> str:
+        return "response.game_raise_weak_two_minor"
+
+    @property
+    def category(self) -> Category:
+        return Category.RESPONSE
+
+    @property
+    def priority(self) -> int:
+        return 488
+
+    @property
+    def prerequisites(self) -> Condition:
+        return All(_partner_opened_weak_2, _opener_is_minor)
+
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            HasSuitFit(_opening_suit, min_len=3),
+            SupportPtsRange(_opening_suit, min_pts=16),
+        )
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        suit = _opening_suit(ctx)
+        return RuleResult(
+            bid=SuitBid(5, suit),
             rule_name=self.name,
             explanation=f"Game raise over weak {suit.name.lower()} -- to play",
             forcing=False,
@@ -223,8 +258,12 @@ class Respond3NTOverWeakTwo(Rule):
         return 486
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_weak_2
+
+    @property
     def conditions(self) -> Condition:
-        return All(_partner_opened_weak_2, HcpRange(min_hcp=15), _stoppers_in_unbid)
+        return All(HcpRange(min_hcp=15), _stoppers_in_unbid)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -259,8 +298,12 @@ class RespondNewSuitOverWeakTwo(Rule):
         return 482
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_weak_2
+
+    @property
     def conditions(self) -> Condition:
-        return All(_partner_opened_weak_2, HcpRange(min_hcp=14), self._suit)
+        return All(HcpRange(min_hcp=14), self._suit)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._suit.value
@@ -299,8 +342,12 @@ class Respond2NTFeatureAsk(Rule):
         return 478
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_weak_2
+
+    @property
     def conditions(self) -> Condition:
-        return All(_partner_opened_weak_2, HcpRange(min_hcp=14))
+        return HcpRange(min_hcp=14)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -332,8 +379,12 @@ class RespondRaiseWeakTwo(Rule):
         return 476
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_weak_2
+
+    @property
     def conditions(self) -> Condition:
-        return All(_partner_opened_weak_2, HasSuitFit(_opening_suit, min_len=3))
+        return HasSuitFit(_opening_suit, min_len=3)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _opening_suit(ctx)
@@ -364,8 +415,12 @@ class RespondPassOverWeakTwo(Rule):
         return 46
 
     @property
-    def conditions(self) -> Condition:
+    def prerequisites(self) -> Condition:
         return _partner_opened_weak_2
+
+    @property
+    def conditions(self) -> Condition:
+        return All()
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -381,17 +436,18 @@ class RespondPassOverWeakTwo(Rule):
 # ===========================================================================
 
 
-class RespondGameRaise3Level(Rule):
-    """Game raise over partner's 3-level preempt.
+class RespondGameRaise3LevelMajor(Rule):
+    """Game raise over partner's 3-level major preempt.
 
-    e.g. 3H->4H, 3S->4S, 3C->5C, 3D->5D
+    e.g. 3H->4H, 3S->4S
 
     SAYC: "Jump raise to game -- to play."
+    3+ support with 14+ support pts (game values).
     """
 
     @property
     def name(self) -> str:
-        return "response.game_raise_3_level"
+        return "response.game_raise_3_level_major"
 
     @property
     def category(self) -> Category:
@@ -402,23 +458,62 @@ class RespondGameRaise3Level(Rule):
         return 487
 
     @property
+    def prerequisites(self) -> Condition:
+        return All(_partner_opened_3_level, _opener_is_major)
+
+    @property
     def conditions(self) -> Condition:
         return All(
-            _partner_opened_3_level,
             HasSuitFit(_opening_suit, min_len=3),
-            Any(
-                # Major: 14+ support pts
-                All(_opener_is_major, SupportPtsRange(_opening_suit, min_pts=14)),
-                # Minor: 16+ support pts
-                All(_opener_is_minor, SupportPtsRange(_opening_suit, min_pts=16)),
-            ),
+            SupportPtsRange(_opening_suit, min_pts=14),
         )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _opening_suit(ctx)
-        level = 4 if suit.is_major else 5
         return RuleResult(
-            bid=SuitBid(level, suit),
+            bid=SuitBid(4, suit),
+            rule_name=self.name,
+            explanation=f"Game raise over 3{suit.name[0]} -- to play",
+            forcing=False,
+        )
+
+
+class RespondGameRaise3LevelMinor(Rule):
+    """Game raise over partner's 3-level minor preempt.
+
+    e.g. 3C->5C, 3D->5D
+
+    SAYC: "Jump raise to game -- to play."
+    3+ support with 16+ support pts (game values).
+    """
+
+    @property
+    def name(self) -> str:
+        return "response.game_raise_3_level_minor"
+
+    @property
+    def category(self) -> Category:
+        return Category.RESPONSE
+
+    @property
+    def priority(self) -> int:
+        return 487
+
+    @property
+    def prerequisites(self) -> Condition:
+        return All(_partner_opened_3_level, _opener_is_minor)
+
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            HasSuitFit(_opening_suit, min_len=3),
+            SupportPtsRange(_opening_suit, min_pts=16),
+        )
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        suit = _opening_suit(ctx)
+        return RuleResult(
+            bid=SuitBid(5, suit),
             rule_name=self.name,
             explanation=f"Game raise over 3{suit.name[0]} -- to play",
             forcing=False,
@@ -446,8 +541,12 @@ class Respond3NTOver3Level(Rule):
         return 483
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_3_level
+
+    @property
     def conditions(self) -> Condition:
-        return All(_partner_opened_3_level, HcpRange(min_hcp=15), _stoppers_in_unbid)
+        return All(HcpRange(min_hcp=15), _stoppers_in_unbid)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -484,8 +583,12 @@ class RespondNewSuitOver3Level(Rule):
         return 481
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_3_level
+
+    @property
     def conditions(self) -> Condition:
-        return All(_partner_opened_3_level, HcpRange(min_hcp=14), self._suit)
+        return All(HcpRange(min_hcp=14), self._suit)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._suit.value
@@ -521,8 +624,12 @@ class RespondRaise3Level(Rule):
         return 473
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_3_level
+
+    @property
     def conditions(self) -> Condition:
-        return All(_partner_opened_3_level, HasSuitFit(_opening_suit, min_len=3))
+        return HasSuitFit(_opening_suit, min_len=3)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _opening_suit(ctx)
@@ -553,8 +660,12 @@ class RespondPassOver3Level(Rule):
         return 43
 
     @property
-    def conditions(self) -> Condition:
+    def prerequisites(self) -> Condition:
         return _partner_opened_3_level
+
+    @property
+    def conditions(self) -> Condition:
+        return All()
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -592,10 +703,12 @@ class RespondRaise4Level(Rule):
         return 474
 
     @property
+    def prerequisites(self) -> Condition:
+        return All(_partner_opened_4_level, _opener_is_minor)
+
+    @property
     def conditions(self) -> Condition:
         return All(
-            _partner_opened_4_level,
-            _opener_is_minor,
             HasSuitFit(_opening_suit, min_len=4),
             SupportPtsRange(_opening_suit, min_pts=14),
         )
@@ -629,8 +742,12 @@ class RespondPassOver4Level(Rule):
         return 42
 
     @property
-    def conditions(self) -> Condition:
+    def prerequisites(self) -> Condition:
         return _partner_opened_4_level
+
+    @property
+    def conditions(self) -> Condition:
+        return All()
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(

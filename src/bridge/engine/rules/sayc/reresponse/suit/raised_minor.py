@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from bridge.engine.bidutil import cheapest_bid_in_suit
-from bridge.engine.condition import All, HasSuitFit, HcpRange, condition
+from bridge.engine.condition import All, Condition, HasSuitFit, HcpRange, condition
 from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.model.bid import PASS, SuitBid
@@ -106,13 +106,17 @@ class PassAfterMinor3NT(Rule):
         return 93
 
     @property
-    def conditions(self) -> All:
+    def prerequisites(self) -> Condition:
         return All(
             partner_opened_1_suit,
             _opening_is_minor,
             i_raised,
             partner_rebid_3nt,
         )
+
+    @property
+    def conditions(self) -> Condition:
+        return All()
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -141,14 +145,17 @@ class Accept2NTAfterMinorRaise(Rule):
         return 299
 
     @property
-    def conditions(self) -> All:
+    def prerequisites(self) -> Condition:
         return All(
             partner_opened_1_suit,
             _opening_is_minor,
             i_raised,
             partner_rebid_2nt,
-            HcpRange(min_hcp=9, max_hcp=10),
         )
+
+    @property
+    def conditions(self) -> Condition:
+        return HcpRange(min_hcp=9, max_hcp=10)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -177,14 +184,17 @@ class Decline2NTAfterMinorRaise(Rule):
         return 190
 
     @property
-    def conditions(self) -> All:
+    def prerequisites(self) -> Condition:
         return All(
             partner_opened_1_suit,
             _opening_is_minor,
             i_raised,
             partner_rebid_2nt,
-            HcpRange(max_hcp=8),
         )
+
+    @property
+    def conditions(self) -> Condition:
+        return HcpRange(max_hcp=8)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = opening_suit(ctx)
@@ -214,15 +224,17 @@ class ThreeNTAfterMinorNewSuit(Rule):
         return 298
 
     @property
-    def conditions(self) -> All:
+    def prerequisites(self) -> Condition:
         return All(
             partner_opened_1_suit,
             _opening_is_minor,
             i_raised,
             _partner_bid_new_suit_over_raise,
-            stoppers_in_unbid,
-            HcpRange(min_hcp=9, max_hcp=10),
         )
+
+    @property
+    def conditions(self) -> Condition:
+        return All(stoppers_in_unbid, HcpRange(min_hcp=9, max_hcp=10))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -251,12 +263,17 @@ class Raise2ndSuitAfterMinorRaise(Rule):
         return 293
 
     @property
-    def conditions(self) -> All:
+    def prerequisites(self) -> Condition:
         return All(
             partner_opened_1_suit,
             _opening_is_minor,
             i_raised,
             _partner_bid_new_suit_over_raise,
+        )
+
+    @property
+    def conditions(self) -> Condition:
+        return All(
             HcpRange(min_hcp=8, max_hcp=10),
             HasSuitFit(partner_rebid_suit, min_len=4),
         )
@@ -265,6 +282,7 @@ class Raise2ndSuitAfterMinorRaise(Rule):
         suit = partner_rebid_suit(ctx)
         rebid = partner_rebid(ctx)
         bid = cheapest_bid_in_suit(suit, rebid)
+        assert bid is not None
         return RuleResult(
             bid=bid,
             rule_name=self.name,
@@ -293,19 +311,23 @@ class ReturnToMinor(Rule):
         return 182
 
     @property
-    def conditions(self) -> All:
+    def prerequisites(self) -> Condition:
         return All(
             partner_opened_1_suit,
             _opening_is_minor,
             i_raised,
             _partner_bid_new_suit_over_raise,
-            HcpRange(max_hcp=10),
         )
+
+    @property
+    def conditions(self) -> Condition:
+        return HcpRange(max_hcp=10)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = opening_suit(ctx)
         rebid = partner_rebid(ctx)
         bid = cheapest_bid_in_suit(suit, rebid)
+        assert bid is not None
         return RuleResult(
             bid=bid,
             rule_name=self.name,
@@ -333,14 +355,17 @@ class AcceptMinorInvite(Rule):
         return 270
 
     @property
-    def conditions(self) -> All:
+    def prerequisites(self) -> Condition:
         return All(
             partner_opened_1_suit,
             _opening_is_minor,
             i_raised,
             _partner_invited_minor,
-            HcpRange(min_hcp=9, max_hcp=10),
         )
+
+    @property
+    def conditions(self) -> Condition:
+        return HcpRange(min_hcp=9, max_hcp=10)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = opening_suit(ctx)
@@ -376,14 +401,17 @@ class DeclineMinorInvite(Rule):
         return 181
 
     @property
-    def conditions(self) -> All:
+    def prerequisites(self) -> Condition:
         return All(
             partner_opened_1_suit,
             _opening_is_minor,
             i_raised,
             _partner_invited_minor,
-            HcpRange(max_hcp=8),
         )
+
+    @property
+    def conditions(self) -> Condition:
+        return HcpRange(max_hcp=8)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -412,13 +440,17 @@ class PassAfterMinorGame(Rule):
         return 84
 
     @property
-    def conditions(self) -> All:
+    def prerequisites(self) -> Condition:
         return All(
             partner_opened_1_suit,
             _opening_is_minor,
             i_raised,
             _partner_bid_game_minor,
         )
+
+    @property
+    def conditions(self) -> Condition:
+        return All()
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(

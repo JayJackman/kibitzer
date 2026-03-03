@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from bridge.engine.condition import All, Any, SupportPtsRange, condition
+from bridge.engine.condition import All, Any, Condition, SupportPtsRange, condition
 from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.model.bid import PASS, SuitBid
@@ -110,19 +110,18 @@ class AcceptGameTry(Rule):
         return 341
 
     @property
-    def conditions(self) -> All:
-        return All(
-            partner_opened_1_suit,
-            i_raised,
-            _partner_game_tried,
-            Any(
-                # Near-maximum -- accept regardless of help
-                SupportPtsRange(opening_suit, min_pts=9, max_pts=10),
-                # Medium with help in the try suit
-                All(
-                    SupportPtsRange(opening_suit, min_pts=7, max_pts=8),
-                    _has_help_in_try_suit,
-                ),
+    def prerequisites(self) -> Condition:
+        return All(partner_opened_1_suit, i_raised, _partner_game_tried)
+
+    @property
+    def conditions(self) -> Condition:
+        return Any(
+            # Near-maximum -- accept regardless of help
+            SupportPtsRange(opening_suit, min_pts=9, max_pts=10),
+            # Medium with help in the try suit
+            All(
+                SupportPtsRange(opening_suit, min_pts=7, max_pts=8),
+                _has_help_in_try_suit,
             ),
         )
 
@@ -157,13 +156,12 @@ class DeclineGameTry(Rule):
         return 191
 
     @property
-    def conditions(self) -> All:
-        return All(
-            partner_opened_1_suit,
-            i_raised,
-            _partner_game_tried,
-            SupportPtsRange(opening_suit, max_pts=8),
-        )
+    def prerequisites(self) -> Condition:
+        return All(partner_opened_1_suit, i_raised, _partner_game_tried)
+
+    @property
+    def conditions(self) -> Condition:
+        return SupportPtsRange(opening_suit, max_pts=8)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = opening_suit(ctx)
@@ -196,13 +194,12 @@ class AcceptReraise(Rule):
         return 332
 
     @property
-    def conditions(self) -> All:
-        return All(
-            partner_opened_1_suit,
-            i_raised,
-            _partner_reraised_major,
-            SupportPtsRange(opening_suit, min_pts=8, max_pts=10),
-        )
+    def prerequisites(self) -> Condition:
+        return All(partner_opened_1_suit, i_raised, _partner_reraised_major)
+
+    @property
+    def conditions(self) -> Condition:
+        return SupportPtsRange(opening_suit, min_pts=8, max_pts=10)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = opening_suit(ctx)
@@ -232,13 +229,12 @@ class DeclineReraise(Rule):
         return 187
 
     @property
-    def conditions(self) -> All:
-        return All(
-            partner_opened_1_suit,
-            i_raised,
-            _partner_reraised_major,
-            SupportPtsRange(opening_suit, max_pts=7),
-        )
+    def prerequisites(self) -> Condition:
+        return All(partner_opened_1_suit, i_raised, _partner_reraised_major)
+
+    @property
+    def conditions(self) -> Condition:
+        return SupportPtsRange(opening_suit, max_pts=7)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -270,12 +266,12 @@ class PassAfterGame(Rule):
         return 86
 
     @property
-    def conditions(self) -> All:
-        return All(
-            partner_opened_1_suit,
-            i_raised,
-            _partner_bid_game_major,
-        )
+    def prerequisites(self) -> Condition:
+        return All(partner_opened_1_suit, i_raised, _partner_bid_game_major)
+
+    @property
+    def conditions(self) -> Condition:
+        return All()
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(

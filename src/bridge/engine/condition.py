@@ -63,18 +63,23 @@ class ConditionResult:
 class CheckResult:
     """Aggregate result from evaluating all conditions on a rule.
 
-    Returned by ``All.check_all()`` and ``Any.check_all()``.  Contains
-    the individual ``ConditionResult`` for each condition that was
-    evaluated.
+    Returned by ``All.check_all()`` and ``Any.check_all()``, and by
+    ``Rule.check()``.  Contains the individual ``ConditionResult``
+    for each condition that was evaluated.
 
     Attributes:
         passed: Whether all conditions (or at least one path) passed.
+        prerequisite_passed: Whether the rule's auction-state prerequisites
+            were satisfied.  When False, ``results`` is empty (hand
+            conditions were never evaluated).  Defaults to True for
+            backward compatibility with combinator internals.
         results: Individual results, in evaluation order.  For ``All``,
                  this stops at the first failure (short-circuit).
     """
 
     passed: bool
-    results: tuple[ConditionResult, ...]
+    prerequisite_passed: bool = True
+    results: tuple[ConditionResult, ...] = ()
 
 
 class Condition(ABC):

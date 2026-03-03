@@ -48,11 +48,12 @@ class PassAfter3NTResponse(Rule):
         return 89
 
     @property
+    def prerequisites(self) -> Condition:
+        return All(partner_opened_1_suit, _i_bid_3nt)
+
+    @property
     def conditions(self) -> Condition:
-        return All(
-            partner_opened_1_suit,
-            _i_bid_3nt,
-        )
+        return All()
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(

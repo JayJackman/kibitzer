@@ -150,13 +150,12 @@ class Rebid2NTAfter2C(Rule):
         return 590
 
     @property
+    def prerequisites(self) -> Condition:
+        return All(_i_opened_2c, _partner_bid_2d_waiting)
+
+    @property
     def conditions(self) -> Condition:
-        return All(
-            _i_opened_2c,
-            _partner_bid_2d_waiting,
-            Balanced(strict=True),
-            HcpRange(22, 24),
-        )
+        return All(Balanced(strict=True), HcpRange(22, 24))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -188,13 +187,12 @@ class Rebid3NTAfter2C(Rule):
         return 585
 
     @property
+    def prerequisites(self) -> Condition:
+        return All(_i_opened_2c, _partner_bid_2d_waiting)
+
+    @property
     def conditions(self) -> Condition:
-        return All(
-            _i_opened_2c,
-            _partner_bid_2d_waiting,
-            Balanced(strict=True),
-            HcpRange(min_hcp=25),
-        )
+        return All(Balanced(strict=True), HcpRange(min_hcp=25))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -227,8 +225,12 @@ class RebidSuitAfter2C(Rule):
         return 580
 
     @property
+    def prerequisites(self) -> Condition:
+        return All(_i_opened_2c, _partner_bid_2d_waiting)
+
+    @property
     def conditions(self) -> Condition:
-        return All(_i_opened_2c, _partner_bid_2d_waiting, _has_5_plus_suit)
+        return _has_5_plus_suit
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _longest_suit(ctx)
@@ -266,10 +268,12 @@ class Rebid2NTAfter2COffshape(Rule):
         return 578
 
     @property
+    def prerequisites(self) -> Condition:
+        return All(_i_opened_2c, _partner_bid_2d_waiting)
+
+    @property
     def conditions(self) -> Condition:
         return All(
-            _i_opened_2c,
-            _partner_bid_2d_waiting,
             Not(Balanced(strict=True), label="balanced"),
             Not(_has_5_plus_suit),
         )
@@ -310,12 +314,12 @@ class RebidRaiseAfterPositive2C(Rule):
         return 598
 
     @property
+    def prerequisites(self) -> Condition:
+        return All(_i_opened_2c, _partner_positive_suit)
+
+    @property
     def conditions(self) -> Condition:
-        return All(
-            _i_opened_2c,
-            _partner_positive_suit,
-            HasSuitFit(_partner_response_suit, min_len=4),
-        )
+        return HasSuitFit(_partner_response_suit, min_len=4)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         partner = _partner_bid(ctx)
@@ -351,14 +355,14 @@ class RebidSuitAfterPositive2C(Rule):
         return 596
 
     @property
+    def prerequisites(self) -> Condition:
+        return All(_i_opened_2c, _partner_positive_response)
+
+    @property
     def conditions(self) -> Condition:
-        return All(
-            _i_opened_2c,
-            _partner_positive_response,
-            Any(
-                All(_partner_positive_suit, _has_5_plus_unbid_suit),
-                All(Not(_partner_positive_suit), _has_5_plus_suit),
-            ),
+        return Any(
+            All(_partner_positive_suit, _has_5_plus_unbid_suit),
+            All(Not(_partner_positive_suit), _has_5_plus_suit),
         )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -400,8 +404,12 @@ class RebidNTAfterPositive2C(Rule):
         return 594
 
     @property
-    def conditions(self) -> Condition:
+    def prerequisites(self) -> Condition:
         return All(_i_opened_2c, _partner_positive_response)
+
+    @property
+    def conditions(self) -> Condition:
+        return All()
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(

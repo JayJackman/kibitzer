@@ -642,16 +642,14 @@ class TestSAYCWeakTwoResponseIntegration:
     def test_game_raise_4h(self):
         """3+ support, 14+ support pts -> 4H."""
         # AK43.K43.AK32.43 = A4+K3+K3+A4+K3 = 17 HCP, 3 hearts
-        assert (
-            _response_select("AK43.K43.AK32.43", "2H") == "response.game_raise_weak_two"
-        )
+        result = _response_select("AK43.K43.AK32.43", "2H")
+        assert result == "response.game_raise_weak_two_major"
 
     def test_preemptive_game_raise_5_support(self):
         """5+ support, major -> 4H (preemptive)."""
         # 43.QJ432.43.5432 = Q2+J1 = 3 HCP, 5 hearts
-        assert (
-            _response_select("43.QJ432.43.5432", "2H") == "response.game_raise_weak_two"
-        )
+        result = _response_select("43.QJ432.43.5432", "2H")
+        assert result == "response.game_raise_weak_two_major"
 
     def test_3nt_over_weak_two(self):
         """15+ HCP, stoppers in unbid suits -> 3NT."""
@@ -694,9 +692,8 @@ class TestSAYC3LevelResponseIntegration:
     def test_game_raise_4h(self):
         """3+ support, 14+ support pts -> 4H."""
         # AK43.K43.AK32.43 = 17 HCP, 3 hearts
-        assert (
-            _response_select("AK43.K43.AK32.43", "3H") == "response.game_raise_3_level"
-        )
+        result = _response_select("AK43.K43.AK32.43", "3H")
+        assert result == "response.game_raise_3_level_major"
 
     def test_3nt_over_3_level(self):
         """15+ HCP, stoppers, <3 support -> 3NT over 3C."""

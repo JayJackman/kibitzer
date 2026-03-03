@@ -42,6 +42,8 @@ def _i_jump_shifted(ctx: BiddingContext) -> bool:
     if resp.is_notrump or resp.suit == opening.suit:
         return False
     cheapest = cheapest_bid_in_suit(resp.suit, opening)
+    if cheapest is None:
+        return False
     return resp.level > cheapest.level
 
 
@@ -118,13 +120,12 @@ class Blackwood4NTAfterJS(Rule):
         return 499
 
     @property
+    def prerequisites(self) -> Condition:
+        return All(partner_opened_1_suit, _i_jump_shifted)
+
+    @property
     def conditions(self) -> Condition:
-        return All(
-            partner_opened_1_suit,
-            _i_jump_shifted,
-            _fit_established_after_js,
-            HcpRange(min_hcp=21),
-        )
+        return All(_fit_established_after_js, HcpRange(min_hcp=21))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -154,13 +155,12 @@ class FourMAfterJS(Rule):
         return 372
 
     @property
+    def prerequisites(self) -> Condition:
+        return All(partner_opened_1_suit, _i_jump_shifted, Not(_auction_at_game))
+
+    @property
     def conditions(self) -> Condition:
-        return All(
-            partner_opened_1_suit,
-            _i_jump_shifted,
-            _fit_established_after_js,
-            Not(_auction_at_game),
-        )
+        return _fit_established_after_js
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _agreed_suit_after_js(ctx)
@@ -203,17 +203,18 @@ class ShowSecondSuitAfterJS(Rule):
         return 443
 
     @property
+    def prerequisites(self) -> Condition:
+        return All(partner_opened_1_suit, _i_jump_shifted)
+
+    @property
     def conditions(self) -> Condition:
-        return All(
-            partner_opened_1_suit,
-            _i_jump_shifted,
-            self._new_suit,
-        )
+        return self._new_suit
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._new_suit.value
         rebid = partner_rebid(ctx)
         bid = cheapest_bid_in_suit(suit, rebid)
+        assert bid is not None
         return RuleResult(
             bid=bid,
             rule_name=self.name,
@@ -241,18 +242,18 @@ class RebidOwnSuitAfterJSReresponse(Rule):
         return 430
 
     @property
+    def prerequisites(self) -> Condition:
+        return All(partner_opened_1_suit, _i_jump_shifted)
+
+    @property
     def conditions(self) -> Condition:
-        return All(
-            partner_opened_1_suit,
-            _i_jump_shifted,
-            my_response_suit_6plus,
-            Not(_fit_established_after_js),
-        )
+        return All(my_response_suit_6plus, Not(_fit_established_after_js))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = my_response_suit(ctx)
         rebid = partner_rebid(ctx)
         bid = cheapest_bid_in_suit(suit, rebid)
+        assert bid is not None
         return RuleResult(
             bid=bid,
             rule_name=self.name,
@@ -280,19 +281,22 @@ class PreferenceToOpeningSuitAfterJS(Rule):
         return 400
 
     @property
-    def conditions(self) -> Condition:
+    def prerequisites(self) -> Condition:
         return All(
             partner_opened_1_suit,
             _i_jump_shifted,
             _partner_rebid_new_suit_after_js,
-            _support_for_opening_suit,
-            Not(_fit_established_after_js),
         )
+
+    @property
+    def conditions(self) -> Condition:
+        return All(_support_for_opening_suit, Not(_fit_established_after_js))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = opening_suit(ctx)
         rebid = partner_rebid(ctx)
         bid = cheapest_bid_in_suit(suit, rebid)
+        assert bid is not None
         return RuleResult(
             bid=bid,
             rule_name=self.name,
@@ -323,12 +327,12 @@ class ThreeNTAfterJSReresponse(Rule):
         return 362
 
     @property
+    def prerequisites(self) -> Condition:
+        return All(partner_opened_1_suit, _i_jump_shifted, Not(_auction_at_game))
+
+    @property
     def conditions(self) -> Condition:
-        return All(
-            partner_opened_1_suit,
-            _i_jump_shifted,
-            Not(_auction_at_game),
-        )
+        return All()
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -357,12 +361,12 @@ class PassAtGameAfterJS(Rule):
         return 88
 
     @property
+    def prerequisites(self) -> Condition:
+        return All(partner_opened_1_suit, _i_jump_shifted, _auction_at_game)
+
+    @property
     def conditions(self) -> Condition:
-        return All(
-            partner_opened_1_suit,
-            _i_jump_shifted,
-            _auction_at_game,
-        )
+        return All()
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(

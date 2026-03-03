@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from bridge.engine.condition import All, condition
+from bridge.engine.condition import All, Condition, condition
 from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.model.bid import PASS, SuitBid
@@ -72,12 +72,16 @@ class PassAfterAcceptedLimitRaise(Rule):
         return 88
 
     @property
-    def conditions(self) -> All:
+    def prerequisites(self) -> Condition:
         return All(
             partner_opened_1_suit,
             _i_limit_raised,
             _partner_accepted_limit_raise,
         )
+
+    @property
+    def conditions(self) -> Condition:
+        return All()
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -107,12 +111,12 @@ class BlackwoodResponseAfterLimitRaise(Rule):
         return 500
 
     @property
-    def conditions(self) -> All:
-        return All(
-            partner_opened_1_suit,
-            _i_limit_raised,
-            _partner_bid_4nt,
-        )
+    def prerequisites(self) -> Condition:
+        return All(partner_opened_1_suit, _i_limit_raised, _partner_bid_4nt)
+
+    @property
+    def conditions(self) -> Condition:
+        return All()
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         aces = sum(

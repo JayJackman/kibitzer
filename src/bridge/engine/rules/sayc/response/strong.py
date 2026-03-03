@@ -74,8 +74,12 @@ class Respond2NTOver2C(Rule):
         return 490
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_2c
+
+    @property
     def conditions(self) -> Condition:
-        return All(_partner_opened_2c, HcpRange(min_hcp=8), Balanced(strict=True))
+        return All(HcpRange(min_hcp=8), Balanced(strict=True))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -109,8 +113,12 @@ class RespondPositiveSuitOver2C(Rule):
         return 480
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_2c
+
+    @property
     def conditions(self) -> Condition:
-        return All(_partner_opened_2c, HcpRange(min_hcp=8), self._suit)
+        return All(HcpRange(min_hcp=8), self._suit)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._suit.value
@@ -146,8 +154,12 @@ class Respond2DWaiting(Rule):
         return 470
 
     @property
-    def conditions(self) -> Condition:
+    def prerequisites(self) -> Condition:
         return _partner_opened_2c
+
+    @property
+    def conditions(self) -> Condition:
+        return All()
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(

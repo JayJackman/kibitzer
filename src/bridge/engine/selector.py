@@ -115,6 +115,11 @@ class BidSelector:
     def think(self, ctx: BiddingContext) -> ThoughtProcess:
         """Evaluate all candidate rules and produce a structured trace.
 
+        Rules whose prerequisites fail are silently skipped — they are
+        irrelevant to this auction and don't appear in the thought process.
+        Only rules whose prerequisites pass get a ThoughtStep entry, showing
+        which hand conditions passed or failed.
+
         Raises ``AmbiguousBidError`` if two rules at the same priority both
         match.
         """
@@ -125,6 +130,9 @@ class BidSelector:
 
         for rule in rules:
             check_result = rule.check(ctx)
+            if not check_result.prerequisite_passed:
+                logger.debug("Rule %s: prerequisites failed, skipping", rule.name)
+                continue
             passed = check_result.passed
             result = rule.select(ctx) if passed else None
             logger.debug("Rule %s: %s", rule.name, "PASS" if passed else "fail")

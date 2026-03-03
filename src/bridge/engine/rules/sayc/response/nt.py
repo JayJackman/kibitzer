@@ -115,9 +115,12 @@ class RespondGerber(Rule):
         return 495
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_1nt
+
+    @property
     def conditions(self) -> Condition:
         return All(
-            _partner_opened_1nt,
             HcpRange(min_hcp=18),
             Not(has_5_plus_major),
             Balanced(strict=False),
@@ -152,8 +155,12 @@ class Respond4NTOver1NT(Rule):
         return 485
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_1nt
+
+    @property
     def conditions(self) -> Condition:
-        return All(_partner_opened_1nt, HcpRange(15, 17), Balanced(strict=False))
+        return All(HcpRange(15, 17), Balanced(strict=False))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -183,8 +190,12 @@ class Respond3MajorOver1NT(Rule):
         return 475
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_1nt
+
+    @property
     def conditions(self) -> Condition:
-        return All(_partner_opened_1nt, HcpRange(min_hcp=16), _has_6_plus_major)
+        return All(HcpRange(min_hcp=16), _has_6_plus_major)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _longest_major(ctx)
@@ -216,8 +227,12 @@ class RespondTexasTransfer(Rule):
         return 465
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_1nt
+
+    @property
     def conditions(self) -> Condition:
-        return All(_partner_opened_1nt, HcpRange(10, 15), _has_6_plus_major)
+        return All(HcpRange(10, 15), _has_6_plus_major)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _longest_major(ctx)
@@ -257,19 +272,20 @@ class RespondStayman(Rule):
         return 445
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_1nt
+
+    @property
     def conditions(self) -> Condition:
-        return All(
-            _partner_opened_1nt,
-            Any(
-                # Garbage Stayman: 4-4+ in majors, any HCP
-                All(_has_4h, _has_4s),
-                # Regular Stayman: 8+ HCP, 4-card major, no 5+ major, not 4-3-3-3
-                All(
-                    HcpRange(min_hcp=8),
-                    _has_4_card_major,
-                    Not(has_5_plus_major),
-                    _not_4333,
-                ),
+        return Any(
+            # Garbage Stayman: 4-4+ in majors, any HCP
+            All(_has_4h, _has_4s),
+            # Regular Stayman: 8+ HCP, 4-card major, no 5+ major, not 4-3-3-3
+            All(
+                HcpRange(min_hcp=8),
+                _has_4_card_major,
+                Not(has_5_plus_major),
+                _not_4333,
             ),
         )
 
@@ -302,8 +318,12 @@ class RespondJacobyTransfer(Rule):
         return 435
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_1nt
+
+    @property
     def conditions(self) -> Condition:
-        return All(_partner_opened_1nt, has_5_plus_major)
+        return has_5_plus_major
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _longest_major(ctx)
@@ -340,8 +360,12 @@ class Respond3NTOver1NT(Rule):
         return 425
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_1nt
+
+    @property
     def conditions(self) -> Condition:
-        return All(_partner_opened_1nt, HcpRange(10, 15))
+        return HcpRange(10, 15)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -374,8 +398,12 @@ class Respond3MinorOver1NT(Rule):
         return 415
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_1nt
+
+    @property
     def conditions(self) -> Condition:
-        return All(_partner_opened_1nt, HcpRange(8, 9), _has_6_plus_minor)
+        return All(HcpRange(8, 9), _has_6_plus_minor)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _longest_minor(ctx)
@@ -408,8 +436,12 @@ class Respond2NTOver1NT(Rule):
         return 405
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_1nt
+
+    @property
     def conditions(self) -> Condition:
-        return All(_partner_opened_1nt, HcpRange(8, 9))
+        return HcpRange(8, 9)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -443,8 +475,12 @@ class Respond2SPuppet(Rule):
         return 395
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_1nt
+
+    @property
     def conditions(self) -> Condition:
-        return All(_partner_opened_1nt, HcpRange(max_hcp=7), _has_6_plus_minor)
+        return All(HcpRange(max_hcp=7), _has_6_plus_minor)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -475,8 +511,12 @@ class RespondPassOver1NT(Rule):
         return 45
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_1nt
+
+    @property
     def conditions(self) -> Condition:
-        return All(_partner_opened_1nt, HcpRange(max_hcp=7))
+        return HcpRange(max_hcp=7)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -513,9 +553,12 @@ class RespondGerberOver2NT(Rule):
         return 494
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_2nt
+
+    @property
     def conditions(self) -> Condition:
         return All(
-            _partner_opened_2nt,
             HcpRange(min_hcp=13),
             Not(has_5_plus_major),
             Balanced(strict=False),
@@ -552,8 +595,12 @@ class Respond4NTOver2NT(Rule):
         return 484
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_2nt
+
+    @property
     def conditions(self) -> Condition:
-        return All(_partner_opened_2nt, HcpRange(11, 12), Balanced(strict=False))
+        return All(HcpRange(11, 12), Balanced(strict=False))
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -585,8 +632,12 @@ class RespondTexasOver2NT(Rule):
         return 464
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_2nt
+
+    @property
     def conditions(self) -> Condition:
-        return All(_partner_opened_2nt, HcpRange(4, 10), _has_6_plus_major)
+        return All(HcpRange(4, 10), _has_6_plus_major)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _longest_major(ctx)
@@ -624,9 +675,12 @@ class RespondStaymanOver2NT(Rule):
         return 444
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_2nt
+
+    @property
     def conditions(self) -> Condition:
         return All(
-            _partner_opened_2nt,
             HcpRange(min_hcp=4),
             _has_4_card_major,
             Not(has_5_plus_major),
@@ -664,8 +718,12 @@ class RespondTransferOver2NT(Rule):
         return 434
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_2nt
+
+    @property
     def conditions(self) -> Condition:
-        return All(_partner_opened_2nt, has_5_plus_major)
+        return has_5_plus_major
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _longest_major(ctx)
@@ -701,8 +759,12 @@ class Respond3NTOver2NT(Rule):
         return 424
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_2nt
+
+    @property
     def conditions(self) -> Condition:
-        return All(_partner_opened_2nt, HcpRange(4, 10))
+        return HcpRange(4, 10)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -735,8 +797,12 @@ class Respond3SPuppetOver2NT(Rule):
         return 394
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_2nt
+
+    @property
     def conditions(self) -> Condition:
-        return All(_partner_opened_2nt, HcpRange(max_hcp=3), _has_6_plus_minor)
+        return All(HcpRange(max_hcp=3), _has_6_plus_minor)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -768,8 +834,12 @@ class RespondPassOver2NT(Rule):
         return 44
 
     @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_2nt
+
+    @property
     def conditions(self) -> Condition:
-        return All(_partner_opened_2nt, HcpRange(max_hcp=3))
+        return HcpRange(max_hcp=3)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(

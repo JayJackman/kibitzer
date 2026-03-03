@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from bridge.engine.condition import All, Any, Not, SupportPtsRange, condition
+from bridge.engine.condition import All, Any, Condition, Not, SupportPtsRange, condition
 from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.model.bid import PASS, SuitBid
@@ -110,11 +110,12 @@ class Blackwood4NTAfterShortness(Rule):
         return 498
 
     @property
-    def conditions(self) -> All:
+    def prerequisites(self) -> Condition:
+        return All(partner_opened_1_suit, _i_bid_jacoby_2nt, _partner_showed_shortness)
+
+    @property
+    def conditions(self) -> Condition:
         return All(
-            partner_opened_1_suit,
-            _i_bid_jacoby_2nt,
-            _partner_showed_shortness,
             SupportPtsRange(opening_suit, min_pts=16),
             _no_wasted_values_in_short_suit,
         )
@@ -148,19 +149,18 @@ class Bid4MAfterShortness(Rule):
         return 348
 
     @property
-    def conditions(self) -> All:
-        return All(
-            partner_opened_1_suit,
-            _i_bid_jacoby_2nt,
-            _partner_showed_shortness,
-            Any(
-                # 13-15 support pts -- always settle for game
-                SupportPtsRange(opening_suit, min_pts=13, max_pts=15),
-                # 16+ but wasted values in short suit -- also settle
-                All(
-                    SupportPtsRange(opening_suit, min_pts=16),
-                    Not(_no_wasted_values_in_short_suit),
-                ),
+    def prerequisites(self) -> Condition:
+        return All(partner_opened_1_suit, _i_bid_jacoby_2nt, _partner_showed_shortness)
+
+    @property
+    def conditions(self) -> Condition:
+        return Any(
+            # 13-15 support pts -- always settle for game
+            SupportPtsRange(opening_suit, min_pts=13, max_pts=15),
+            # 16+ but wasted values in short suit -- also settle
+            All(
+                SupportPtsRange(opening_suit, min_pts=16),
+                Not(_no_wasted_values_in_short_suit),
             ),
         )
 
@@ -195,13 +195,12 @@ class Blackwood4NTAfterSource(Rule):
         return 449
 
     @property
-    def conditions(self) -> All:
-        return All(
-            partner_opened_1_suit,
-            _i_bid_jacoby_2nt,
-            _partner_showed_source,
-            SupportPtsRange(opening_suit, min_pts=16),
-        )
+    def prerequisites(self) -> Condition:
+        return All(partner_opened_1_suit, _i_bid_jacoby_2nt, _partner_showed_source)
+
+    @property
+    def conditions(self) -> Condition:
+        return SupportPtsRange(opening_suit, min_pts=16)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -231,13 +230,12 @@ class Bid4MAfterSource(Rule):
         return 346
 
     @property
-    def conditions(self) -> All:
-        return All(
-            partner_opened_1_suit,
-            _i_bid_jacoby_2nt,
-            _partner_showed_source,
-            SupportPtsRange(opening_suit, min_pts=13, max_pts=15),
-        )
+    def prerequisites(self) -> Condition:
+        return All(partner_opened_1_suit, _i_bid_jacoby_2nt, _partner_showed_source)
+
+    @property
+    def conditions(self) -> Condition:
+        return SupportPtsRange(opening_suit, min_pts=13, max_pts=15)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = opening_suit(ctx)
@@ -270,13 +268,12 @@ class Blackwood4NTAfterMax(Rule):
         return 448
 
     @property
-    def conditions(self) -> All:
-        return All(
-            partner_opened_1_suit,
-            _i_bid_jacoby_2nt,
-            _partner_rebid_3_major,
-            SupportPtsRange(opening_suit, min_pts=15),
-        )
+    def prerequisites(self) -> Condition:
+        return All(partner_opened_1_suit, _i_bid_jacoby_2nt, _partner_rebid_3_major)
+
+    @property
+    def conditions(self) -> Condition:
+        return SupportPtsRange(opening_suit, min_pts=15)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -306,13 +303,12 @@ class Bid4MAfterMax(Rule):
         return 345
 
     @property
-    def conditions(self) -> All:
-        return All(
-            partner_opened_1_suit,
-            _i_bid_jacoby_2nt,
-            _partner_rebid_3_major,
-            SupportPtsRange(opening_suit, min_pts=13, max_pts=14),
-        )
+    def prerequisites(self) -> Condition:
+        return All(partner_opened_1_suit, _i_bid_jacoby_2nt, _partner_rebid_3_major)
+
+    @property
+    def conditions(self) -> Condition:
+        return SupportPtsRange(opening_suit, min_pts=13, max_pts=14)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = opening_suit(ctx)
@@ -345,13 +341,12 @@ class Blackwood4NTAfter3NTMedium(Rule):
         return 447
 
     @property
-    def conditions(self) -> All:
-        return All(
-            partner_opened_1_suit,
-            _i_bid_jacoby_2nt,
-            partner_rebid_3nt,
-            SupportPtsRange(opening_suit, min_pts=18),
-        )
+    def prerequisites(self) -> Condition:
+        return All(partner_opened_1_suit, _i_bid_jacoby_2nt, partner_rebid_3nt)
+
+    @property
+    def conditions(self) -> Condition:
+        return SupportPtsRange(opening_suit, min_pts=18)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -381,13 +376,12 @@ class Bid4MAfter3NTMedium(Rule):
         return 344
 
     @property
-    def conditions(self) -> All:
-        return All(
-            partner_opened_1_suit,
-            _i_bid_jacoby_2nt,
-            partner_rebid_3nt,
-            SupportPtsRange(opening_suit, min_pts=13, max_pts=17),
-        )
+    def prerequisites(self) -> Condition:
+        return All(partner_opened_1_suit, _i_bid_jacoby_2nt, partner_rebid_3nt)
+
+    @property
+    def conditions(self) -> Condition:
+        return SupportPtsRange(opening_suit, min_pts=13, max_pts=17)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = opening_suit(ctx)
@@ -420,13 +414,12 @@ class Blackwood4NTAfterJacoby4M(Rule):
         return 446
 
     @property
-    def conditions(self) -> All:
-        return All(
-            partner_opened_1_suit,
-            _i_bid_jacoby_2nt,
-            _partner_rebid_4_major,
-            SupportPtsRange(opening_suit, min_pts=18),
-        )
+    def prerequisites(self) -> Condition:
+        return All(partner_opened_1_suit, _i_bid_jacoby_2nt, _partner_rebid_4_major)
+
+    @property
+    def conditions(self) -> Condition:
+        return SupportPtsRange(opening_suit, min_pts=18)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -456,13 +449,12 @@ class PassAfterJacoby4M(Rule):
         return 85
 
     @property
-    def conditions(self) -> All:
-        return All(
-            partner_opened_1_suit,
-            _i_bid_jacoby_2nt,
-            _partner_rebid_4_major,
-            SupportPtsRange(opening_suit, max_pts=17),
-        )
+    def prerequisites(self) -> Condition:
+        return All(partner_opened_1_suit, _i_bid_jacoby_2nt, _partner_rebid_4_major)
+
+    @property
+    def conditions(self) -> Condition:
+        return SupportPtsRange(opening_suit, max_pts=17)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(

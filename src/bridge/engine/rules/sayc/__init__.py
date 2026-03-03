@@ -275,9 +275,11 @@ from .response import (
     Respond3SPuppetOver2NT,
     Respond4NTOver1NT,
     Respond4NTOver2NT,
-    RespondGameRaise3Level,
+    RespondGameRaise3LevelMajor,
+    RespondGameRaise3LevelMinor,
     RespondGameRaiseMajor,
-    RespondGameRaiseWeakTwo,
+    RespondGameRaiseWeakTwoMajor,
+    RespondGameRaiseWeakTwoMinor,
     RespondGerber,
     RespondGerberOver2NT,
     RespondJacoby2NT,
@@ -491,7 +493,8 @@ def create_sayc_registry() -> RuleRegistry:
     reg.register(Rebid2NTDecline4NT())
 
     # ── Responses to weak two (2D/2H/2S) ────────────────────────────
-    reg.register(RespondGameRaiseWeakTwo())
+    reg.register(RespondGameRaiseWeakTwoMajor())
+    reg.register(RespondGameRaiseWeakTwoMinor())
     reg.register(Respond3NTOverWeakTwo())
     reg.register(RespondNewSuitOverWeakTwo())
     reg.register(Respond2NTFeatureAsk())
@@ -499,7 +502,8 @@ def create_sayc_registry() -> RuleRegistry:
     reg.register(RespondPassOverWeakTwo())
 
     # ── Responses to 3-level preempt ─────────────────────────────────
-    reg.register(RespondGameRaise3Level())
+    reg.register(RespondGameRaise3LevelMajor())
+    reg.register(RespondGameRaise3LevelMinor())
     reg.register(Respond3NTOver3Level())
     reg.register(RespondNewSuitOver3Level())
     reg.register(RespondRaise3Level())
