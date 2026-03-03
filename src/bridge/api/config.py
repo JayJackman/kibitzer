@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     # this list can be empty.
     cors_origins: list[str] = ["http://localhost:5173"]
 
+    # Logging level for the bridge.* logger hierarchy. Set to DEBUG to see
+    # engine rule evaluation traces; INFO (default) covers requests and
+    # business events.
+    log_level: str = "INFO"
+
 
 # Singleton instance -- import this wherever config is needed.
 settings = Settings()

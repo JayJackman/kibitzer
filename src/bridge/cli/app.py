@@ -1,5 +1,7 @@
 """Bridge bidding assistant CLI."""
 
+import os
+
 import typer
 from rich.console import Console
 
@@ -16,6 +18,7 @@ from bridge.cli.display import (
     format_hand_eval,
     format_thought_process,
 )
+from bridge.logging_config import setup_logging
 from bridge.model.auction import (
     AuctionState,
     IllegalBidError,
@@ -27,6 +30,10 @@ from bridge.model.bid import is_pass, parse_bid
 from bridge.model.hand import Hand
 from bridge.service.advisor import BiddingAdvisor
 from bridge.service.deal import deal
+
+# CLI is quiet by default (Rich handles user output).
+# Set LOG_LEVEL=DEBUG to see engine rule traces on stderr.
+setup_logging(os.environ.get("LOG_LEVEL", "WARNING"))
 
 app = typer.Typer(add_completion=False)
 console = Console()

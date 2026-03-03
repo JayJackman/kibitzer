@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 from functools import cache
 
 from bridge.model.auction import Seat, Vulnerability
 from bridge.service.advisor import BiddingAdvisor
 
 from .session import PracticeSession, SessionMode
+
+logger = logging.getLogger(__name__)
 
 # Module-level dict: session_id -> PracticeSession.
 # Lives only in server memory. Restarting the server clears all sessions.
@@ -48,6 +51,7 @@ def create_session(
     )
     _sessions[session.id] = session
     _join_codes[session.join_code] = session.id
+    logger.info("Stored session %s for user %d", session.id, user_id)
     return session
 
 
@@ -69,6 +73,7 @@ def delete_session(session_id: str) -> None:
     session = _sessions.pop(session_id, None)
     if session is not None:
         _join_codes.pop(session.join_code, None)
+        logger.info("Deleted session %s", session_id)
 
 
 def clear_all() -> None:

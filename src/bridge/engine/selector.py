@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 from bridge.engine.condition import ConditionResult
@@ -9,6 +10,8 @@ from bridge.engine.context import BiddingContext
 from bridge.engine.registry import RuleRegistry
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.model.bid import PASS, Bid
+
+logger = logging.getLogger(__name__)
 
 # Overlay categories are always checked alongside the detected phase.
 _OVERLAY_CATEGORIES = (Category.CONVENTION, Category.SLAM)
@@ -76,6 +79,8 @@ class BidSelector:
         match.  Falls back to Pass if no rule applies.
         """
         candidates = self._collect_rules(ctx)
+        phase = self.detect_phase(ctx)
+        logger.debug("Phase: %s, evaluating %d rules", phase.name, len(candidates))
 
         for i, rule in enumerate(candidates):
             if rule.applies(ctx):
@@ -88,8 +93,11 @@ class BidSelector:
                             f"Rules {rule.name!r} and {other.name!r} both "
                             f"match at priority {rule.priority}"
                         )
-                return rule.select(ctx)
+                result = rule.select(ctx)
+                logger.debug("Rule %s matched -> %s", rule.name, result.bid)
+                return result
 
+        logger.debug("No rule matched, falling back to Pass")
         return RuleResult(
             bid=PASS,
             rule_name="fallback.pass",
@@ -119,6 +127,7 @@ class BidSelector:
             check_result = rule.check(ctx)
             passed = check_result.passed
             result = rule.select(ctx) if passed else None
+            logger.debug("Rule %s: %s", rule.name, "PASS" if passed else "fail")
             steps.append(
                 ThoughtStep(
                     rule_name=rule.name,

@@ -12,6 +12,7 @@ Supports three modes:
 from __future__ import annotations
 
 import enum
+import logging
 import random
 import uuid
 from dataclasses import dataclass
@@ -33,6 +34,8 @@ from bridge.model.hand import Hand
 from bridge.service.advisor import BiddingAdvisor
 from bridge.service.deal import deal
 from bridge.service.models import BiddingAdvice, HandEvaluation
+
+logger = logging.getLogger(__name__)
 
 
 class SessionMode(enum.Enum):
@@ -226,6 +229,13 @@ class PracticeSession:
         self._last_computer_bids: list[ComputerBidRecord] = self._run_computer_bids()
         self._last_feedback: BidResult | None = None
 
+        logger.info(
+            "Session %s created (mode=%s, join_code=%s)",
+            self.id,
+            mode.value,
+            self.join_code,
+        )
+
     # ── Public API ───────────────────────────────────────────────
 
     def seat_for(self, user_id: int) -> Seat:
@@ -250,6 +260,7 @@ class PracticeSession:
         self.players[seat] = user_id
         if username:
             self._usernames[user_id] = username
+        logger.info("User %d joined session %s at seat %s", user_id, self.id, seat.name)
 
     def leave(self, user_id: int) -> None:
         """Revert a human's seat to computer control.
@@ -260,6 +271,7 @@ class PracticeSession:
         seat = self.seat_for(user_id)  # Raises PlayerNotFoundError if absent.
         self.players[seat] = None
         self._usernames.pop(user_id, None)
+        logger.info("User %d left session %s (seat %s)", user_id, self.id, seat.name)
         self._last_computer_bids = self._run_computer_bids()
 
     def set_hand(self, user_id: int, seat: Seat, hand: Hand) -> None:
@@ -286,6 +298,7 @@ class PracticeSession:
 
         self.hands[seat] = hand
         self._hand_evals[seat] = self._compute_eval(hand)
+        logger.info("Hand set for seat %s in session %s", seat.name, self.id)
 
     def _player_names(self) -> dict[Seat, str | None]:
         """Map each seat to its player's username (None = computer)."""
@@ -412,6 +425,7 @@ class PracticeSession:
 
         # This raises IllegalBidError if the bid is not legal.
         self.auction.add_bid(bid)
+        logger.info("User %d bid %s in session %s", user_id, bid_str, self.id)
 
         # Run computer bids after the bid (no-op in helper mode).
         computer_bids = self._run_computer_bids()
@@ -474,6 +488,7 @@ class PracticeSession:
         self._bid_matched = {}
         self._last_computer_bids = self._run_computer_bids()
         self._last_feedback = None
+        logger.info("Session %s redeal (hand #%d)", self.id, self.hand_number)
 
     # ── Internals ────────────────────────────────────────────────
 
