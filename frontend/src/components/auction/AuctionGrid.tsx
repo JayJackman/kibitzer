@@ -131,7 +131,7 @@ export default function AuctionGrid({
     <table className="w-full text-center text-sm">
       {/* Column headers rotated so yourSeat is rightmost. */}
       <thead>
-        <tr>
+        <tr className="border-b border-background">
           {columns.map((seat) => (
             <th
               key={seat}
