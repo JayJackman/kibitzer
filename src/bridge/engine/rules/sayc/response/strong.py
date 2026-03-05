@@ -8,9 +8,9 @@ or a natural positive suit bid (8+ HCP, 5+ cards, 2 of top 3 honors).
 from bridge.engine.condition import (
     All,
     Balanced,
-    Computed,
     Condition,
     HcpRange,
+    SuitFinderComputed,
     condition,
 )
 from bridge.engine.context import BiddingContext
@@ -98,7 +98,11 @@ class RespondPositiveSuitOver2C(Rule):
     """
 
     def __init__(self) -> None:
-        self._suit = Computed(_find_positive_suit, "5+ card suit with 2 of top 3")
+        self._suit = SuitFinderComputed(
+            _find_positive_suit,
+            "5+ card suit with 2 of top 3",
+            min_len=5,
+        )
 
     @property
     def name(self) -> str:

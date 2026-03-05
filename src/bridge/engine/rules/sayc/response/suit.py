@@ -10,11 +10,11 @@ from __future__ import annotations
 from bridge.engine.condition import (
     All,
     Balanced,
-    Computed,
     Condition,
     HasSuitFit,
     HcpRange,
     Not,
+    SuitFinderComputed,
     SupportPtsRange,
     condition,
 )
@@ -181,7 +181,11 @@ class RespondJumpShift(Rule):
     """
 
     def __init__(self) -> None:
-        self._suit = Computed(_find_jump_shift_suit, "4+ card new suit for jump shift")
+        self._suit = SuitFinderComputed(
+            _find_jump_shift_suit,
+            "4+ card new suit for jump shift",
+            min_len=4,
+        )
 
     @property
     def name(self) -> str:
@@ -228,7 +232,11 @@ class RespondNewSuit1Level(Rule):
     """
 
     def __init__(self) -> None:
-        self._suit = Computed(_find_new_suit_1_level, "4+ card suit at 1-level")
+        self._suit = SuitFinderComputed(
+            _find_new_suit_1_level,
+            "4+ card suit at 1-level",
+            min_len=4,
+        )
 
     @property
     def name(self) -> str:
@@ -270,7 +278,11 @@ class Respond2Over1(Rule):
     """
 
     def __init__(self) -> None:
-        self._suit = Computed(_find_2_over_1_suit, "4+ card suit for 2-over-1")
+        self._suit = SuitFinderComputed(
+            _find_2_over_1_suit,
+            "4+ card suit for 2-over-1",
+            min_len=4,
+        )
 
     @property
     def name(self) -> str:

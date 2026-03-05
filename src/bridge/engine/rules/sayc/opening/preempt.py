@@ -1,6 +1,6 @@
 """Preemptive opening bid rules — SAYC weak twos and 3/4-level preempts."""
 
-from bridge.engine.condition import All, Computed, Condition, HcpRange, NoVoid
+from bridge.engine.condition import All, Condition, HcpRange, NoVoid, SuitFinderComputed
 from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.evaluate import has_outside_four_card_major, quality_suit
@@ -55,7 +55,11 @@ class OpenWeakTwo(Rule):
     """
 
     def __init__(self) -> None:
-        self._suit = Computed(_find_weak_two_suit, "6-card suit for weak two")
+        self._suit = SuitFinderComputed(
+            _find_weak_two_suit,
+            "6-card suit for weak two",
+            min_len=6,
+        )
 
     @property
     def name(self) -> str:
@@ -89,7 +93,11 @@ class OpenPreempt3(Rule):
     """
 
     def __init__(self) -> None:
-        self._suit = Computed(_find_preempt3_suit, "7-card suit for preempt")
+        self._suit = SuitFinderComputed(
+            _find_preempt3_suit,
+            "7-card suit for preempt",
+            min_len=7,
+        )
 
     @property
     def name(self) -> str:
@@ -124,7 +132,11 @@ class OpenPreempt4(Rule):
     """
 
     def __init__(self) -> None:
-        self._suit = Computed(_find_preempt4_suit, "long suit for 4-level preempt")
+        self._suit = SuitFinderComputed(
+            _find_preempt4_suit,
+            "long suit for 4-level preempt",
+            min_len=7,
+        )
 
     @property
     def name(self) -> str:

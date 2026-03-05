@@ -11,10 +11,10 @@ from __future__ import annotations
 from bridge.engine.condition import (
     All,
     Any,
-    Computed,
     Condition,
     HasSuitFit,
     HcpRange,
+    SuitFinderComputed,
     SupportPtsRange,
     condition,
 )
@@ -283,7 +283,11 @@ class RespondNewSuitOverWeakTwo(Rule):
     """
 
     def __init__(self) -> None:
-        self._suit = Computed(_find_new_suit_over_2, "5+ card new suit")
+        self._suit = SuitFinderComputed(
+            _find_new_suit_over_2,
+            "5+ card new suit",
+            min_len=5,
+        )
 
     @property
     def name(self) -> str:
@@ -568,7 +572,11 @@ class RespondNewSuitOver3Level(Rule):
     """
 
     def __init__(self) -> None:
-        self._suit = Computed(_find_new_suit_over_3, "5+ card higher-ranking suit")
+        self._suit = SuitFinderComputed(
+            _find_new_suit_over_3,
+            "5+ card higher-ranking suit",
+            min_len=5,
+        )
 
     @property
     def name(self) -> str:

@@ -31,6 +31,7 @@ from bridge.engine.condition import (
     HasSuitFit,
     HcpRange,
     Not,
+    SuitFinderComputed,
     TotalPtsRange,
     condition,
 )
@@ -816,7 +817,11 @@ class RebidNewSuitAfterRaiseMinor(Rule):
         return Category.REBID_OPENER
 
     def __init__(self) -> None:
-        self._new_suit = Computed(_find_new_suit_for_rebid, "4+ card new suit")
+        self._new_suit = SuitFinderComputed(
+            _find_new_suit_for_rebid,
+            "4+ card new suit",
+            min_len=4,
+        )
 
     @property
     def priority(self) -> int:
@@ -1065,7 +1070,11 @@ class RebidJumpShiftOver1NT(Rule):
         return Category.REBID_OPENER
 
     def __init__(self) -> None:
-        self._new_suit = Computed(_find_new_suit_for_rebid, "4+ card new suit")
+        self._new_suit = SuitFinderComputed(
+            _find_new_suit_for_rebid,
+            "4+ card new suit",
+            min_len=4,
+        )
 
     @property
     def priority(self) -> int:
@@ -1228,7 +1237,11 @@ class RebidNewLowerSuitOver1NT(Rule):
         return Category.REBID_OPENER
 
     def __init__(self) -> None:
-        self._lower_suit = Computed(_find_lower_new_suit, "4+ card lower new suit")
+        self._lower_suit = SuitFinderComputed(
+            _find_lower_new_suit,
+            "4+ card lower new suit",
+            min_len=4,
+        )
 
     @property
     def priority(self) -> int:
@@ -1384,7 +1397,11 @@ class RebidJumpShiftNewSuit(Rule):
         return Category.REBID_OPENER
 
     def __init__(self) -> None:
-        self._new_suit = Computed(_find_new_suit_for_rebid, "4+ card new suit")
+        self._new_suit = SuitFinderComputed(
+            _find_new_suit_for_rebid,
+            "4+ card new suit",
+            min_len=4,
+        )
 
     @property
     def priority(self) -> int:
@@ -1471,7 +1488,11 @@ class RebidReverse(Rule):
         return Category.REBID_OPENER
 
     def __init__(self) -> None:
-        self._reverse_suit = Computed(_find_reverse_suit, "reverse suit")
+        self._reverse_suit = SuitFinderComputed(
+            _find_reverse_suit,
+            "reverse suit",
+            min_len=4,
+        )
 
     @property
     def priority(self) -> int:
@@ -1589,8 +1610,10 @@ class RebidNewSuitNonreverse(Rule):
         return Category.REBID_OPENER
 
     def __init__(self) -> None:
-        self._nonrev_suit = Computed(
-            _find_nonreverse_new_suit, "non-reverse new suit (4+)"
+        self._nonrev_suit = SuitFinderComputed(
+            _find_nonreverse_new_suit,
+            "non-reverse new suit (4+)",
+            min_len=4,
         )
 
     @property
@@ -1756,7 +1779,11 @@ class RebidNewSuitAfter2Over1(Rule):
         return Category.REBID_OPENER
 
     def __init__(self) -> None:
-        self._new_suit = Computed(_find_new_suit_for_rebid, "4+ card new suit")
+        self._new_suit = SuitFinderComputed(
+            _find_new_suit_for_rebid,
+            "4+ card new suit",
+            min_len=4,
+        )
 
     @property
     def priority(self) -> int:
@@ -2037,7 +2064,11 @@ class RebidJacoby4LevelSource(Rule):
         return Category.REBID_OPENER
 
     def __init__(self) -> None:
-        self._side_suit = Computed(_find_jacoby_side_suit, "5+ card side suit")
+        self._side_suit = SuitFinderComputed(
+            _find_jacoby_side_suit,
+            "5+ card side suit",
+            min_len=5,
+        )
 
     @property
     def priority(self) -> int:
@@ -2446,7 +2477,11 @@ class RebidNewSuitAfterJumpShift(Rule):
         return Category.REBID_OPENER
 
     def __init__(self) -> None:
-        self._new_suit = Computed(_find_new_suit_for_rebid, "4+ card new suit")
+        self._new_suit = SuitFinderComputed(
+            _find_new_suit_for_rebid,
+            "4+ card new suit",
+            min_len=4,
+        )
 
     @property
     def priority(self) -> int:

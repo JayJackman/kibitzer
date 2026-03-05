@@ -10,6 +10,7 @@ from bridge.engine.condition import (
     Condition,
     HasSuitFit,
     HcpRange,
+    SuitFinderComputed,
     condition,
 )
 from bridge.engine.context import BiddingContext
@@ -391,7 +392,11 @@ class NewSuitAfter2Over1OwnSuit(Rule):
     """
 
     def __init__(self) -> None:
-        self._new_suit = Computed(find_new_suit_forcing, "4+ card new suit")
+        self._new_suit = SuitFinderComputed(
+            find_new_suit_forcing,
+            "4+ card new suit",
+            min_len=4,
+        )
 
     @property
     def name(self) -> str:

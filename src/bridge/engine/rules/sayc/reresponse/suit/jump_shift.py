@@ -3,7 +3,14 @@
 from __future__ import annotations
 
 from bridge.engine.bidutil import cheapest_bid_in_suit
-from bridge.engine.condition import All, Computed, Condition, HcpRange, Not, condition
+from bridge.engine.condition import (
+    All,
+    Condition,
+    HcpRange,
+    Not,
+    SuitFinderComputed,
+    condition,
+)
 from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.model.bid import PASS, SuitBid
@@ -188,7 +195,11 @@ class ShowSecondSuitAfterJS(Rule):
     """
 
     def __init__(self) -> None:
-        self._new_suit = Computed(_find_new_suit_forcing_5plus, "5+ card new suit")
+        self._new_suit = SuitFinderComputed(
+            _find_new_suit_forcing_5plus,
+            "5+ card new suit",
+            min_len=5,
+        )
 
     @property
     def name(self) -> str:

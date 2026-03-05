@@ -381,6 +381,67 @@ class Computed[T](Condition):
         assert self._cached is not None
         return self._cached
 
+    def promise_from_value(self, value: T) -> HandDescription:
+        """Return what this condition promises given the computed value.
+
+        Override in subclasses to provide promise information.
+        Default: no promise.
+        """
+        return HandDescription()
+
+    def get_promise_from_bid(self, bid: Bid) -> HandDescription:
+        """Return what this condition promises given just the bid.
+
+        Used when no hand is available to compute the value (e.g.
+        analyzing an auction without hand data). The bid itself
+        often reveals the computed value -- a 1S bid implies
+        spades, a 2C bid implies clubs.
+
+        Override in subclasses to extract the value from the bid.
+        Default: no promise.
+        """
+        return HandDescription()
+
+    def promises(self, ctx: BiddingContext, bid: Bid) -> HandDescription:
+        """Use cached value if available, otherwise infer from the bid."""
+        if self._cached is not None:
+            return self.promise_from_value(self._cached)
+        return self.get_promise_from_bid(bid)
+
+
+class SuitFinderComputed(Computed[Suit]):
+    """Find a suit and promise a minimum length in it.
+
+    Covers the common pattern where a Computed finds a suit with
+    N+ cards and the bid's suit reveals which suit was found.
+
+    Example::
+
+        self._best_major = SuitFinderComputed(
+            _best_major, "5+ card major", min_len=5,
+        )
+    """
+
+    def __init__(
+        self,
+        func: Callable[[BiddingContext], Suit | None],
+        label_text: str,
+        *,
+        min_len: int,
+    ) -> None:
+        super().__init__(func, label_text)
+        self._promise_min_len = min_len
+
+    def promise_from_value(self, suit: Suit) -> HandDescription:
+        return HandDescription(lengths={suit: (self._promise_min_len, None)})
+
+    def get_promise_from_bid(self, bid: Bid) -> HandDescription:
+        from bridge.model.bid import SuitBid
+
+        if isinstance(bid, SuitBid):
+            return self.promise_from_value(bid.suit)
+        return HandDescription()
+
 
 # ---------------------------------------------------------------------------
 # @condition decorator

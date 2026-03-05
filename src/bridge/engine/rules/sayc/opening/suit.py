@@ -3,11 +3,11 @@
 from bridge.engine.condition import (
     All,
     Balanced,
-    Computed,
     Condition,
     HcpRange,
     MeetsOpeningStrength,
     Not,
+    SuitFinderComputed,
     TotalPtsRange,
     condition,
 )
@@ -43,7 +43,11 @@ class Open1Major(Rule):
     """
 
     def __init__(self) -> None:
-        self._best_major = Computed(_best_major, "5+ card major")
+        self._best_major = SuitFinderComputed(
+            _best_major,
+            "5+ card major",
+            min_len=5,
+        )
 
     @property
     def name(self) -> str:

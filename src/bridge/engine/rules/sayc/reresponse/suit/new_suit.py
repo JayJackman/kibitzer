@@ -10,6 +10,7 @@ from bridge.engine.condition import (
     Condition,
     HasSuitFit,
     HcpRange,
+    SuitFinderComputed,
     condition,
 )
 from bridge.engine.context import BiddingContext
@@ -374,8 +375,10 @@ class NewSuitAfter1NTForcing(Rule):
     """
 
     def __init__(self) -> None:
-        self._new_suit = Computed(
-            _find_new_suit_forcing_after_1nt, "4+ card higher new suit"
+        self._new_suit = SuitFinderComputed(
+            _find_new_suit_forcing_after_1nt,
+            "4+ card higher new suit",
+            min_len=4,
         )
 
     @property
@@ -487,7 +490,11 @@ class NewSuitWeakAfter1NT(Rule):
     """
 
     def __init__(self) -> None:
-        self._new_suit = Computed(_find_new_suit_lower, "4+ card lower new suit")
+        self._new_suit = SuitFinderComputed(
+            _find_new_suit_lower,
+            "4+ card lower new suit",
+            min_len=4,
+        )
 
     @property
     def name(self) -> str:
@@ -678,7 +685,11 @@ class NewSuitForcingAfterMinorRaise(Rule):
     """
 
     def __init__(self) -> None:
-        self._new_suit = Computed(find_new_suit_forcing, "new suit forcing")
+        self._new_suit = SuitFinderComputed(
+            find_new_suit_forcing,
+            "new suit forcing",
+            min_len=4,
+        )
 
     @property
     def name(self) -> str:
@@ -1077,7 +1088,11 @@ class NewSuitForcingAfterOwnSuit(Rule):
     """
 
     def __init__(self) -> None:
-        self._new_suit = Computed(find_new_suit_forcing, "new suit forcing")
+        self._new_suit = SuitFinderComputed(
+            find_new_suit_forcing,
+            "new suit forcing",
+            min_len=4,
+        )
 
     @property
     def name(self) -> str:
@@ -1847,7 +1862,11 @@ class NewSuitAt1Level(Rule):
     def conditions(self) -> Condition:
         return All(
             HcpRange(min_hcp=6),
-            Computed(_find_new_suit_at_1_level, "new suit at 1-level"),
+            SuitFinderComputed(
+                _find_new_suit_at_1_level,
+                "new suit at 1-level",
+                min_len=4,
+            ),
         )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
