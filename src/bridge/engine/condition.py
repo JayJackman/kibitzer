@@ -29,12 +29,14 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from bridge import evaluate
+from bridge.engine.hand_description import HandDescription
 from bridge.model.card import Suit
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from bridge.engine.context import BiddingContext
+    from bridge.model.bid import Bid
 
 
 # ---------------------------------------------------------------------------
@@ -104,6 +106,25 @@ class Condition(ABC):
     def check(self, ctx: BiddingContext) -> ConditionResult:
         """Evaluate this condition against the given context."""
 
+    def promises(self, ctx: BiddingContext, bid: Bid) -> HandDescription:
+        """Return what this condition guarantees about the hand when it passes.
+
+        For example, ``HcpRange(10, 14)`` promises ``hcp=(10, 14)`` and
+        ``HasSuitFit(opener_suit, min_len=3)`` promises 3+ cards in
+        whatever suit the opener bid.
+
+        Default: unconstrained (no promise). Override in subclasses that
+        carry range data.
+
+        Parameters:
+            ctx: Auction context -- needed by suit-relative conditions
+                 (e.g. HasSuitFit) to resolve which suit is constrained.
+            bid: The bid under analysis -- needed by Computed subclasses
+                 to infer the computed value from the bid itself when no
+                 hand is available (e.g. a 1S bid implies spades).
+        """
+        return HandDescription()
+
 
 # ---------------------------------------------------------------------------
 # Combinators
@@ -141,6 +162,12 @@ class All(Condition):
             label=self.label,
             detail="; ".join(r.detail for r in result.results),
         )
+
+    def promises(self, ctx: BiddingContext, bid: Bid) -> HandDescription:
+        result = HandDescription()
+        for cond in self._conditions:
+            result = result & cond.promises(ctx, bid)
+        return result
 
     def check_all(self, ctx: BiddingContext) -> CheckResult:
         """Evaluate all conditions, returning individual results.
@@ -194,6 +221,14 @@ class Any(Condition):
             label=self.label,
             detail="; ".join(r.detail for r in result.results),
         )
+
+    def promises(self, ctx: BiddingContext, bid: Bid) -> HandDescription:
+        if not self._paths:
+            return HandDescription()
+        result = self._paths[0].promises(ctx, bid)
+        for path in self._paths[1:]:
+            result = result | path.promises(ctx, bid)
+        return result
 
     def check_all(self, ctx: BiddingContext) -> CheckResult:
         """Try each path in order; return the first passing path's result.
@@ -482,6 +517,9 @@ class HcpRange(Condition):
             return f"0-{self._max} HCP"
         return "Any HCP"
 
+    def promises(self, ctx: BiddingContext, bid: Bid) -> HandDescription:
+        return HandDescription(hcp=(self._min, self._max))
+
     def check(self, ctx: BiddingContext) -> ConditionResult:
         hcp = ctx.hcp
         passed = True
@@ -522,6 +560,9 @@ class TotalPtsRange(Condition):
         if self._max is not None:
             return f"0-{self._max} total points"
         return "Any total points"
+
+    def promises(self, ctx: BiddingContext, bid: Bid) -> HandDescription:
+        return HandDescription(total_pts=(self._min, self._max))
 
     def check(self, ctx: BiddingContext) -> ConditionResult:
         pts = ctx.total_pts
@@ -655,6 +696,9 @@ class Balanced(Condition):
     def label(self) -> str:
         return "balanced" if self._strict else "semi-balanced"
 
+    def promises(self, ctx: BiddingContext, bid: Bid) -> HandDescription:
+        return HandDescription(balanced=True)
+
     def check(self, ctx: BiddingContext) -> ConditionResult:
         passed = ctx.is_balanced if self._strict else ctx.is_semi_balanced
         shape_str = "-".join(str(n) for n in ctx.sorted_shape)
@@ -748,6 +792,9 @@ class SuitLength(Condition):
             return f"0-{self._max} {suit_name}"
         return f"any {suit_name}"
 
+    def promises(self, ctx: BiddingContext, bid: Bid) -> HandDescription:
+        return HandDescription(lengths={self._suit: (self._min, self._max)})
+
     def check(self, ctx: BiddingContext) -> ConditionResult:
         length = ctx.hand.suit_length(self._suit)
         suit_name = self._suit.letter
@@ -793,6 +840,10 @@ class HasSuitFit(Condition):
             return f"{self._min_len}-{self._max_len} card fit"
         return f"{self._min_len}+ card fit"
 
+    def promises(self, ctx: BiddingContext, bid: Bid) -> HandDescription:
+        suit = self._suit_fn(ctx)
+        return HandDescription(lengths={suit: (self._min_len, self._max_len)})
+
     def check(self, ctx: BiddingContext) -> ConditionResult:
         suit = self._suit_fn(ctx)
         length = ctx.hand.suit_length(suit)
@@ -818,6 +869,9 @@ class MeetsOpeningStrength(Condition):
     @property
     def label(self) -> str:
         return "opening strength"
+
+    def promises(self, ctx: BiddingContext, bid: Bid) -> HandDescription:
+        return HandDescription(hcp=(12, None))
 
     def check(self, ctx: BiddingContext) -> ConditionResult:
         # Determine seat position relative to dealer
