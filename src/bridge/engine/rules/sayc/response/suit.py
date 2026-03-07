@@ -20,7 +20,7 @@ from bridge.engine.condition import (
 )
 from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
-from bridge.model.bid import PASS, Bid, SuitBid, is_suit_bid
+from bridge.model.bid import PASS, Bid, PassBid, SuitBid, is_suit_bid
 from bridge.model.card import SUITS_SHDC, Suit
 
 # ── Helpers ─────────────────────────────────────────────────────────
@@ -207,6 +207,14 @@ class RespondJumpShift(Rule):
     def conditions(self) -> Condition:
         return All(HcpRange(min_hcp=19), self._suit)
 
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        opener = _opener_suit(ctx)
+        return frozenset(
+            SuitBid(_jump_level(opener, s), s)
+            for s in (Suit.CLUBS, Suit.DIAMONDS, Suit.HEARTS, Suit.SPADES)
+            if s != opener
+        )
+
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._suit.value
         level = _jump_level(_opener_suit(ctx), suit)
@@ -258,6 +266,14 @@ class RespondNewSuit1Level(Rule):
     def conditions(self) -> Condition:
         return All(HcpRange(min_hcp=6), self._suit)
 
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        opener = _opener_suit(ctx)
+        return frozenset(
+            SuitBid(1, s)
+            for s in (Suit.DIAMONDS, Suit.HEARTS, Suit.SPADES)
+            if s > opener
+        )
+
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._suit.value
         return RuleResult(
@@ -304,6 +320,14 @@ class Respond2Over1(Rule):
     def conditions(self) -> Condition:
         return All(HcpRange(min_hcp=10, max_hcp=18), self._suit)
 
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        opener = _opener_suit(ctx)
+        return frozenset(
+            SuitBid(2, s)
+            for s in (Suit.CLUBS, Suit.DIAMONDS, Suit.HEARTS)
+            if s < opener
+        )
+
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._suit.value
         return RuleResult(
@@ -341,6 +365,9 @@ class RespondPass(Rule):
     @property
     def conditions(self) -> Condition:
         return HcpRange(max_hcp=5)
+
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[PassBid]:
+        return frozenset({PASS})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -381,6 +408,9 @@ class RespondJacoby2NT(Rule):
             HasSuitFit(_opener_suit, min_len=4),
             SupportPtsRange(_opener_suit, min_pts=13),
         )
+
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(2, Suit.NOTRUMP)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -424,6 +454,9 @@ class RespondGameRaiseMajor(Rule):
             _has_side_shortness,
         )
 
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(4, _opener_suit(ctx))})
+
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
             bid=SuitBid(4, _opener_suit(ctx)),
@@ -464,6 +497,9 @@ class Respond3NTOverMajor(Rule):
             Balanced(strict=True),
         )
 
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(3, Suit.NOTRUMP)})
+
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
             bid=SuitBid(3, Suit.NOTRUMP),
@@ -500,6 +536,9 @@ class RespondLimitRaiseMajor(Rule):
             HasSuitFit(_opener_suit, min_len=3),
             SupportPtsRange(_opener_suit, min_pts=10, max_pts=12),
         )
+
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(3, _opener_suit(ctx))})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -540,6 +579,9 @@ class RespondSingleRaiseMajor(Rule):
             SupportPtsRange(_opener_suit, min_pts=6, max_pts=10),
         )
 
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(2, _opener_suit(ctx))})
+
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
             bid=SuitBid(2, _opener_suit(ctx)),
@@ -577,6 +619,9 @@ class Respond1NTOverMajor(Rule):
             HcpRange(6, 10),
             HasSuitFit(_opener_suit, min_len=0, max_len=2),
         )
+
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(1, Suit.NOTRUMP)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -619,6 +664,9 @@ class Respond3NTOverMinor(Rule):
             Not(has_4_card_major),
         )
 
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(3, Suit.NOTRUMP)})
+
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
             bid=SuitBid(3, Suit.NOTRUMP),
@@ -656,6 +704,9 @@ class Respond2NTOverMinor(Rule):
             Balanced(strict=True),
             Not(has_4_card_major),
         )
+
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(2, Suit.NOTRUMP)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -700,6 +751,9 @@ class RespondLimitRaiseMinor(Rule):
             Not(has_4_card_major),
         )
 
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(3, _opener_suit(ctx))})
+
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
             bid=SuitBid(3, _opener_suit(ctx)),
@@ -741,6 +795,9 @@ class RespondSingleRaiseMinor(Rule):
             Not(has_4_card_major),
         )
 
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(2, _opener_suit(ctx))})
+
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
             bid=SuitBid(2, _opener_suit(ctx)),
@@ -780,6 +837,9 @@ class Respond1NTOverMinor(Rule):
             HcpRange(6, 10),
             Not(has_4_card_major),
         )
+
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(1, Suit.NOTRUMP)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(

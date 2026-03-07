@@ -77,6 +77,11 @@ class OpenWeakTwo(Rule):
     def conditions(self) -> Condition:
         return All(HcpRange(5, 11), NoVoid(), self._suit)
 
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset(
+            SuitBid(2, s) for s in (Suit.DIAMONDS, Suit.HEARTS, Suit.SPADES)
+        )
+
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._suit.value
         return RuleResult(
@@ -114,6 +119,9 @@ class OpenPreempt3(Rule):
     @property
     def conditions(self) -> Condition:
         return All(HcpRange(max_hcp=11), self._suit)
+
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset(SuitBid(3, s) for s in SUITS_SHDC)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._suit.value
@@ -153,6 +161,9 @@ class OpenPreempt4(Rule):
     @property
     def conditions(self) -> Condition:
         return All(HcpRange(max_hcp=11), self._suit)
+
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset(SuitBid(4, s) for s in SUITS_SHDC)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._suit.value

@@ -5,7 +5,7 @@ from __future__ import annotations
 from bridge.engine.condition import All, Condition, condition
 from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
-from bridge.model.bid import PASS, SuitBid
+from bridge.model.bid import PASS, PassBid, SuitBid
 from bridge.model.card import Rank, Suit
 
 from .helpers import (
@@ -83,6 +83,9 @@ class PassAfterAcceptedLimitRaise(Rule):
     def conditions(self) -> Condition:
         return All()
 
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[PassBid]:
+        return frozenset({PASS})
+
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
             bid=PASS,
@@ -117,6 +120,11 @@ class BlackwoodResponseAfterLimitRaise(Rule):
     @property
     def conditions(self) -> Condition:
         return All()
+
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset(
+            SuitBid(5, s) for s in (Suit.CLUBS, Suit.DIAMONDS, Suit.HEARTS, Suit.SPADES)
+        )
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         aces = sum(

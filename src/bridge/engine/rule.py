@@ -180,6 +180,23 @@ class Rule(ABC):
             results=result.results,
         )
 
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[Bid] | None:
+        """The set of bids this rule could produce in the given auction state.
+
+        Returns a frozenset of every bid this rule might select, considering
+        the auction state but *not* the player's hand. Used to answer "what
+        does bid X mean?" (filter rules that could produce X) and "what do
+        we know about this player?" (collect promises from all rules whose
+        possible bids include a player's actual bid).
+
+        Callers must check prerequisites before calling this method.
+        Implementations may assume prerequisites hold and use unsafe
+        accessors (e.g. _opener_suit instead of _opener_suit_safe).
+
+        Returns None when not yet implemented (callers skip the rule).
+        """
+        return None
+
     @abstractmethod
     def select(self, ctx: BiddingContext) -> RuleResult:
         """Produce the bid and metadata. Only called if applies() returned True."""

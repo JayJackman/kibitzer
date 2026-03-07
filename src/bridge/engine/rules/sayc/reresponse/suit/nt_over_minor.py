@@ -5,7 +5,7 @@ from __future__ import annotations
 from bridge.engine.condition import All, Condition, HcpRange, condition
 from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
-from bridge.model.bid import PASS, SuitBid
+from bridge.model.bid import PASS, PassBid, SuitBid
 from bridge.model.card import Suit
 
 from .helpers import (
@@ -83,6 +83,9 @@ class ThreeNTAfter2NTMinorMajor(Rule):
     def conditions(self) -> Condition:
         return All()
 
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(3, Suit.NOTRUMP)})
+
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
             bid=SuitBid(3, Suit.NOTRUMP),
@@ -124,6 +127,9 @@ class ThreeNTAfter2NTMinorRebid(Rule):
     def conditions(self) -> Condition:
         return All()
 
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(3, Suit.NOTRUMP)})
+
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
             bid=SuitBid(3, Suit.NOTRUMP),
@@ -164,6 +170,9 @@ class PassAfter2NTMinor3NT(Rule):
     @property
     def conditions(self) -> Condition:
         return All()
+
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[PassBid]:
+        return frozenset({PASS})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -207,6 +216,9 @@ class AcceptQuantitative4NTMinor(Rule):
     def conditions(self) -> Condition:
         return HcpRange(min_hcp=14)
 
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(6, Suit.NOTRUMP)})
+
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
             bid=SuitBid(6, Suit.NOTRUMP),
@@ -245,6 +257,9 @@ class DeclineQuantitative4NTMinor(Rule):
     @property
     def conditions(self) -> Condition:
         return HcpRange(max_hcp=13)
+
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[PassBid]:
+        return frozenset({PASS})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(

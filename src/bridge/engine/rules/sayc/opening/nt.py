@@ -29,6 +29,9 @@ class Open1NT(Rule):
     def conditions(self) -> Condition:
         return All(HcpRange(15, 17), Balanced(strict=True))
 
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(1, Suit.NOTRUMP)})
+
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
             bid=SuitBid(1, Suit.NOTRUMP),
@@ -58,6 +61,9 @@ class Open2NT(Rule):
     @property
     def conditions(self) -> Condition:
         return All(HcpRange(20, 21), Balanced(strict=True))
+
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(2, Suit.NOTRUMP)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(

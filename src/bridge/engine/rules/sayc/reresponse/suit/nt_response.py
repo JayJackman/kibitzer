@@ -5,7 +5,7 @@ from __future__ import annotations
 from bridge.engine.condition import All, Condition, condition
 from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
-from bridge.model.bid import PASS
+from bridge.model.bid import PASS, PassBid
 
 from .helpers import (
     my_response,
@@ -54,6 +54,9 @@ class PassAfter3NTResponse(Rule):
     @property
     def conditions(self) -> Condition:
         return All()
+
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[PassBid]:
+        return frozenset({PASS})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(

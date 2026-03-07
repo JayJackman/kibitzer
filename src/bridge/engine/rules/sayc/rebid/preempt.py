@@ -18,7 +18,7 @@ from bridge.engine.condition import (
 )
 from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
-from bridge.model.bid import PASS, SuitBid, is_suit_bid
+from bridge.model.bid import PASS, PassBid, SuitBid, is_suit_bid
 from bridge.model.card import Rank, Suit
 
 # -- Helpers -----------------------------------------------------------------
@@ -176,6 +176,14 @@ class RebidShowFeature(Rule):
     def conditions(self) -> Condition:
         return All(HcpRange(min_hcp=9), self._feature)
 
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        opened = _my_opened_suit(ctx)
+        return frozenset(
+            SuitBid(3, s)
+            for s in (Suit.CLUBS, Suit.DIAMONDS, Suit.HEARTS, Suit.SPADES)
+            if s != opened
+        )
+
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._feature.value
         return RuleResult(
@@ -217,6 +225,9 @@ class Rebid3NTAfterFeatureAsk(Rule):
     def conditions(self) -> Condition:
         return All(HcpRange(min_hcp=9), _no_feature)
 
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(3, Suit.NOTRUMP)})
+
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
             bid=SuitBid(3, Suit.NOTRUMP),
@@ -253,6 +264,9 @@ class RebidOwnSuitAfterFeatureAsk(Rule):
     @property
     def conditions(self) -> Condition:
         return HcpRange(max_hcp=8)
+
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(3, _my_opened_suit(ctx))})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _my_opened_suit(ctx)
@@ -295,6 +309,11 @@ class RebidRaiseNewSuitWeakTwo(Rule):
     def conditions(self) -> Condition:
         return HasSuitFit(_partner_response_suit, min_len=3)
 
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        resp = ctx.partner_last_bid
+        assert resp is not None and is_suit_bid(resp)
+        return frozenset({SuitBid(resp.level + 1, resp.suit)})
+
     def select(self, ctx: BiddingContext) -> RuleResult:
         resp = ctx.partner_last_bid
         assert resp is not None and is_suit_bid(resp)
@@ -335,6 +354,9 @@ class RebidOwnSuitAfterNewSuitWeakTwo(Rule):
     @property
     def conditions(self) -> Condition:
         return All()
+
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(3, _my_opened_suit(ctx))})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _my_opened_suit(ctx)
@@ -378,6 +400,9 @@ class RebidPassAfterWeakTwo(Rule):
     def conditions(self) -> Condition:
         return All()
 
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[PassBid]:
+        return frozenset({PASS})
+
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
             bid=PASS,
@@ -420,6 +445,11 @@ class RebidRaiseAfterNewSuit3Level(Rule):
     def conditions(self) -> Condition:
         return HasSuitFit(_partner_response_suit, min_len=3)
 
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        resp = ctx.partner_last_bid
+        assert resp is not None and is_suit_bid(resp)
+        return frozenset({SuitBid(resp.level + 1, resp.suit)})
+
     def select(self, ctx: BiddingContext) -> RuleResult:
         resp = ctx.partner_last_bid
         assert resp is not None and is_suit_bid(resp)
@@ -461,6 +491,9 @@ class RebidOwnSuitAfterNewSuit3Level(Rule):
     def conditions(self) -> Condition:
         return All()
 
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(4, _my_opened_suit(ctx))})
+
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = _my_opened_suit(ctx)
         return RuleResult(
@@ -499,6 +532,9 @@ class RebidPassAfter3Level(Rule):
     @property
     def conditions(self) -> Condition:
         return All()
+
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[PassBid]:
+        return frozenset({PASS})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
@@ -539,6 +575,9 @@ class RebidPassAfter4Level(Rule):
     @property
     def conditions(self) -> Condition:
         return All()
+
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[PassBid]:
+        return frozenset({PASS})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(

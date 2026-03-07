@@ -5,7 +5,7 @@ from __future__ import annotations
 from bridge.engine.condition import All, Any, Condition, Not, SupportPtsRange, condition
 from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
-from bridge.model.bid import PASS, SuitBid
+from bridge.model.bid import PASS, PassBid, SuitBid
 from bridge.model.card import Suit
 
 from .helpers import (
@@ -120,6 +120,9 @@ class Blackwood4NTAfterShortness(Rule):
             _no_wasted_values_in_short_suit,
         )
 
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(4, Suit.NOTRUMP)})
+
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
             bid=SuitBid(4, Suit.NOTRUMP),
@@ -164,6 +167,9 @@ class Bid4MAfterShortness(Rule):
             ),
         )
 
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(4, opening_suit(ctx))})
+
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = opening_suit(ctx)
         return RuleResult(
@@ -202,6 +208,9 @@ class Blackwood4NTAfterSource(Rule):
     def conditions(self) -> Condition:
         return SupportPtsRange(opening_suit, min_pts=16)
 
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(4, Suit.NOTRUMP)})
+
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
             bid=SuitBid(4, Suit.NOTRUMP),
@@ -236,6 +245,9 @@ class Bid4MAfterSource(Rule):
     @property
     def conditions(self) -> Condition:
         return SupportPtsRange(opening_suit, min_pts=13, max_pts=15)
+
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(4, opening_suit(ctx))})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = opening_suit(ctx)
@@ -275,6 +287,9 @@ class Blackwood4NTAfterMax(Rule):
     def conditions(self) -> Condition:
         return SupportPtsRange(opening_suit, min_pts=15)
 
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(4, Suit.NOTRUMP)})
+
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
             bid=SuitBid(4, Suit.NOTRUMP),
@@ -309,6 +324,9 @@ class Bid4MAfterMax(Rule):
     @property
     def conditions(self) -> Condition:
         return SupportPtsRange(opening_suit, min_pts=13, max_pts=14)
+
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(4, opening_suit(ctx))})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = opening_suit(ctx)
@@ -348,6 +366,9 @@ class Blackwood4NTAfter3NTMedium(Rule):
     def conditions(self) -> Condition:
         return SupportPtsRange(opening_suit, min_pts=18)
 
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(4, Suit.NOTRUMP)})
+
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
             bid=SuitBid(4, Suit.NOTRUMP),
@@ -382,6 +403,9 @@ class Bid4MAfter3NTMedium(Rule):
     @property
     def conditions(self) -> Condition:
         return SupportPtsRange(opening_suit, min_pts=13, max_pts=17)
+
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(4, opening_suit(ctx))})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = opening_suit(ctx)
@@ -421,6 +445,9 @@ class Blackwood4NTAfterJacoby4M(Rule):
     def conditions(self) -> Condition:
         return SupportPtsRange(opening_suit, min_pts=18)
 
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(4, Suit.NOTRUMP)})
+
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
             bid=SuitBid(4, Suit.NOTRUMP),
@@ -455,6 +482,9 @@ class PassAfterJacoby4M(Rule):
     @property
     def conditions(self) -> Condition:
         return SupportPtsRange(opening_suit, max_pts=17)
+
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[PassBid]:
+        return frozenset({PASS})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(

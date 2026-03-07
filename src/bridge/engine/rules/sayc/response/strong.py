@@ -81,6 +81,9 @@ class Respond2NTOver2C(Rule):
     def conditions(self) -> Condition:
         return All(HcpRange(min_hcp=8), Balanced(strict=True))
 
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(2, Suit.NOTRUMP)})
+
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
             bid=SuitBid(2, Suit.NOTRUMP),
@@ -124,6 +127,16 @@ class RespondPositiveSuitOver2C(Rule):
     def conditions(self) -> Condition:
         return All(HcpRange(min_hcp=8), self._suit)
 
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset(
+            {
+                SuitBid(2, Suit.HEARTS),
+                SuitBid(2, Suit.SPADES),
+                SuitBid(3, Suit.CLUBS),
+                SuitBid(3, Suit.DIAMONDS),
+            }
+        )
+
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._suit.value
         level = 2 if suit.is_major else 3
@@ -164,6 +177,9 @@ class Respond2DWaiting(Rule):
     @property
     def conditions(self) -> Condition:
         return All()
+
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(2, Suit.DIAMONDS)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(

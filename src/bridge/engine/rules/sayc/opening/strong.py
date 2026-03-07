@@ -33,6 +33,9 @@ class Open2C(Rule):
     def conditions(self) -> Condition:
         return TotalPtsRange(min_pts=22)
 
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(2, Suit.CLUBS)})
+
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
             bid=SuitBid(2, Suit.CLUBS),

@@ -14,7 +14,7 @@ from bridge.engine.condition import (
 from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.evaluate import best_major, best_minor
-from bridge.model.bid import PASS, SuitBid
+from bridge.model.bid import PASS, PassBid, SuitBid
 from bridge.model.card import Suit
 
 _not_1nt_range = Not(
@@ -71,6 +71,9 @@ class Open1Major(Rule):
             self._best_major,
         )
 
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(1, Suit.HEARTS), SuitBid(1, Suit.SPADES)})
+
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = self._best_major.value
         return RuleResult(
@@ -112,6 +115,9 @@ class Open1Minor(Rule):
             _no_major,
         )
 
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(1, Suit.CLUBS), SuitBid(1, Suit.DIAMONDS)})
+
     def select(self, ctx: BiddingContext) -> RuleResult:
         suit = best_minor(ctx.hand)
         return RuleResult(
@@ -145,6 +151,9 @@ class OpenPass(Rule):
     @property
     def conditions(self) -> Condition:
         return Not(MeetsOpeningStrength(), label="opening strength")
+
+    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid | PassBid]:
+        return frozenset({PASS})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
