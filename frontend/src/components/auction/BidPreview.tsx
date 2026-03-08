@@ -23,23 +23,23 @@ export default function BidPreview({ analysis }: BidPreviewProps) {
 
   return (
     <Card>
-      <CardContent className="pt-4">
+      <CardContent>
         {/* Promise summary: the combined constraints from all matching rules. */}
         {constraints.length > 0 ? (
           <ul className="text-sm space-y-0.5">
             {constraints.map((text, i) => (
-              <li key={i} className="text-foreground">
+              <li key={i} className="text-card-foreground">
                 {text}
               </li>
             ))}
           </ul>
         ) : (
-          <p className="text-muted-foreground text-sm">No matching rules</p>
+          <p className="text-card-muted-foreground text-sm">No matching rules</p>
         )}
 
         {/* Matching rule names, shown smaller below the constraints. */}
         {analysis.matches.length > 0 && (
-          <div className="text-muted-foreground mt-2 text-xs">
+          <div className="text-card-muted-foreground mt-2 text-xs">
             {analysis.matches.map((m) => m.explanation).join(" · ")}
           </div>
         )}
