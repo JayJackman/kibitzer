@@ -137,6 +137,10 @@ function PracticeView({ state }: { state: PracticeState }) {
   const [hoveredBid, setHoveredBid] = useState<string | null>(null);
   const [bidAnalyses, setBidAnalyses] = useState<AllBidsAnalysis | null>(null);
   const legalBidsKey = legal_bids.join(",");
+  // Stable string key for the auction bids so the effect below doesn't
+  // re-run on every 2-second poll (which returns a new array reference
+  // even when the content hasn't changed, clearing the hovered bid).
+  const auctionBidsKey = auction.bids.map((b) => b.bid).join(",");
 
   useEffect(() => {
     // Reset analyses when legal bids change (new turn or new hand).
@@ -152,7 +156,7 @@ function PracticeView({ state }: { state: PracticeState }) {
     // state after the effect has been cleaned up (e.g. the component
     // unmounted or the deps changed before the fetch completed).
     let cancelled = false;
-    const bidStrings = auction.bids.map((b) => b.bid);
+    const bidStrings = auctionBidsKey ? auctionBidsKey.split(",") : [];
 
     async function fetchAnalyses() {
       try {
@@ -170,7 +174,7 @@ function PracticeView({ state }: { state: PracticeState }) {
     return () => {
       cancelled = true;
     };
-  }, [legalBidsKey, is_my_turn, auction.dealer, auction.vulnerability, auction.bids]);
+  }, [legalBidsKey, is_my_turn, auction.dealer, auction.vulnerability, auctionBidsKey]);
 
   // Look up the hovered bid's analysis from the cached batch response.
   const hoveredAnalysis =

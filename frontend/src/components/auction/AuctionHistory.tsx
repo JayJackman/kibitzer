@@ -9,6 +9,7 @@ import type { AuctionBid, Seat } from "@/api/types";
 import { SEAT_LABELS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import BidText from "@/components/ui/BidText";
 
 interface AuctionHistoryProps {
   /** Bid history in chronological order. */
@@ -48,7 +49,7 @@ export default function AuctionHistory({ bids, yourSeat }: AuctionHistoryProps) 
               </span>
 
               {/* Bid */}
-              <span className="font-semibold">{entry.bid}</span>
+              <BidText bid={entry.bid} />
 
               {/* Explanation */}
               {entry.explanation && (
