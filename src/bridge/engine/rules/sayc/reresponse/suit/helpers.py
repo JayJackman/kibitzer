@@ -5,14 +5,14 @@ from __future__ import annotations
 from bridge import evaluate
 from bridge.engine.bidutil import cheapest_bid_in_suit
 from bridge.engine.condition import condition
-from bridge.engine.context import BiddingContext
+from bridge.engine.context import AuctionContext, BiddingContext
 from bridge.model.bid import SuitBid, is_suit_bid
 from bridge.model.card import Suit
 
 # ── Core accessors ─────────────────────────────────────────────────
 
 
-def opening_bid(ctx: BiddingContext) -> SuitBid:
+def opening_bid(ctx: AuctionContext) -> SuitBid:
     """Return partner's opening bid (always a suit bid in this module).
 
     Only safe to call when guarded by partner_opened_1_suit condition.
@@ -23,7 +23,7 @@ def opening_bid(ctx: BiddingContext) -> SuitBid:
     return bid
 
 
-def opening_bid_safe(ctx: BiddingContext) -> SuitBid | None:
+def opening_bid_safe(ctx: AuctionContext) -> SuitBid | None:
     """Return partner's opening bid, or None if no suit opening exists."""
     if ctx.opening_bid is None:
         return None
@@ -33,26 +33,26 @@ def opening_bid_safe(ctx: BiddingContext) -> SuitBid | None:
     return bid
 
 
-def opening_suit(ctx: BiddingContext) -> Suit:
+def opening_suit(ctx: AuctionContext) -> Suit:
     """Return partner's opening suit (never NOTRUMP for 1-suit openings)."""
     bid = opening_bid(ctx)
     assert not bid.is_notrump
     return bid.suit
 
 
-def my_response(ctx: BiddingContext) -> SuitBid:
+def my_response(ctx: AuctionContext) -> SuitBid:
     """Return my first bid (response in round 2)."""
     bid = ctx.my_bids[0]
     assert is_suit_bid(bid)
     return bid
 
 
-def my_response_suit(ctx: BiddingContext) -> Suit:
+def my_response_suit(ctx: AuctionContext) -> Suit:
     """Return the suit I bid in round 2."""
     return my_response(ctx).suit
 
 
-def partner_rebid(ctx: BiddingContext) -> SuitBid:
+def partner_rebid(ctx: AuctionContext) -> SuitBid:
     """Return partner's rebid (round 3).
 
     Only safe to call when guarded by a partner-rebid condition.
@@ -62,7 +62,7 @@ def partner_rebid(ctx: BiddingContext) -> SuitBid:
     return rebid
 
 
-def partner_rebid_safe(ctx: BiddingContext) -> SuitBid | None:
+def partner_rebid_safe(ctx: AuctionContext) -> SuitBid | None:
     """Return partner's rebid, or None if partner didn't make a suit bid."""
     rebid = ctx.partner_last_bid
     if rebid is None or not is_suit_bid(rebid):
@@ -70,7 +70,7 @@ def partner_rebid_safe(ctx: BiddingContext) -> SuitBid | None:
     return rebid
 
 
-def partner_rebid_suit(ctx: BiddingContext) -> Suit:
+def partner_rebid_suit(ctx: AuctionContext) -> Suit:
     """Return the suit partner bid in round 3."""
     return partner_rebid(ctx).suit
 
@@ -248,7 +248,7 @@ def stoppers_in_unbid(ctx: BiddingContext) -> bool:
     return all(evaluate.has_stopper(ctx.hand, suit) for suit in unbid)
 
 
-def fourth_suit(ctx: BiddingContext) -> Suit | None:
+def fourth_suit(ctx: AuctionContext) -> Suit | None:
     """The only unbid suit, or None if fewer than 3 suits have been bid."""
     suits: set[Suit] = {
         opening_suit(ctx),
@@ -274,7 +274,7 @@ def find_new_suit_forcing(ctx: BiddingContext, *, min_len: int = 4) -> Suit | No
     )
 
 
-def find_fourth_suit_bid(ctx: BiddingContext) -> SuitBid | None:
+def find_fourth_suit_bid(ctx: AuctionContext) -> SuitBid | None:
     """Find the fourth suit forcing bid (must be at 2-level or higher)."""
     suit = fourth_suit(ctx)
     if suit is None:

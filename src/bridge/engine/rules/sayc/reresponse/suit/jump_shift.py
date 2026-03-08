@@ -11,7 +11,7 @@ from bridge.engine.condition import (
     SuitFinderComputed,
     condition,
 )
-from bridge.engine.context import BiddingContext
+from bridge.engine.context import AuctionContext, BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.model.bid import PASS, PassBid, SuitBid
 from bridge.model.card import Suit
@@ -134,7 +134,7 @@ class Blackwood4NTAfterJS(Rule):
     def conditions(self) -> Condition:
         return All(_fit_established_after_js, HcpRange(min_hcp=21))
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(4, Suit.NOTRUMP)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -172,7 +172,7 @@ class FourMAfterJS(Rule):
     def conditions(self) -> Condition:
         return _fit_established_after_js
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         candidates = {my_response_suit(ctx), opening_suit(ctx)}
         rebid = partner_rebid(ctx)
         if not rebid.is_notrump:
@@ -237,7 +237,7 @@ class ShowSecondSuitAfterJS(Rule):
     def conditions(self) -> Condition:
         return self._new_suit
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         exclude = {opening_suit(ctx), my_response_suit(ctx)}
         rebid = partner_rebid(ctx)
         if not rebid.is_notrump:
@@ -290,7 +290,7 @@ class RebidOwnSuitAfterJSReresponse(Rule):
     def conditions(self) -> Condition:
         return All(my_response_suit_6plus, Not(_fit_established_after_js))
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         bid = cheapest_bid_in_suit(my_response_suit(ctx), partner_rebid(ctx))
         if bid is None:
             return frozenset()
@@ -339,7 +339,7 @@ class PreferenceToOpeningSuitAfterJS(Rule):
     def conditions(self) -> Condition:
         return All(_support_for_opening_suit, Not(_fit_established_after_js))
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         bid = cheapest_bid_in_suit(opening_suit(ctx), partner_rebid(ctx))
         if bid is None:
             return frozenset()
@@ -387,7 +387,7 @@ class ThreeNTAfterJSReresponse(Rule):
     def conditions(self) -> Condition:
         return All()
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(3, Suit.NOTRUMP)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -424,7 +424,7 @@ class PassAtGameAfterJS(Rule):
     def conditions(self) -> Condition:
         return All()
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[PassBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[PassBid]:
         return frozenset({PASS})
 
     def select(self, ctx: BiddingContext) -> RuleResult:

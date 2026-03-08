@@ -1,7 +1,7 @@
 """NT opening bid rules — SAYC 1NT (15-17) and 2NT (20-21)."""
 
 from bridge.engine.condition import All, Balanced, Condition, HcpRange
-from bridge.engine.context import BiddingContext
+from bridge.engine.context import AuctionContext, BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.model.bid import SuitBid
 from bridge.model.card import Suit
@@ -29,7 +29,7 @@ class Open1NT(Rule):
     def conditions(self) -> Condition:
         return All(HcpRange(15, 17), Balanced(strict=True))
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(1, Suit.NOTRUMP)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -62,7 +62,7 @@ class Open2NT(Rule):
     def conditions(self) -> Condition:
         return All(HcpRange(20, 21), Balanced(strict=True))
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(2, Suit.NOTRUMP)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:

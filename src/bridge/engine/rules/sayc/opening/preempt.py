@@ -1,7 +1,7 @@
 """Preemptive opening bid rules — SAYC weak twos and 3/4-level preempts."""
 
 from bridge.engine.condition import All, Condition, HcpRange, NoVoid, SuitFinderComputed
-from bridge.engine.context import BiddingContext
+from bridge.engine.context import AuctionContext, BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.evaluate import has_outside_four_card_major, quality_suit
 from bridge.model.bid import SuitBid
@@ -77,7 +77,7 @@ class OpenWeakTwo(Rule):
     def conditions(self) -> Condition:
         return All(HcpRange(5, 11), NoVoid(), self._suit)
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset(
             SuitBid(2, s) for s in (Suit.DIAMONDS, Suit.HEARTS, Suit.SPADES)
         )
@@ -120,7 +120,7 @@ class OpenPreempt3(Rule):
     def conditions(self) -> Condition:
         return All(HcpRange(max_hcp=11), self._suit)
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset(SuitBid(3, s) for s in SUITS_SHDC)
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -162,7 +162,7 @@ class OpenPreempt4(Rule):
     def conditions(self) -> Condition:
         return All(HcpRange(max_hcp=11), self._suit)
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset(SuitBid(4, s) for s in SUITS_SHDC)
 
     def select(self, ctx: BiddingContext) -> RuleResult:

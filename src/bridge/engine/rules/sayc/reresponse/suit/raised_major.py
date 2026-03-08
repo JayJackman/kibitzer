@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from bridge.engine.condition import All, Any, Condition, SupportPtsRange, condition
-from bridge.engine.context import BiddingContext
+from bridge.engine.context import AuctionContext, BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.model.bid import PASS, PassBid, SuitBid
 from bridge.model.card import Rank, Suit
@@ -125,7 +125,7 @@ class AcceptGameTry(Rule):
             ),
         )
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(4, opening_suit(ctx))})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -166,7 +166,7 @@ class DeclineGameTry(Rule):
     def conditions(self) -> Condition:
         return SupportPtsRange(opening_suit, max_pts=8)
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(3, opening_suit(ctx))})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -207,7 +207,7 @@ class AcceptReraise(Rule):
     def conditions(self) -> Condition:
         return SupportPtsRange(opening_suit, min_pts=8, max_pts=10)
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(4, opening_suit(ctx))})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -245,7 +245,7 @@ class DeclineReraise(Rule):
     def conditions(self) -> Condition:
         return SupportPtsRange(opening_suit, max_pts=7)
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[PassBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[PassBid]:
         return frozenset({PASS})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -285,7 +285,7 @@ class PassAfterGame(Rule):
     def conditions(self) -> Condition:
         return All()
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[PassBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[PassBid]:
         return frozenset({PASS})
 
     def select(self, ctx: BiddingContext) -> RuleResult:

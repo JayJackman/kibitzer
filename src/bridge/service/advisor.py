@@ -6,7 +6,7 @@ from bridge import evaluate
 from bridge.engine.context import BiddingContext
 from bridge.engine.rule import Category, RuleResult
 from bridge.engine.sayc import create_sayc_registry
-from bridge.engine.selector import BidSelector, ThoughtProcess
+from bridge.engine.selector import BidSelector, ThoughtProcess, detect_phase
 from bridge.model.auction import AuctionState
 from bridge.model.bid import PASS
 from bridge.model.board import Board
@@ -51,7 +51,7 @@ class BiddingAdvisor:
         alternatives = [
             c for c in all_candidates if c.rule_name != recommended.rule_name
         ]
-        phase = self._selector.detect_phase(ctx)
+        phase = detect_phase(ctx)
 
         hand_evaluation = HandEvaluation(
             hcp=ctx.hcp,

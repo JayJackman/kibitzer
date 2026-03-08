@@ -35,7 +35,7 @@ from bridge.model.card import Suit
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from bridge.engine.context import BiddingContext
+    from bridge.engine.context import AuctionContext, BiddingContext
     from bridge.model.bid import Bid
 
 
@@ -106,7 +106,7 @@ class Condition(ABC):
     def check(self, ctx: BiddingContext) -> ConditionResult:
         """Evaluate this condition against the given context."""
 
-    def promises(self, ctx: BiddingContext, bid: Bid) -> HandDescription:
+    def promises(self, ctx: AuctionContext, bid: Bid) -> HandDescription:
         """Return what this condition guarantees about the hand when it passes.
 
         For example, ``HcpRange(10, 14)`` promises ``hcp=(10, 14)`` and
@@ -163,7 +163,7 @@ class All(Condition):
             detail="; ".join(r.detail for r in result.results),
         )
 
-    def promises(self, ctx: BiddingContext, bid: Bid) -> HandDescription:
+    def promises(self, ctx: AuctionContext, bid: Bid) -> HandDescription:
         result = HandDescription()
         for cond in self._conditions:
             result = result & cond.promises(ctx, bid)
@@ -222,7 +222,7 @@ class Any(Condition):
             detail="; ".join(r.detail for r in result.results),
         )
 
-    def promises(self, ctx: BiddingContext, bid: Bid) -> HandDescription:
+    def promises(self, ctx: AuctionContext, bid: Bid) -> HandDescription:
         if not self._paths:
             return HandDescription()
         result = self._paths[0].promises(ctx, bid)
@@ -402,7 +402,7 @@ class Computed[T](Condition):
         """
         return HandDescription()
 
-    def promises(self, ctx: BiddingContext, bid: Bid) -> HandDescription:
+    def promises(self, ctx: AuctionContext, bid: Bid) -> HandDescription:
         """Use cached value if available, otherwise infer from the bid."""
         if self._cached is not None:
             return self.promise_from_value(self._cached)
@@ -578,7 +578,7 @@ class HcpRange(Condition):
             return f"0-{self._max} HCP"
         return "Any HCP"
 
-    def promises(self, ctx: BiddingContext, bid: Bid) -> HandDescription:
+    def promises(self, ctx: AuctionContext, bid: Bid) -> HandDescription:
         return HandDescription(hcp=(self._min, self._max))
 
     def check(self, ctx: BiddingContext) -> ConditionResult:
@@ -622,7 +622,7 @@ class TotalPtsRange(Condition):
             return f"0-{self._max} total points"
         return "Any total points"
 
-    def promises(self, ctx: BiddingContext, bid: Bid) -> HandDescription:
+    def promises(self, ctx: AuctionContext, bid: Bid) -> HandDescription:
         return HandDescription(total_pts=(self._min, self._max))
 
     def check(self, ctx: BiddingContext) -> ConditionResult:
@@ -657,7 +657,7 @@ class BergenPtsRange(Condition):
 
     def __init__(
         self,
-        suit_fn: Callable[[BiddingContext], Suit],
+        suit_fn: Callable[[AuctionContext], Suit],
         min_pts: int | None = None,
         max_pts: int | None = None,
     ) -> None:
@@ -704,7 +704,7 @@ class SupportPtsRange(Condition):
 
     def __init__(
         self,
-        suit_fn: Callable[[BiddingContext], Suit],
+        suit_fn: Callable[[AuctionContext], Suit],
         min_pts: int | None = None,
         max_pts: int | None = None,
     ) -> None:
@@ -757,7 +757,7 @@ class Balanced(Condition):
     def label(self) -> str:
         return "balanced" if self._strict else "semi-balanced"
 
-    def promises(self, ctx: BiddingContext, bid: Bid) -> HandDescription:
+    def promises(self, ctx: AuctionContext, bid: Bid) -> HandDescription:
         return HandDescription(balanced=True)
 
     def check(self, ctx: BiddingContext) -> ConditionResult:
@@ -853,7 +853,7 @@ class SuitLength(Condition):
             return f"0-{self._max} {suit_name}"
         return f"any {suit_name}"
 
-    def promises(self, ctx: BiddingContext, bid: Bid) -> HandDescription:
+    def promises(self, ctx: AuctionContext, bid: Bid) -> HandDescription:
         return HandDescription(lengths={self._suit: (self._min, self._max)})
 
     def check(self, ctx: BiddingContext) -> ConditionResult:
@@ -885,7 +885,7 @@ class HasSuitFit(Condition):
 
     def __init__(
         self,
-        suit_fn: Callable[[BiddingContext], Suit],
+        suit_fn: Callable[[AuctionContext], Suit],
         min_len: int,
         max_len: int | None = None,
     ) -> None:
@@ -901,7 +901,7 @@ class HasSuitFit(Condition):
             return f"{self._min_len}-{self._max_len} card fit"
         return f"{self._min_len}+ card fit"
 
-    def promises(self, ctx: BiddingContext, bid: Bid) -> HandDescription:
+    def promises(self, ctx: AuctionContext, bid: Bid) -> HandDescription:
         suit = self._suit_fn(ctx)
         return HandDescription(lengths={suit: (self._min_len, self._max_len)})
 
@@ -931,7 +931,7 @@ class MeetsOpeningStrength(Condition):
     def label(self) -> str:
         return "opening strength"
 
-    def promises(self, ctx: BiddingContext, bid: Bid) -> HandDescription:
+    def promises(self, ctx: AuctionContext, bid: Bid) -> HandDescription:
         return HandDescription(hcp=(12, None))
 
     def check(self, ctx: BiddingContext) -> ConditionResult:

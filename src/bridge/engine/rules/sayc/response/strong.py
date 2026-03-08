@@ -13,7 +13,7 @@ from bridge.engine.condition import (
     SuitFinderComputed,
     condition,
 )
-from bridge.engine.context import BiddingContext
+from bridge.engine.context import AuctionContext, BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.model.bid import SuitBid, is_suit_bid
 from bridge.model.card import SUITS_SHDC, Rank, Suit
@@ -81,7 +81,7 @@ class Respond2NTOver2C(Rule):
     def conditions(self) -> Condition:
         return All(HcpRange(min_hcp=8), Balanced(strict=True))
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(2, Suit.NOTRUMP)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -127,7 +127,7 @@ class RespondPositiveSuitOver2C(Rule):
     def conditions(self) -> Condition:
         return All(HcpRange(min_hcp=8), self._suit)
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset(
             {
                 SuitBid(2, Suit.HEARTS),
@@ -178,7 +178,7 @@ class Respond2DWaiting(Rule):
     def conditions(self) -> Condition:
         return All()
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(2, Suit.DIAMONDS)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:

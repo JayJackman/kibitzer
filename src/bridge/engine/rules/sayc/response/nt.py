@@ -14,7 +14,7 @@ from bridge.engine.condition import (
     Not,
     condition,
 )
-from bridge.engine.context import BiddingContext
+from bridge.engine.context import AuctionContext, BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.model.bid import PASS, PassBid, SuitBid, is_suit_bid
 from bridge.model.card import Suit
@@ -126,7 +126,7 @@ class RespondGerber(Rule):
             Balanced(strict=False),
         )
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(4, Suit.CLUBS)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -165,7 +165,7 @@ class Respond4NTOver1NT(Rule):
     def conditions(self) -> Condition:
         return All(HcpRange(15, 17), Balanced(strict=False))
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(4, Suit.NOTRUMP)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -203,7 +203,7 @@ class Respond3MajorOver1NT(Rule):
     def conditions(self) -> Condition:
         return All(HcpRange(min_hcp=16), _has_6_plus_major)
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(3, Suit.HEARTS), SuitBid(3, Suit.SPADES)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -243,7 +243,7 @@ class RespondTexasTransfer(Rule):
     def conditions(self) -> Condition:
         return All(HcpRange(10, 15), _has_6_plus_major)
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(4, Suit.DIAMONDS), SuitBid(4, Suit.HEARTS)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -301,7 +301,7 @@ class RespondStayman(Rule):
             ),
         )
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(2, Suit.CLUBS)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -340,7 +340,7 @@ class RespondJacobyTransfer(Rule):
     def conditions(self) -> Condition:
         return has_5_plus_major
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(2, Suit.DIAMONDS), SuitBid(2, Suit.HEARTS)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -385,7 +385,7 @@ class Respond3NTOver1NT(Rule):
     def conditions(self) -> Condition:
         return HcpRange(10, 15)
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(3, Suit.NOTRUMP)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -426,7 +426,7 @@ class Respond3MinorOver1NT(Rule):
     def conditions(self) -> Condition:
         return All(HcpRange(8, 9), _has_6_plus_minor)
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(3, Suit.CLUBS), SuitBid(3, Suit.DIAMONDS)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -467,7 +467,7 @@ class Respond2NTOver1NT(Rule):
     def conditions(self) -> Condition:
         return HcpRange(8, 9)
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(2, Suit.NOTRUMP)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -509,7 +509,7 @@ class Respond2SPuppet(Rule):
     def conditions(self) -> Condition:
         return All(HcpRange(max_hcp=7), _has_6_plus_minor)
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(2, Suit.SPADES)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -548,7 +548,7 @@ class RespondPassOver1NT(Rule):
     def conditions(self) -> Condition:
         return HcpRange(max_hcp=7)
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[PassBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[PassBid]:
         return frozenset({PASS})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -597,7 +597,7 @@ class RespondGerberOver2NT(Rule):
             Balanced(strict=False),
         )
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(4, Suit.CLUBS)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -638,7 +638,7 @@ class Respond4NTOver2NT(Rule):
     def conditions(self) -> Condition:
         return All(HcpRange(11, 12), Balanced(strict=False))
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(4, Suit.NOTRUMP)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -678,7 +678,7 @@ class RespondTexasOver2NT(Rule):
     def conditions(self) -> Condition:
         return All(HcpRange(4, 10), _has_6_plus_major)
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(4, Suit.DIAMONDS), SuitBid(4, Suit.HEARTS)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -729,7 +729,7 @@ class RespondStaymanOver2NT(Rule):
             _not_4333,
         )
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(3, Suit.CLUBS)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -770,7 +770,7 @@ class RespondTransferOver2NT(Rule):
     def conditions(self) -> Condition:
         return has_5_plus_major
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(3, Suit.DIAMONDS), SuitBid(3, Suit.HEARTS)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -814,7 +814,7 @@ class Respond3NTOver2NT(Rule):
     def conditions(self) -> Condition:
         return HcpRange(4, 10)
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(3, Suit.NOTRUMP)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -855,7 +855,7 @@ class Respond3SPuppetOver2NT(Rule):
     def conditions(self) -> Condition:
         return All(HcpRange(max_hcp=3), _has_6_plus_minor)
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(3, Suit.SPADES)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -895,7 +895,7 @@ class RespondPassOver2NT(Rule):
     def conditions(self) -> Condition:
         return HcpRange(max_hcp=3)
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[PassBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[PassBid]:
         return frozenset({PASS})
 
     def select(self, ctx: BiddingContext) -> RuleResult:

@@ -11,7 +11,7 @@ from bridge.engine.condition import (
     TotalPtsRange,
     condition,
 )
-from bridge.engine.context import BiddingContext
+from bridge.engine.context import AuctionContext, BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.evaluate import best_major, best_minor
 from bridge.model.bid import PASS, PassBid, SuitBid
@@ -71,7 +71,7 @@ class Open1Major(Rule):
             self._best_major,
         )
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(1, Suit.HEARTS), SuitBid(1, Suit.SPADES)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -115,7 +115,7 @@ class Open1Minor(Rule):
             _no_major,
         )
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(1, Suit.CLUBS), SuitBid(1, Suit.DIAMONDS)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -152,7 +152,7 @@ class OpenPass(Rule):
     def conditions(self) -> Condition:
         return Not(MeetsOpeningStrength(), label="opening strength")
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid | PassBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid | PassBid]:
         return frozenset({PASS})
 
     def select(self, ctx: BiddingContext) -> RuleResult:

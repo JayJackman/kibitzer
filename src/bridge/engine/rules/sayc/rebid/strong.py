@@ -17,7 +17,7 @@ from bridge.engine.condition import (
     Not,
     condition,
 )
-from bridge.engine.context import BiddingContext
+from bridge.engine.context import AuctionContext, BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.model.bid import SuitBid, is_suit_bid
 from bridge.model.card import SUITS_SHDC, Suit
@@ -34,7 +34,7 @@ def _i_opened_2c(ctx: BiddingContext) -> bool:
     return is_suit_bid(bid) and bid.level == 2 and bid.suit == Suit.CLUBS
 
 
-def _partner_bid(ctx: BiddingContext) -> SuitBid:
+def _partner_bid(ctx: AuctionContext) -> SuitBid:
     """Partner's response (always a SuitBid in rebid phase after 2C).
 
     Only safe to call from select() methods where conditions have already
@@ -45,7 +45,7 @@ def _partner_bid(ctx: BiddingContext) -> SuitBid:
     return resp
 
 
-def _partner_bid_safe(ctx: BiddingContext) -> SuitBid | None:
+def _partner_bid_safe(ctx: AuctionContext) -> SuitBid | None:
     """Partner's response, or None if partner didn't make a suit bid."""
     resp = ctx.partner_last_bid
     if resp is None or not is_suit_bid(resp):
@@ -69,14 +69,21 @@ def _partner_positive_response(ctx: BiddingContext) -> bool:
     return not _partner_bid_2d_waiting(ctx)
 
 
+def _is_partner_positive_suit(ctx: AuctionContext) -> bool:
+    """Check if partner made a positive suit response (2H/2S/3C/3D, not 2NT).
+
+    Plain function for use in possible_bids (takes AuctionContext).
+    """
+    resp = _partner_bid_safe(ctx)
+    if resp is None or resp.is_notrump:
+        return False
+    return not (resp.level == 2 and resp.suit == Suit.DIAMONDS)
+
+
 @condition("partner bid positive suit")
 def _partner_positive_suit(ctx: BiddingContext) -> bool:
     """Partner made a positive suit response (2H/2S/3C/3D, not 2NT)."""
-    if (resp := _partner_bid_safe(ctx)) is None:
-        return False
-    if resp.is_notrump:
-        return False
-    return _partner_positive_response(ctx)
+    return _is_partner_positive_suit(ctx)
 
 
 @condition("5+ card suit")
@@ -120,7 +127,7 @@ def _longest_unbid_suit(ctx: BiddingContext) -> Suit:
     return best_suit
 
 
-def _partner_response_suit(ctx: BiddingContext) -> Suit:
+def _partner_response_suit(ctx: AuctionContext) -> Suit:
     """Partner's response suit (for HasSuitFit)."""
     return _partner_bid(ctx).suit
 
@@ -157,7 +164,7 @@ class Rebid2NTAfter2C(Rule):
     def conditions(self) -> Condition:
         return All(Balanced(strict=True), HcpRange(22, 24))
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(2, Suit.NOTRUMP)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -197,7 +204,7 @@ class Rebid3NTAfter2C(Rule):
     def conditions(self) -> Condition:
         return All(Balanced(strict=True), HcpRange(min_hcp=25))
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(3, Suit.NOTRUMP)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -238,7 +245,7 @@ class RebidSuitAfter2C(Rule):
     def conditions(self) -> Condition:
         return _has_5_plus_suit
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset(
             {
                 SuitBid(2, Suit.HEARTS),
@@ -294,7 +301,7 @@ class Rebid2NTAfter2COffshape(Rule):
             Not(_has_5_plus_suit),
         )
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(2, Suit.NOTRUMP)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -340,7 +347,7 @@ class RebidRaiseAfterPositive2C(Rule):
     def conditions(self) -> Condition:
         return HasSuitFit(_partner_response_suit, min_len=4)
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         partner = _partner_bid(ctx)
         return frozenset({SuitBid(partner.level + 1, partner.suit)})
 
@@ -388,11 +395,11 @@ class RebidSuitAfterPositive2C(Rule):
             All(Not(_partner_positive_suit), _has_5_plus_suit),
         )
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         partner = _partner_bid(ctx)
         bids = []
         for suit in SUITS_SHDC:
-            if _partner_positive_suit(ctx) and suit == partner.suit:
+            if _is_partner_positive_suit(ctx) and suit == partner.suit:
                 continue
             above = suit.value > partner.suit.value
             level = partner.level if above else partner.level + 1
@@ -445,7 +452,7 @@ class RebidNTAfterPositive2C(Rule):
     def conditions(self) -> Condition:
         return All()
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(3, Suit.NOTRUMP)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:

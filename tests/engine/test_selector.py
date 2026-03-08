@@ -3,7 +3,7 @@
 import pytest
 
 from bridge.engine.condition import Condition, condition
-from bridge.engine.context import BiddingContext
+from bridge.engine.context import AuctionContext, BiddingContext
 from bridge.engine.registry import RuleRegistry
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.engine.selector import (
@@ -11,6 +11,7 @@ from bridge.engine.selector import (
     BidSelector,
     ThoughtProcess,
     ThoughtStep,
+    detect_phase,
 )
 from bridge.model.auction import AuctionState, Seat
 from bridge.model.bid import PASS, Bid, SuitBid, is_pass
@@ -64,6 +65,9 @@ class MockRule(Rule):
     def conditions(self) -> Condition:
         return _always if self._should_apply else _never
 
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[Bid]:
+        return frozenset({self._bid})
+
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
             bid=self._bid,
@@ -80,9 +84,8 @@ class TestPhaseDetection:
     def test_opening(self) -> None:
         auction = AuctionState(dealer=Seat.NORTH)
         ctx = _make_ctx(Seat.NORTH, auction)
-        selector = BidSelector(RuleRegistry())
 
-        assert selector.detect_phase(ctx) == Category.OPENING
+        assert detect_phase(ctx) == Category.OPENING
 
     def test_opening_after_passes(self) -> None:
         auction = AuctionState(dealer=Seat.NORTH)
@@ -90,9 +93,8 @@ class TestPhaseDetection:
         auction.add_bid(PASS)  # E
 
         ctx = _make_ctx(Seat.SOUTH, auction)
-        selector = BidSelector(RuleRegistry())
 
-        assert selector.detect_phase(ctx) == Category.OPENING
+        assert detect_phase(ctx) == Category.OPENING
 
     def test_response(self) -> None:
         # Partner (N) opens 1H, opponent (E) passes, my turn (S)
@@ -101,9 +103,8 @@ class TestPhaseDetection:
         auction.add_bid(PASS)  # E passes
 
         ctx = _make_ctx(Seat.SOUTH, auction)
-        selector = BidSelector(RuleRegistry())
 
-        assert selector.detect_phase(ctx) == Category.RESPONSE
+        assert detect_phase(ctx) == Category.RESPONSE
 
     def test_competitive_response(self) -> None:
         # Partner (N) opens 1H, opponent (E) overcalls 1S, my turn (S)
@@ -112,9 +113,8 @@ class TestPhaseDetection:
         auction.add_bid(SuitBid(1, Suit.SPADES))  # E overcalls
 
         ctx = _make_ctx(Seat.SOUTH, auction)
-        selector = BidSelector(RuleRegistry())
 
-        assert selector.detect_phase(ctx) == Category.COMPETITIVE_RESPONSE
+        assert detect_phase(ctx) == Category.COMPETITIVE_RESPONSE
 
     def test_rebid_opener(self) -> None:
         # I (N) opened 1H, E passes, partner (S) responds 2H, W passes
@@ -125,9 +125,8 @@ class TestPhaseDetection:
         auction.add_bid(PASS)  # W
 
         ctx = _make_ctx(Seat.NORTH, auction)
-        selector = BidSelector(RuleRegistry())
 
-        assert selector.detect_phase(ctx) == Category.REBID_OPENER
+        assert detect_phase(ctx) == Category.REBID_OPENER
 
     def test_rebid_responder(self) -> None:
         # Partner (N) opened 1H, E passes, I (S) responded 1S,
@@ -141,9 +140,8 @@ class TestPhaseDetection:
         auction.add_bid(PASS)  # E
 
         ctx = _make_ctx(Seat.SOUTH, auction)
-        selector = BidSelector(RuleRegistry())
 
-        assert selector.detect_phase(ctx) == Category.REBID_RESPONDER
+        assert detect_phase(ctx) == Category.REBID_RESPONDER
 
     def test_competitive(self) -> None:
         # Opponent (N) opens 1H, my turn (E)
@@ -151,9 +149,8 @@ class TestPhaseDetection:
         auction.add_bid(SuitBid(1, Suit.HEARTS))  # N opens
 
         ctx = _make_ctx(Seat.EAST, auction)
-        selector = BidSelector(RuleRegistry())
 
-        assert selector.detect_phase(ctx) == Category.COMPETITIVE
+        assert detect_phase(ctx) == Category.COMPETITIVE
 
 
 class TestBidSelector:

@@ -18,7 +18,7 @@ from bridge.engine.condition import (
     SupportPtsRange,
     condition,
 )
-from bridge.engine.context import BiddingContext
+from bridge.engine.context import AuctionContext, BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.evaluate import has_stopper
 from bridge.model.bid import PASS, PassBid, SuitBid, is_suit_bid
@@ -27,7 +27,7 @@ from bridge.model.card import SUITS_SHDC, Suit
 # -- Helpers -----------------------------------------------------------------
 
 
-def _opening_suit(ctx: BiddingContext) -> Suit:
+def _opening_suit(ctx: AuctionContext) -> Suit:
     """The suit partner opened.
 
     Only safe to call from select() methods or conditions guarded by a
@@ -184,7 +184,7 @@ class RespondGameRaiseWeakTwoMajor(Rule):
             ),
         )
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(4, _opening_suit(ctx))})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -229,7 +229,7 @@ class RespondGameRaiseWeakTwoMinor(Rule):
             SupportPtsRange(_opening_suit, min_pts=16),
         )
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(5, _opening_suit(ctx))})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -271,7 +271,7 @@ class Respond3NTOverWeakTwo(Rule):
     def conditions(self) -> Condition:
         return All(HcpRange(min_hcp=15), _stoppers_in_unbid)
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(3, Suit.NOTRUMP)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -318,7 +318,7 @@ class RespondNewSuitOverWeakTwo(Rule):
     def conditions(self) -> Condition:
         return All(HcpRange(min_hcp=14), self._suit)
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         opened = _opening_suit(ctx)
         return frozenset(
             SuitBid(2 if s.value > opened.value else 3, s)
@@ -370,7 +370,7 @@ class Respond2NTFeatureAsk(Rule):
     def conditions(self) -> Condition:
         return HcpRange(min_hcp=14)
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(2, Suit.NOTRUMP)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -410,7 +410,7 @@ class RespondRaiseWeakTwo(Rule):
     def conditions(self) -> Condition:
         return HasSuitFit(_opening_suit, min_len=3)
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(3, _opening_suit(ctx))})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -449,7 +449,7 @@ class RespondPassOverWeakTwo(Rule):
     def conditions(self) -> Condition:
         return All()
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[PassBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[PassBid]:
         return frozenset({PASS})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -498,7 +498,7 @@ class RespondGameRaise3LevelMajor(Rule):
             SupportPtsRange(_opening_suit, min_pts=14),
         )
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(4, _opening_suit(ctx))})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -543,7 +543,7 @@ class RespondGameRaise3LevelMinor(Rule):
             SupportPtsRange(_opening_suit, min_pts=16),
         )
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(5, _opening_suit(ctx))})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -584,7 +584,7 @@ class Respond3NTOver3Level(Rule):
     def conditions(self) -> Condition:
         return All(HcpRange(min_hcp=15), _stoppers_in_unbid)
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(3, Suit.NOTRUMP)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -633,7 +633,7 @@ class RespondNewSuitOver3Level(Rule):
     def conditions(self) -> Condition:
         return All(HcpRange(min_hcp=14), self._suit)
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         opened = _opening_suit(ctx)
         return frozenset(SuitBid(3, s) for s in SUITS_SHDC if s.value > opened.value)
 
@@ -678,7 +678,7 @@ class RespondRaise3Level(Rule):
     def conditions(self) -> Condition:
         return HasSuitFit(_opening_suit, min_len=3)
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(4, _opening_suit(ctx))})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -717,7 +717,7 @@ class RespondPassOver3Level(Rule):
     def conditions(self) -> Condition:
         return All()
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[PassBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[PassBid]:
         return frozenset({PASS})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -766,7 +766,7 @@ class RespondRaise4Level(Rule):
             SupportPtsRange(_opening_suit, min_pts=14),
         )
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(5, _opening_suit(ctx))})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -805,7 +805,7 @@ class RespondPassOver4Level(Rule):
     def conditions(self) -> Condition:
         return All()
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[PassBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[PassBid]:
         return frozenset({PASS})
 
     def select(self, ctx: BiddingContext) -> RuleResult:

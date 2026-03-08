@@ -3,7 +3,7 @@
 import pytest
 
 from bridge.engine.condition import Condition, condition
-from bridge.engine.context import BiddingContext
+from bridge.engine.context import AuctionContext, BiddingContext
 from bridge.engine.registry import DuplicateRuleError, RuleRegistry
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.model.bid import PASS, Bid
@@ -51,6 +51,9 @@ class MockRule(Rule):
     @property
     def conditions(self) -> Condition:
         return _always if self._should_apply else _never
+
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[Bid]:
+        return frozenset({self._bid})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(

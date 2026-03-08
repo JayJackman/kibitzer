@@ -5,13 +5,13 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import StrEnum, unique
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from bridge.engine.condition import All, Any, CheckResult, Condition
 from bridge.model.bid import Bid
 
 if TYPE_CHECKING:
-    from bridge.engine.context import BiddingContext
+    from bridge.engine.context import AuctionContext, BiddingContext
 
 
 @unique
@@ -146,23 +146,12 @@ class Rule(ABC):
         with ``prerequisite_passed=False`` and no hand condition results.
         If they pass (or are None), evaluates hand conditions normally.
         """
-        prereqs = self.prerequisites
-        if prereqs is not None:
-            if isinstance(prereqs, (All, Any)):
-                prereq_result = prereqs.check_all(ctx)
-            else:
-                r = prereqs.check(ctx)
-                prereq_result = CheckResult(
-                    passed=r.passed,
-                    prerequisite_passed=r.passed,
-                    results=(r,),
-                )
-            if not prereq_result.passed:
-                return CheckResult(
-                    passed=False,
-                    prerequisite_passed=False,
-                    results=(),
-                )
+        if not self.prerequisites_pass(ctx):
+            return CheckResult(
+                passed=False,
+                prerequisite_passed=False,
+                results=(),
+            )
 
         conds = self.conditions
         if isinstance(conds, (All, Any)):
@@ -180,7 +169,28 @@ class Rule(ABC):
             results=result.results,
         )
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[Bid] | None:
+    def prerequisites_pass(self, ctx: AuctionContext) -> bool:
+        """Check whether this rule's auction-state prerequisites are met.
+
+        Unlike ``check()``, this does not evaluate hand conditions --
+        only the prerequisite guards.  Accepts ``AuctionContext`` because
+        prerequisites only access auction-derived properties.
+
+        The ``cast`` to ``BiddingContext`` is safe: prerequisites never
+        access hand data.  This is an architectural invariant maintained
+        by rule authors (prerequisites test auction state, conditions
+        test the hand).
+        """
+        prereqs = self.prerequisites
+        if prereqs is None:
+            return True
+        bc = cast("BiddingContext", ctx)
+        if isinstance(prereqs, (All, Any)):
+            return prereqs.check_all(bc).passed
+        return prereqs.check(bc).passed
+
+    @abstractmethod
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[Bid]:
         """The set of bids this rule could produce in the given auction state.
 
         Returns a frozenset of every bid this rule might select, considering
@@ -192,10 +202,7 @@ class Rule(ABC):
         Callers must check prerequisites before calling this method.
         Implementations may assume prerequisites hold and use unsafe
         accessors (e.g. _opener_suit instead of _opener_suit_safe).
-
-        Returns None when not yet implemented (callers skip the rule).
         """
-        return None
 
     @abstractmethod
     def select(self, ctx: BiddingContext) -> RuleResult:

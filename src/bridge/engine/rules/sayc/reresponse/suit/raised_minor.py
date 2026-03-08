@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from bridge.engine.bidutil import cheapest_bid_in_suit
 from bridge.engine.condition import All, Condition, HasSuitFit, HcpRange, condition
-from bridge.engine.context import BiddingContext
+from bridge.engine.context import AuctionContext, BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.model.bid import PASS, PassBid, SuitBid
 from bridge.model.card import Suit
@@ -118,7 +118,7 @@ class PassAfterMinor3NT(Rule):
     def conditions(self) -> Condition:
         return All()
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[PassBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[PassBid]:
         return frozenset({PASS})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -160,7 +160,7 @@ class Accept2NTAfterMinorRaise(Rule):
     def conditions(self) -> Condition:
         return HcpRange(min_hcp=9, max_hcp=10)
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(3, Suit.NOTRUMP)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -202,7 +202,7 @@ class Decline2NTAfterMinorRaise(Rule):
     def conditions(self) -> Condition:
         return HcpRange(max_hcp=8)
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(3, opening_suit(ctx))})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -245,7 +245,7 @@ class ThreeNTAfterMinorNewSuit(Rule):
     def conditions(self) -> Condition:
         return All(stoppers_in_unbid, HcpRange(min_hcp=9, max_hcp=10))
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(3, Suit.NOTRUMP)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -290,7 +290,7 @@ class Raise2ndSuitAfterMinorRaise(Rule):
             HasSuitFit(partner_rebid_suit, min_len=4),
         )
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         suit = partner_rebid_suit(ctx)
         bid = cheapest_bid_in_suit(suit, partner_rebid(ctx))
         if bid is None:
@@ -342,7 +342,7 @@ class ReturnToMinor(Rule):
     def conditions(self) -> Condition:
         return HcpRange(max_hcp=10)
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         bid = cheapest_bid_in_suit(opening_suit(ctx), partner_rebid(ctx))
         if bid is None:
             return frozenset()
@@ -392,7 +392,7 @@ class AcceptMinorInvite(Rule):
     def conditions(self) -> Condition:
         return HcpRange(min_hcp=9, max_hcp=10)
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[SuitBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(3, Suit.NOTRUMP), SuitBid(5, opening_suit(ctx))})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -441,7 +441,7 @@ class DeclineMinorInvite(Rule):
     def conditions(self) -> Condition:
         return HcpRange(max_hcp=8)
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[PassBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[PassBid]:
         return frozenset({PASS})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
@@ -483,7 +483,7 @@ class PassAfterMinorGame(Rule):
     def conditions(self) -> Condition:
         return All()
 
-    def possible_bids(self, ctx: BiddingContext) -> frozenset[PassBid]:
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[PassBid]:
         return frozenset({PASS})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
