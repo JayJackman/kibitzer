@@ -21,6 +21,7 @@
  *   - /practice/new: action-only route that creates a session and redirects
  *   - /practice/:id: practice page with loader (state) + action (bid/redeal/join/leave)
  *   - /practice/:id/advise: loader-only route for fetcher-based advice loading
+ *   - /analyzer: standalone auction analyzer (no loader, local state only)
  *   - /join/:code: loader-only route that looks up a join code and redirects
  * - *: catch-all redirects to /
  */
@@ -51,6 +52,7 @@ import LoginPage from "@/pages/Login";
 import RegisterPage from "@/pages/Register";
 import LobbyPage from "@/pages/Lobby";
 import PracticePage from "@/pages/Practice";
+import AnalyzerPage from "@/pages/Analyzer";
 
 // ---------------------------------------------------------------------------
 // Loader: runs before any protected route renders.
@@ -348,6 +350,10 @@ export const router = createBrowserRouter([
 
       // Advice loader: used by useFetcher() in PracticePage (no element).
       { path: "/practice/:id/advise", loader: adviceLoader },
+
+      // Auction Analyzer: standalone page, no loader or action needed
+      // (all state is local, API calls happen in the component).
+      { path: "/analyzer", element: <AnalyzerPage /> },
 
       // Shareable join link: looks up the code and redirects to the session.
       { path: "/join/:code", loader: joinByCodeLoader },

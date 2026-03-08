@@ -39,7 +39,8 @@ import {
   useSubmit,
 } from "react-router";
 
-import type { Advice, PracticeState, SessionInfo } from "@/api/types";
+import type { AllBidsAnalysis, Advice, PracticeState, SessionInfo } from "@/api/types";
+import { analyzeAllBids } from "@/api/endpoints";
 import { useBidKeyboard } from "@/hooks/useBidKeyboard";
 import { SEAT_LABELS } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,7 @@ import AuctionGrid from "@/components/auction/AuctionGrid";
 import AuctionHistory from "@/components/auction/AuctionHistory";
 import AuctionComplete from "@/components/auction/AuctionComplete";
 import BidControls from "@/components/auction/BidControls";
+import BidPreview from "@/components/auction/BidPreview";
 import AdvicePanel from "@/components/advice/AdvicePanel";
 import JoinPanel from "@/components/session/JoinPanel";
 import SessionControls from "@/components/session/SessionControls";
@@ -129,9 +131,53 @@ function PracticeView({ state }: { state: PracticeState }) {
     onConfirm: handleBidConfirm,
   });
 
+  // --- Trial bids (hover preview) ---
+  // Batch-fetch analyses for all legal bids when the player's turn starts.
+  // The result is cached in state so hovering over buttons is instant.
+  const [hoveredBid, setHoveredBid] = useState<string | null>(null);
+  const [bidAnalyses, setBidAnalyses] = useState<AllBidsAnalysis | null>(null);
+  const legalBidsKey = legal_bids.join(",");
+
+  useEffect(() => {
+    // Reset analyses when legal bids change (new turn or new hand).
+    setBidAnalyses(null);
+    setHoveredBid(null);
+
+    // Only fetch when it's the player's turn and bids are available.
+    if (!is_my_turn || legal_bids.length === 0) return;
+
+    // The effect callback itself can't be async (React ignores the
+    // returned promise), so we define an inner async function and
+    // call it immediately. The `cancelled` flag prevents setting
+    // state after the effect has been cleaned up (e.g. the component
+    // unmounted or the deps changed before the fetch completed).
+    let cancelled = false;
+    const bidStrings = auction.bids.map((b) => b.bid);
+
+    async function fetchAnalyses() {
+      try {
+        const result = await analyzeAllBids(
+          auction.dealer, auction.vulnerability, bidStrings,
+        );
+        if (!cancelled) setBidAnalyses(result);
+      } catch {
+        // Silently ignore errors -- trial bids are a nice-to-have, not critical.
+      }
+    }
+
+    fetchAnalyses();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [legalBidsKey, is_my_turn, auction.dealer, auction.vulnerability, auction.bids]);
+
+  // Look up the hovered bid's analysis from the cached batch response.
+  const hoveredAnalysis =
+    hoveredBid && bidAnalyses ? bidAnalyses.analyses[hoveredBid] ?? null : null;
+
   // --- Advice visibility ---
   const [showAdvice, setShowAdvice] = useState(false);
-  const legalBidsKey = legal_bids.join(",");
   useEffect(() => {
     setShowAdvice(false);
   }, [legalBidsKey]);
@@ -234,6 +280,7 @@ function PracticeView({ state }: { state: PracticeState }) {
               disabled={!canBid || isSubmitting}
               highlightedBids={highlightedBids}
               forSeat={state.can_proxy_bid ? state.proxy_seat ?? undefined : undefined}
+              onBidHover={setHoveredBid}
               bottomRight={
                 canShowAdvice ? (
                   <Button
@@ -250,6 +297,9 @@ function PracticeView({ state }: { state: PracticeState }) {
           ) : (
             <AuctionComplete state={state} />
           )}
+
+          {/* Trial bid preview: shows what the hovered bid communicates. */}
+          {hoveredAnalysis && <BidPreview analysis={hoveredAnalysis} />}
 
           {showAdvice && (
             <AdvicePanel

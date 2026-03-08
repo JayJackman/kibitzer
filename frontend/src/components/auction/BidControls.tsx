@@ -40,6 +40,20 @@ interface BidControlsProps {
    * (helper mode). A banner is shown above the grid.
    */
   forSeat?: Seat;
+  /**
+   * Called when the user hovers over (or leaves) a bid button.
+   * Receives the bid string on enter, null on leave. Used by the
+   * practice page to show a trial-bid preview panel.
+   */
+  onBidHover?: (bid: string | null) => void;
+  /**
+   * Called when a bid button is clicked (analyzer mode).
+   * When provided, the component renders plain buttons instead of a
+   * form -- clicks call this handler rather than submitting to the
+   * action. This lets the bid grid be reused outside of React Router
+   * form flows (e.g. the standalone auction analyzer page).
+   */
+  onBidClick?: (bid: string) => void;
 }
 
 /**
@@ -64,13 +78,17 @@ export default function BidControls({
   highlightedBids,
   bottomRight,
   forSeat,
+  onBidHover,
+  onBidClick,
 }: BidControlsProps) {
   /**
    * useNavigation() tells us if a form submission is in flight.
    * While submitting, we disable all buttons to prevent double-clicks.
+   * In click mode (onBidClick), navigation state isn't relevant, but
+   * we still call the hook unconditionally to satisfy React's rules.
    */
   const navigation = useNavigation();
-  const isSubmitting = navigation.state === "submitting";
+  const isSubmitting = !onBidClick && navigation.state === "submitting";
 
   /** True if a specific bid string is legal and the controls are active. */
   const isLegal = (bid: string) => !disabled && legalBids.includes(bid);
@@ -78,88 +96,100 @@ export default function BidControls({
   /** Whether any keyboard highlight is active (used to dim non-highlighted). */
   const anyHighlighted = highlightedBids != null && highlightedBids.size > 0;
 
+  /**
+   * Build the bid grid + bottom row content. This is shared between
+   * form mode (practice page) and click mode (analyzer page).
+   */
+  const gridContent = (
+    <div className="flex flex-col gap-3">
+      {/* --- 7x5 bid grid --- */}
+      <div className="grid grid-cols-5 gap-1">
+        {LEVELS.map((level) =>
+          SUIT_COLUMNS.map((col) => {
+            const bid = `${level}${col.suffix}`;
+            const label = `${level}${col.label}`;
+
+            return (
+              <BidButton
+                key={bid}
+                bid={bid}
+                label={label}
+                className={col.color ?? undefined}
+                legal={isLegal(bid)}
+                submitting={isSubmitting}
+                highlighted={highlightedBids?.has(bid) ?? false}
+                anyHighlighted={anyHighlighted}
+                onHover={onBidHover}
+                onClick={onBidClick}
+              />
+            );
+          }),
+        )}
+      </div>
+
+      {/* --- Bottom row: Pass, Double, Redouble + optional extra content --- */}
+      <div className="flex items-center gap-2">
+        <BidButton
+          bid="Pass"
+          label="Pass"
+          legal={isLegal("Pass")}
+          submitting={isSubmitting}
+          highlighted={highlightedBids?.has("Pass") ?? false}
+          anyHighlighted={anyHighlighted}
+          onHover={onBidHover}
+          onClick={onBidClick}
+        />
+        <BidButton
+          bid="X"
+          label="Dbl"
+          className="text-red-600"
+          legal={isLegal("X")}
+          submitting={isSubmitting}
+          highlighted={highlightedBids?.has("X") ?? false}
+          anyHighlighted={anyHighlighted}
+          onHover={onBidHover}
+          onClick={onBidClick}
+        />
+        <BidButton
+          bid="XX"
+          label="Rdbl"
+          className="text-blue-600"
+          legal={isLegal("XX")}
+          submitting={isSubmitting}
+          highlighted={highlightedBids?.has("XX") ?? false}
+          anyHighlighted={anyHighlighted}
+          onHover={onBidHover}
+          onClick={onBidClick}
+        />
+        {/* Proxy-bid banner + any extra content pushed to the right */}
+        {(forSeat || bottomRight) && (
+          <div className="ml-auto flex items-center gap-2">
+            {forSeat && (
+              <span className="rounded-md border-2 bg-card px-3 py-1.5 text-sm font-medium text-card-foreground">
+                Bidding for {SEAT_LABELS[forSeat]}
+              </span>
+            )}
+            {bottomRight}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  /*
+   * In click mode (onBidClick is set), render a plain <div> instead of
+   * a <Form>. Buttons use type="button" + onClick instead of form submit.
+   * In form mode (default), wrap in a React Router <Form> for the action.
+   */
+  if (onBidClick) {
+    return <div>{gridContent}</div>;
+  }
+
   return (
     <Form method="post">
-      {/*
-       * Hidden field tells the action handler this is a bid submission
-       * (as opposed to a "redeal" intent, which uses a different form).
-       */}
       <input type="hidden" name="intent" value="bid" />
-      {/* In helper mode, for_seat tells the backend which unoccupied seat
-       * this proxy bid is for. Omitted for normal (own-seat) bids. */}
       {forSeat && <input type="hidden" name="for_seat" value={forSeat} />}
-
-      <div className="flex flex-col gap-3">
-        {/*
-         * --- 7x5 bid grid ---
-         * Rows = levels (1-7), Columns = suits (C, D, H, S, NT).
-         * CSS grid with 5 equal columns for clean alignment.
-         */}
-        <div className="grid grid-cols-5 gap-1">
-          {LEVELS.map((level) =>
-            SUIT_COLUMNS.map((col) => {
-              // Build the bid string the backend expects (e.g. "1C", "3NT").
-              const bid = `${level}${col.suffix}`;
-              // Display: level number + suit symbol (e.g. "1♠", "3NT").
-              const label = `${level}${col.label}`;
-
-              return (
-                <BidButton
-                  key={bid}
-                  bid={bid}
-                  label={label}
-                  className={col.color ?? undefined}
-                  legal={isLegal(bid)}
-                  submitting={isSubmitting}
-                  highlighted={highlightedBids?.has(bid) ?? false}
-                  anyHighlighted={anyHighlighted}
-                />
-              );
-            }),
-          )}
-        </div>
-
-        {/* --- Bottom row: Pass, Double, Redouble + optional extra content --- */}
-        <div className="flex items-center gap-2">
-          <BidButton
-            bid="Pass"
-            label="Pass"
-            legal={isLegal("Pass")}
-            submitting={isSubmitting}
-            highlighted={highlightedBids?.has("Pass") ?? false}
-            anyHighlighted={anyHighlighted}
-          />
-          <BidButton
-            bid="X"
-            label="Dbl"
-            className="text-red-600"
-            legal={isLegal("X")}
-            submitting={isSubmitting}
-            highlighted={highlightedBids?.has("X") ?? false}
-            anyHighlighted={anyHighlighted}
-          />
-          <BidButton
-            bid="XX"
-            label="Rdbl"
-            className="text-blue-600"
-            legal={isLegal("XX")}
-            submitting={isSubmitting}
-            highlighted={highlightedBids?.has("XX") ?? false}
-            anyHighlighted={anyHighlighted}
-          />
-          {/* Proxy-bid banner + any extra content pushed to the right */}
-          {(forSeat || bottomRight) && (
-            <div className="ml-auto flex items-center gap-2">
-              {forSeat && (
-                <span className="rounded-md border-2 bg-card px-3 py-1.5 text-sm font-medium text-card-foreground">
-                  Bidding for {SEAT_LABELS[forSeat]}
-                </span>
-              )}
-              {bottomRight}
-            </div>
-          )}
-        </div>
-      </div>
+      {gridContent}
     </Form>
   );
 }
@@ -184,6 +214,8 @@ function BidButton({
   submitting,
   highlighted,
   anyHighlighted,
+  onHover,
+  onClick,
 }: {
   /** The bid string sent to the backend (e.g. "1S", "Pass"). */
   bid: string;
@@ -199,12 +231,18 @@ function BidButton({
   highlighted: boolean;
   /** Whether any button in the grid is highlighted (used to dim others). */
   anyHighlighted: boolean;
+  /** Called on mouse enter (bid string) / leave (null) for hover preview. */
+  onHover?: (bid: string | null) => void;
+  /** Called on click in analyzer mode (replaces form submit). */
+  onClick?: (bid: string) => void;
 }) {
   return (
     <Button
-      type="submit"
-      name="bid"
-      value={bid}
+      // In click mode (onClick), use type="button" so the button doesn't
+      // try to submit a form. In form mode, use type="submit".
+      type={onClick ? "button" : "submit"}
+      name={onClick ? undefined : "bid"}
+      value={onClick ? undefined : bid}
       variant="card"
       size="sm"
       disabled={!legal || submitting}
@@ -213,13 +251,16 @@ function BidButton({
         legal
           ? [
               className,
-              // When highlights are active, dim non-highlighted legal buttons.
               anyHighlighted && !highlighted && "opacity-50",
-              // Highlighted buttons get a ring to stand out.
               highlighted && "ring-2 ring-primary",
             ]
           : "opacity-30",
       )}
+      // Hover handlers for trial-bid preview (only fire for legal bids).
+      onMouseEnter={onHover && legal ? () => onHover(bid) : undefined}
+      onMouseLeave={onHover && legal ? () => onHover(null) : undefined}
+      // Click handler for analyzer mode.
+      onClick={onClick && legal ? () => onClick(bid) : undefined}
     >
       {label}
     </Button>

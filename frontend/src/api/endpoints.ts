@@ -10,7 +10,10 @@
 import api from "./client";
 import type {
   Advice,
+  AllBidsAnalysis,
+  AuctionAnalysis,
   AuthCredentials,
+  BidAnalysis,
   BidFeedback,
   PracticeState,
   Seat,
@@ -206,5 +209,62 @@ export async function leaveSession(
  */
 export async function lookupByCode(code: string): Promise<SessionInfo> {
   const response = await api.get<SessionInfo>(`/practice/join/${code}`);
+  return response.data;
+}
+
+// --- Analyze endpoints (Q1/Q2 query system) ---
+
+/**
+ * Analyze what a single bid means in the given auction position (Q2).
+ * Returns matching rules and their combined promise about the hand.
+ */
+export async function analyzeBid(
+  dealer: Seat,
+  vulnerability: string,
+  bids: string[],
+  bid: string,
+): Promise<BidAnalysis> {
+  const response = await api.post<BidAnalysis>("/analyze/bid", {
+    dealer,
+    vulnerability,
+    bids,
+    bid,
+  });
+  return response.data;
+}
+
+/**
+ * Analyze all legal bids at the current auction position (batch Q2).
+ * Returns a dict mapping each legal bid string to its analysis.
+ * Used by the practice page to pre-fetch all hover previews at once.
+ */
+export async function analyzeAllBids(
+  dealer: Seat,
+  vulnerability: string,
+  bids: string[],
+): Promise<AllBidsAnalysis> {
+  const response = await api.post<AllBidsAnalysis>("/analyze/all-bids", {
+    dealer,
+    vulnerability,
+    bids,
+  });
+  return response.data;
+}
+
+/**
+ * Analyze the full auction: what do we know about each player's hand? (Q1).
+ * Returns per-player hand descriptions, per-bid breakdowns, legal bids,
+ * and whose turn it is. Used by the standalone auction analyzer page.
+ */
+export async function analyzeAuction(
+  dealer: Seat,
+  vulnerability: string,
+  bids: string[],
+): Promise<AuctionAnalysis> {
+  const response = await api.post<AuctionAnalysis>("/analyze/auction", {
+    dealer,
+    vulnerability,
+    bids,
+  });
   return response.data;
 }

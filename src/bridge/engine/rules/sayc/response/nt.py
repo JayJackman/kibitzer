@@ -281,7 +281,7 @@ class RespondStayman(Rule):
 
     @property
     def priority(self) -> int:
-        return 445
+        return 435
 
     @property
     def prerequisites(self) -> Condition:
@@ -290,7 +290,9 @@ class RespondStayman(Rule):
     @property
     def conditions(self) -> Condition:
         return Any(
-            # Garbage Stayman: 4-4+ in majors, any HCP
+            # Garbage Stayman: 4-4+ in majors, any HCP (plan to pass
+            # any response). Hands with 5+ in a major will already have
+            # been caught by the higher-priority Jacoby Transfer rule.
             All(_has_4h, _has_4s),
             # Regular Stayman: 8+ HCP, 4-card major, no 5+ major, not 4-3-3-3
             All(
@@ -330,7 +332,7 @@ class RespondJacobyTransfer(Rule):
 
     @property
     def priority(self) -> int:
-        return 435
+        return 445
 
     @property
     def prerequisites(self) -> Condition:

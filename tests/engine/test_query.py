@@ -1,6 +1,12 @@
-"""Tests for Q2 query function: 'What would bid X mean here?'"""
+"""Tests for query functions: Q1 and Q2."""
 
-from bridge.engine.query import BidAnalysis, analyze_bid
+from bridge.engine.hand_description import HandDescription
+from bridge.engine.query import (
+    AuctionAnalysis,
+    BidAnalysis,
+    analyze_auction,
+    analyze_bid,
+)
 from bridge.engine.sayc import create_sayc_registry
 from bridge.model.auction import AuctionState, Seat, parse_auction
 from bridge.model.bid import PASS, SuitBid, parse_bid
@@ -26,18 +32,18 @@ class TestAnalyzeBidOpening:
         auction = AuctionState(dealer=Seat.NORTH)
         result = analyze_bid(auction, parse_bid("1S"), _registry())
 
-        assert result.combined.hcp[0] is not None
-        assert result.combined.hcp[0] >= 12
-        assert Suit.SPADES in result.combined.lengths
-        spade_min = result.combined.lengths[Suit.SPADES][0]
+        assert result.promise.hcp[0] is not None
+        assert result.promise.hcp[0] >= 12
+        assert Suit.SPADES in result.promise.lengths
+        spade_min = result.promise.lengths[Suit.SPADES][0]
         assert spade_min is not None and spade_min >= 5
 
     def test_1nt_promises_balanced_and_hcp_range(self) -> None:
         auction = AuctionState(dealer=Seat.NORTH)
         result = analyze_bid(auction, parse_bid("1N"), _registry())
 
-        assert result.combined.hcp == (15, 17)
-        assert result.combined.balanced is True
+        assert result.promise.hcp == (15, 17)
+        assert result.promise.balanced is True
 
     def test_pass_matches(self) -> None:
         auction = AuctionState(dealer=Seat.NORTH)
@@ -61,10 +67,10 @@ class TestAnalyzeBidResponse:
         assert "response.2_over_1" in names
 
         # Should promise HCP range and club length
-        assert result.combined.hcp[0] is not None
-        assert result.combined.hcp[0] >= 10
-        assert Suit.CLUBS in result.combined.lengths
-        club_min = result.combined.lengths[Suit.CLUBS][0]
+        assert result.promise.hcp[0] is not None
+        assert result.promise.hcp[0] >= 10
+        assert Suit.CLUBS in result.promise.lengths
+        club_min = result.promise.lengths[Suit.CLUBS][0]
         assert club_min is not None and club_min >= 4
 
 
@@ -80,19 +86,19 @@ class TestAnalyzeBidRebid:
         assert len(result.matches) >= 1
 
     def test_multiple_matches_union(self) -> None:
-        """When multiple rules match, combined is wider than any single match."""
+        """When multiple rules match, promise is wider than any single match."""
         auction = parse_auction("1S P 2C P")
         result = analyze_bid(auction, parse_bid("2S"), _registry())
 
         if len(result.matches) > 1:
-            # Combined should be the union (wider bounds)
+            # Promise should be the union (wider bounds)
             for match in result.matches:
-                # Each match's HCP min should be >= combined's min
-                # (union widens, so combined min <= each match min)
+                # Each match's HCP min should be >= promise's min
+                # (union widens, so promise min <= each match min)
                 match_min = match.promise.hcp[0]
-                combined_min = result.combined.hcp[0]
-                if match_min is not None and combined_min is not None:
-                    assert combined_min <= match_min
+                promise_min = result.promise.hcp[0]
+                if match_min is not None and promise_min is not None:
+                    assert promise_min <= match_min
 
 
 class TestAnalyzeBidNoMatch:
@@ -104,8 +110,8 @@ class TestAnalyzeBidNoMatch:
         result = analyze_bid(auction, parse_bid("7N"), _registry())
 
         assert len(result.matches) == 0
-        # Combined should be fully unconstrained
-        assert result.combined.hcp == (None, None)
+        # Promise should be fully unconstrained
+        assert result.promise.hcp == (None, None)
 
     def test_result_type(self) -> None:
         """Verify the return type structure."""
@@ -137,3 +143,78 @@ class TestAnalyzeBidEndToEnd:
 
         # Should find at least one rule for 3NT
         assert len(result.matches) >= 1
+
+
+class TestAnalyzeAuction:
+    """Q1: 'What do we know about each player's hand?'"""
+
+    def test_single_opener_bid(self) -> None:
+        """After 1S P P P, North should have opening promises."""
+        auction = parse_auction("1S P P P")
+        result = analyze_auction(auction, _registry())
+
+        assert isinstance(result, AuctionAnalysis)
+        north = result.players[Seat.NORTH]
+        assert north.hcp[0] is not None and north.hcp[0] >= 12
+        assert Suit.SPADES in north.lengths
+        spade_min = north.lengths[Suit.SPADES][0]
+        assert spade_min is not None and spade_min >= 5
+
+    def test_other_seats_unconstrained(self) -> None:
+        """Seats that only passed should have unconstrained descriptions."""
+        auction = parse_auction("1S P P P")
+        result = analyze_auction(auction, _registry())
+
+        for seat in (Seat.EAST, Seat.SOUTH, Seat.WEST):
+            assert result.players[seat] == HandDescription()
+
+    def test_opener_and_responder(self) -> None:
+        """After 1S P 2C P P P, both North and South have promises."""
+        auction = parse_auction("1S P 2C P P P")
+        result = analyze_auction(auction, _registry())
+
+        north = result.players[Seat.NORTH]
+        assert north.hcp[0] is not None and north.hcp[0] >= 12
+
+        south = result.players[Seat.SOUTH]
+        assert south.hcp[0] is not None and south.hcp[0] >= 10
+        assert Suit.CLUBS in south.lengths
+        club_min = south.lengths[Suit.CLUBS][0]
+        assert club_min is not None and club_min >= 4
+
+    def test_multiple_bids_narrow(self) -> None:
+        """After 1S P 2C P 2S, North has two bids that intersect."""
+        auction = parse_auction("1S P 2C P 2S")
+        result = analyze_auction(auction, _registry())
+
+        north = result.players[Seat.NORTH]
+        # Should still have opening HCP from first bid
+        assert north.hcp[0] is not None and north.hcp[0] >= 12
+        # Should have spade length from opening
+        assert Suit.SPADES in north.lengths
+
+    def test_bid_analyses_count(self) -> None:
+        """bid_analyses should have one entry per non-pass bid."""
+        auction = parse_auction("1S P 2C P 2S P")
+        result = analyze_auction(auction, _registry())
+
+        # 3 non-pass bids: 1S, 2C, 2S
+        assert len(result.bid_analyses) == 3
+
+    def test_bid_analyses_order(self) -> None:
+        """bid_analyses should be in auction order."""
+        auction = parse_auction("1S P 2C P")
+        result = analyze_auction(auction, _registry())
+
+        assert len(result.bid_analyses) == 2
+        assert result.bid_analyses[0].bid == parse_bid("1S")
+        assert result.bid_analyses[1].bid == parse_bid("2C")
+
+    def test_empty_auction(self) -> None:
+        """An auction with no bids returns unconstrained for all seats."""
+        auction = AuctionState(dealer=Seat.NORTH)
+        result = analyze_auction(auction, _registry())
+
+        for seat in Seat:
+            assert result.players[seat] == HandDescription()
+        assert len(result.bid_analyses) == 0

@@ -76,6 +76,7 @@ Every bidding rule must be accurate to the official SAYC (Standard American Yell
 
 - **Never use string-quoted type annotations** like `-> "Foo"`. When forward references are needed, add `from __future__ import annotations` to the file. Only include the import when it's actually necessary (e.g., forward references, self-referencing types).
 - **Inline single-use variables** when the expression is legible on its own. Don't extract a local variable just to name something used once.
+- **Avoid python imports inside functions** Import everything at the top of the file. Only import inside a function if 100% required.
 - **Use plain ASCII in source code.** Hyphens (`-`) not en dashes, `<=` not `≤`, etc.
 - All tool config lives in `pyproject.toml` — no separate config files.
 - Pre-commit hooks run ruff + mypy on every commit.

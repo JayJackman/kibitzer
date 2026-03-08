@@ -1,10 +1,11 @@
 /**
  * Lobby page -- the home screen after login.
  *
- * Shows a welcome card (with join-by-code) and two activity cards:
+ * Shows a welcome card (with join-by-code) and three activity cards:
  *   1. Practice -- create a session, bid against the engine, share the
  *      join code with friends if you want multiplayer
  *   2. Helper Mode -- companion for physical bridge (enter real hands, get advice)
+ *   3. Auction Analyzer -- enter bids to see what they communicate
  *
  * Practice and Helper both post to /practice/new, which creates the session
  * and redirects to /practice/:id. The join-by-code form in the welcome card
@@ -12,7 +13,7 @@
  * looks up the code and redirects to the session's practice page.
  */
 import { useState } from "react";
-import { Form, useActionData, useNavigation, useRouteLoaderData } from "react-router";
+import { Form, Link, useActionData, useNavigation, useRouteLoaderData } from "react-router";
 import type { Seat, User } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -80,8 +81,8 @@ export default function LobbyPage() {
         </CardHeader>
       </Card>
 
-      {/* Practice and Helper Mode side by side */}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+      {/* Activity cards */}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
         {/* --- Practice --- */}
         <Card>
           <CardHeader>
@@ -145,6 +146,24 @@ export default function LobbyPage() {
                 Create Session
               </Button>
             </Form>
+          </CardContent>
+        </Card>
+
+        {/* --- Auction Analyzer --- */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Auction Analyzer</CardTitle>
+            <CardDescription>
+              Enter bids step by step and see what each one communicates
+              about the hand -- HCP, suit lengths, and shape.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link to="/analyzer">
+              <Button variant="action" className="w-fit">
+                Open Analyzer
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       </div>

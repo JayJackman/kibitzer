@@ -1,12 +1,13 @@
 """Bidding engine — rule-based bid selection."""
 
 from .context import AuctionContext, BiddingContext
-from .query import BidAnalysis, RuleMatch, analyze_bid
+from .query import AuctionAnalysis, BidAnalysis, RuleMatch, analyze_auction, analyze_bid
 from .registry import DuplicateRuleError, RuleRegistry
 from .rule import Category, Rule, RuleResult
 from .selector import BidSelector
 
 __all__ = [
+    "AuctionAnalysis",
     "AuctionContext",
     "BidAnalysis",
     "BidSelector",
@@ -17,5 +18,6 @@ __all__ = [
     "RuleMatch",
     "RuleRegistry",
     "RuleResult",
+    "analyze_auction",
     "analyze_bid",
 ]

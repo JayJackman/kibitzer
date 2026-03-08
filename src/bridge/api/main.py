@@ -19,6 +19,7 @@ from fastapi.staticfiles import StaticFiles
 
 from bridge.logging_config import setup_logging
 
+from .analyze.router import router as analyze_router
 from .auth.router import router as auth_router
 from .config import settings
 from .db import create_tables
@@ -97,6 +98,9 @@ app.include_router(auth_router)
 
 # Mount the practice router (create, state, bid, advise, redeal)
 app.include_router(practice_router)
+
+# Mount the analyze router (bid analysis, auction analysis, all-bids batch)
+app.include_router(analyze_router)
 
 
 # ---------------------------------------------------------------------------

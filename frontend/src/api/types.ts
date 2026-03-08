@@ -170,3 +170,54 @@ export interface Advice {
   thought_process: ThoughtProcess;
   phase: string;
 }
+
+// --- Analyze types (Q1/Q2 query system) ---
+// Backend source: src/bridge/api/analyze/schemas.py
+
+/** A min/max range. null means unconstrained on that side. */
+export interface Bound {
+  min: number | null;
+  max: number | null;
+}
+
+/** What we know about a hand from the auction (HCP, suit lengths, shape). */
+export interface HandDescription {
+  hcp: Bound;
+  total_pts: Bound;
+  /** Suit lengths keyed by lowercase suit name ("spades", "hearts", etc.). */
+  lengths: Record<string, Bound>;
+  balanced: boolean | null;
+}
+
+/** A single rule that matched a bid, with what it promises about the hand. */
+export interface AnalysisRuleMatch {
+  rule_name: string;
+  explanation: string;
+  promise: HandDescription;
+}
+
+/** Analysis of what a single bid means: matching rules + combined promise. */
+export interface BidAnalysis {
+  bid: string;
+  matches: AnalysisRuleMatch[];
+  /** Union of all matches' promises (weakest guarantee across candidates). */
+  promise: HandDescription;
+}
+
+/** Batch analysis of all legal bids at the current position. */
+export interface AllBidsAnalysis {
+  /** Maps bid strings (e.g. "1S", "Pass") to their analysis. */
+  analyses: Record<string, BidAnalysis>;
+}
+
+/** Full auction analysis: what we know about each player + per-bid breakdown. */
+export interface AuctionAnalysis {
+  /** Per-seat hand descriptions, keyed by seat letter ("N", "E", "S", "W"). */
+  players: Record<string, HandDescription>;
+  /** Per-bid analyses in auction order (non-pass bids only). */
+  bid_analyses: BidAnalysis[];
+  /** Legal bids at the current position (empty if auction is complete). */
+  legal_bids: string[];
+  /** Whose turn it is (null if auction is complete). */
+  current_seat: Seat | null;
+}
