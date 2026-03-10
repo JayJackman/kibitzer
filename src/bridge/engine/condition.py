@@ -280,6 +280,9 @@ class Not(Condition):
             return f"Not {self._label_override}"
         return f"No {self._inner.label}"
 
+    def promises(self, ctx: AuctionContext, bid: Bid) -> HandDescription:
+        return self._inner.promises(ctx, bid).negated()
+
     def check(self, ctx: BiddingContext) -> ConditionResult:
         inner_result = self._inner.check(ctx)
         passed = not inner_result.passed
@@ -869,6 +872,30 @@ class SuitLength(Condition):
         else:
             detail = f"{length} {suit_name} (need {self.label})"
         return ConditionResult(passed=passed, label=self.label, detail=detail)
+
+
+def HasMajor(min_len: int) -> Condition:
+    """Condition: has ``min_len``+ cards in at least one major (hearts or spades).
+
+    Returns an ``Any(SuitLength, SuitLength)`` so that ``promises()`` correctly
+    reports the suit-length constraint (unlike an ``@condition`` wrapper).
+    """
+    return Any(
+        SuitLength(Suit.HEARTS, min_len=min_len),
+        SuitLength(Suit.SPADES, min_len=min_len),
+    )
+
+
+def HasMinor(min_len: int) -> Condition:
+    """Condition: has ``min_len``+ cards in at least one minor (clubs or diamonds).
+
+    Returns an ``Any(SuitLength, SuitLength)`` so that ``promises()`` correctly
+    reports the suit-length constraint (unlike an ``@condition`` wrapper).
+    """
+    return Any(
+        SuitLength(Suit.CLUBS, min_len=min_len),
+        SuitLength(Suit.DIAMONDS, min_len=min_len),
+    )
 
 
 class HasSuitFit(Condition):

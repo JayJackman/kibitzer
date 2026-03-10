@@ -2,37 +2,16 @@
 
 from bridge.engine.condition import (
     All,
-    Balanced,
     Condition,
-    HcpRange,
     MeetsOpeningStrength,
     Not,
     SuitFinderComputed,
-    TotalPtsRange,
-    condition,
 )
 from bridge.engine.context import AuctionContext, BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.evaluate import best_major, best_minor
 from bridge.model.bid import PASS, PassBid, SuitBid
 from bridge.model.card import Suit
-
-_not_1nt_range = Not(
-    All(HcpRange(15, 17), Balanced(strict=True)), label="15-17 balanced (1NT)"
-)
-_not_2nt_range = Not(
-    All(HcpRange(20, 21), Balanced(strict=True)), label="20-21 balanced (2NT)"
-)
-_not_2c_range = Not(TotalPtsRange(min_pts=22), label="22+ pts (2C)")
-
-
-def _best_major(ctx: BiddingContext) -> Suit | None:
-    return best_major(ctx.hand)
-
-
-@condition("no 5+ card major")
-def _no_major(ctx: BiddingContext) -> bool:
-    return best_major(ctx.hand) is None
 
 
 class Open1Major(Rule):
@@ -44,7 +23,7 @@ class Open1Major(Rule):
 
     def __init__(self) -> None:
         self._best_major = SuitFinderComputed(
-            _best_major,
+            lambda ctx: best_major(ctx.hand),
             "5+ card major",
             min_len=5,
         )
@@ -63,13 +42,7 @@ class Open1Major(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(
-            MeetsOpeningStrength(),
-            _not_1nt_range,
-            _not_2nt_range,
-            _not_2c_range,
-            self._best_major,
-        )
+        return All(MeetsOpeningStrength(), self._best_major)
 
     def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(1, Suit.HEARTS), SuitBid(1, Suit.SPADES)})
@@ -107,13 +80,7 @@ class Open1Minor(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return All(
-            MeetsOpeningStrength(),
-            _not_1nt_range,
-            _not_2nt_range,
-            _not_2c_range,
-            _no_major,
-        )
+        return MeetsOpeningStrength()
 
     def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(1, Suit.CLUBS), SuitBid(1, Suit.DIAMONDS)})

@@ -69,17 +69,17 @@ class TestOpen1Major:
         ctx = _ctx("AKJ5.Q73.843.A73")
         assert not self.rule.applies(ctx)
 
-    def test_balanced_15_17_rejected(self):
-        """15-17 balanced opens 1NT, not 1-major."""
+    def test_balanced_15_17_applies_but_loses_to_1nt(self):
+        """15-17 balanced: 1-major applies, but 1NT wins by priority."""
         # AKJ52=8, KQ3=5, 84=0, A73=4 → 17 HCP, 5-3-2-3 balanced
         ctx = _ctx("AKJ52.KQ3.84.A73")
-        assert not self.rule.applies(ctx)
+        assert self.rule.applies(ctx)
 
-    def test_22_total_pts_rejected(self):
-        """22+ total points opens 2C, not 1-major."""
+    def test_22_total_pts_applies_but_loses_to_2c(self):
+        """22+ total points: 1-major applies, but 2C wins by priority."""
         # AKQJ52=10, AKQ=9, 84=0, A3=4 → 23 HCP, total=25, 6-3-2-2
         ctx = _ctx("AKQJ52.AKQ.84.A3")
-        assert not self.rule.applies(ctx)
+        assert self.rule.applies(ctx)
 
     def test_10_hcp_below_opening_strength(self):
         """10 HCP without Rule of 20 doesn't open."""
@@ -172,17 +172,17 @@ class TestOpen1Minor:
         result = self.rule.select(ctx)
         assert str(result.bid) == "1D"
 
-    def test_has_5_card_major_rejected(self):
-        """With a 5+ card major, 1-minor doesn't apply."""
+    def test_has_5_card_major_applies_but_loses_to_1_major(self):
+        """With a 5+ card major, 1-minor applies but 1-major wins by priority."""
         # AKJ52=8, Q73=2, 84=0, A73=4 → 14 HCP, 5-3-2-3
         ctx = _ctx("AKJ52.Q73.84.A73")
-        assert not self.rule.applies(ctx)
+        assert self.rule.applies(ctx)
 
-    def test_balanced_15_17_rejected(self):
-        """15-17 balanced opens 1NT, not 1-minor."""
+    def test_balanced_15_17_applies_but_loses_to_1nt(self):
+        """15-17 balanced: 1-minor applies, but 1NT wins by priority."""
         # AQ32=6, KJ8=4, Q84=2, K73=3 → 15 HCP, 4-3-3-3 balanced
         ctx = _ctx("AQ32.KJ8.Q84.K73")
-        assert not self.rule.applies(ctx)
+        assert self.rule.applies(ctx)
 
     def test_18_hcp_unbalanced_opens_minor(self):
         """18 HCP unbalanced with no 5-card major: opens 1-minor."""

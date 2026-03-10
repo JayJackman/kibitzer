@@ -10,8 +10,11 @@ from bridge.engine.condition import (
     Any,
     Balanced,
     Condition,
+    HasMajor,
+    HasMinor,
     HcpRange,
     Not,
+    SuitLength,
     condition,
 )
 from bridge.engine.context import AuctionContext, BiddingContext
@@ -55,34 +58,12 @@ def _partner_opened_2nt(ctx: BiddingContext) -> bool:
     return is_suit_bid(bid) and bid.level == 2 and bid.is_notrump
 
 
-@condition("has 5+ card major")
-def has_5_plus_major(ctx: BiddingContext) -> bool:
-    return ctx.hand.num_hearts >= 5 or ctx.hand.num_spades >= 5
-
-
-@condition("has 6+ card major")
-def _has_6_plus_major(ctx: BiddingContext) -> bool:
-    return ctx.hand.num_hearts >= 6 or ctx.hand.num_spades >= 6
-
-
-@condition("has 6+ card minor")
-def _has_6_plus_minor(ctx: BiddingContext) -> bool:
-    return ctx.hand.num_clubs >= 6 or ctx.hand.num_diamonds >= 6
-
-
-@condition("has 4+ hearts")
-def _has_4h(ctx: BiddingContext) -> bool:
-    return ctx.hand.num_hearts >= 4
-
-
-@condition("has 4+ spades")
-def _has_4s(ctx: BiddingContext) -> bool:
-    return ctx.hand.num_spades >= 4
-
-
-@condition("has 4+ card major")
-def _has_4_card_major(ctx: BiddingContext) -> bool:
-    return ctx.hand.num_hearts >= 4 or ctx.hand.num_spades >= 4
+has_5_plus_major = HasMajor(5)
+_has_6_plus_major = HasMajor(6)
+_has_6_plus_minor = HasMinor(6)
+_has_4h = SuitLength(Suit.HEARTS, min_len=4)
+_has_4s = SuitLength(Suit.SPADES, min_len=4)
+_has_4_card_major = HasMajor(4)
 
 
 @condition("not 4-3-3-3 flat shape")

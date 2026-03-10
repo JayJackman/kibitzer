@@ -11,6 +11,7 @@ from bridge.engine.condition import (
     All,
     Balanced,
     Condition,
+    HasMajor,
     HasSuitFit,
     HcpRange,
     Not,
@@ -86,9 +87,7 @@ def _partner_opened_1_minor(ctx: BiddingContext) -> bool:
     return is_suit_bid(bid) and bid.level == 1 and bid.suit.is_minor
 
 
-@condition("has 4+ card major")
-def has_4_card_major(ctx: BiddingContext) -> bool:
-    return ctx.hand.num_spades >= 4 or ctx.hand.num_hearts >= 4
+has_4_card_major = HasMajor(4)
 
 
 @condition("adequate minor support")

@@ -61,11 +61,59 @@ class HandDescription:
             balanced=_union_balanced(self.balanced, other.balanced),
         )
 
+    def negated(self) -> HandDescription:
+        """Negate each bound: useful for Not.promises().
+
+        One-sided bounds invert cleanly (e.g. "5+ Hearts" -> "0-4 Hearts").
+        Two-sided bounds (e.g. "15-17 HCP") can't be expressed as a single
+        range, so they become unconstrained.
+        """
+        new_lengths: SuitLengths = {}
+        for suit, bound in self.lengths.items():
+            neg = _negate_bound(bound)
+            if neg != UNBOUNDED:
+                new_lengths[suit] = neg
+
+        neg_balanced: bool | None = None
+        if self.balanced is True:
+            neg_balanced = False
+        elif self.balanced is False:
+            neg_balanced = True
+
+        return HandDescription(
+            hcp=_negate_bound(self.hcp),
+            total_pts=_negate_bound(self.total_pts),
+            lengths=new_lengths,
+            balanced=neg_balanced,
+        )
+
     def __and__(self, other: HandDescription) -> HandDescription:
         return self.intersect(other)
 
     def __or__(self, other: HandDescription) -> HandDescription:
         return self.union(other)
+
+
+def _negate_bound(bound: Bound) -> Bound:
+    """Negate a bound by flipping the open side.
+
+    One-sided bounds invert cleanly:
+      (5, None)    "5+"   -> (None, 4)  "0-4"
+      (None, 7)    "0-7"  -> (8, None)  "8+"
+
+    Two-sided bounds and unconstrained bounds stay unconstrained:
+      (15, 17)     "15-17" -> (None, None)  can't express as single range
+      (None, None) "any"   -> (None, None)  still any
+    """
+    lo, hi = bound
+    if lo is not None and hi is not None:
+        return UNBOUNDED
+    if lo is None and hi is None:
+        return UNBOUNDED
+    if lo is not None:
+        return (None, lo - 1)
+    assert hi is not None
+    return (hi + 1, None)
 
 
 def _intersect_bounds(a: Bound, b: Bound) -> Bound:

@@ -28,6 +28,7 @@ from bridge.engine.condition import (
     BergenPtsRange,
     Computed,
     Condition,
+    HasMajor,
     HasSuitFit,
     HcpRange,
     Not,
@@ -467,14 +468,8 @@ def _opening_suit_is_minor(ctx: BiddingContext) -> bool:
     return suit.is_minor
 
 
-@condition("4+ card major")
-def _has_4_card_major(ctx: BiddingContext) -> bool:
-    return ctx.hand.num_hearts >= 4 or ctx.hand.num_spades >= 4
-
-
-@condition("no 4+ card major")
-def _no_4_card_major(ctx: BiddingContext) -> bool:
-    return ctx.hand.num_hearts < 4 and ctx.hand.num_spades < 4
+_has_4_card_major = HasMajor(4)
+_no_4_card_major = Not(_has_4_card_major)
 
 
 @condition("shortness (singleton or void)")

@@ -34,7 +34,11 @@ export default function BidPreview({ analysis }: BidPreviewProps) {
             ))}
           </ul>
         ) : (
-          <p className="text-card-muted-foreground text-sm">No matching rules</p>
+          <p className="text-card-muted-foreground text-sm">
+            {analysis.matches.length > 0
+              ? "No specific promises (unconstrained)"
+              : "No matching rules"}
+          </p>
         )}
 
         {/* Matching rule names, shown smaller below the constraints. */}
