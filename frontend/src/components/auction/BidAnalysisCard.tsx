@@ -14,7 +14,7 @@
  * to show a post-auction breakdown.
  */
 import type { BidAnalysis } from "@/api/types";
-import { formatHandDescription } from "@/lib/handDescription";
+import { constraintColor, formatHandDescription } from "@/lib/handDescription";
 import {
   Card,
   CardContent,
@@ -46,9 +46,9 @@ export default function BidAnalysisCard({ bidAnalyses }: BidAnalysisCardProps) {
               <div key={i} className="border-b pb-2 last:border-b-0">
                 <p className="text-sm font-medium"><BidText bid={ba.bid} /></p>
                 {constraints.length > 0 ? (
-                  <ul className="text-card-foreground text-xs space-y-0.5">
-                    {constraints.map((text, j) => (
-                      <li key={j}>{text}</li>
+                  <ul className="text-xs space-y-0.5">
+                    {constraints.map((c, j) => (
+                      <li key={j} className={constraintColor(c)}>{c.text}</li>
                     ))}
                   </ul>
                 ) : (

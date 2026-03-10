@@ -7,6 +7,7 @@
  * communicates about a player's hand.
  */
 import type { Bound, HandDescription } from "../api/types";
+import { SUIT_COLORS } from "./constants";
 
 /** Suit key -> display name with proper capitalization. */
 const SUIT_LABELS: Record<string, string> = {
@@ -16,6 +17,43 @@ const SUIT_LABELS: Record<string, string> = {
   clubs: "Clubs",
   notrump: "NT",
 };
+
+/**
+ * Suit key -> the Tailwind color class letter used in SUIT_COLORS.
+ * Maps from the lowercase suit names in the API response to the
+ * single-letter keys used by SUIT_COLORS in constants.ts.
+ */
+const SUIT_COLOR_KEY: Record<string, string> = {
+  spades: "S",
+  hearts: "H",
+  diamonds: "D",
+  clubs: "C",
+};
+
+/**
+ * A single formatted constraint line with optional suit info for coloring.
+ * When `suitColorKey` is set, the rendering component can look up the
+ * corresponding Tailwind class from SUIT_COLORS to color the text.
+ */
+export interface ConstraintLine {
+  text: string;
+  /** Single-letter suit key ("S", "H", "D", "C") for coloring, or null. */
+  suitColorKey: string | null;
+}
+
+/**
+ * Returns the Tailwind color class for a constraint line's suit, or
+ * a fallback class when the line isn't suit-related (e.g. HCP, balanced).
+ *
+ * Usage: `<li className={constraintColor(c, "text-card-foreground")}>`
+ */
+export function constraintColor(
+  c: ConstraintLine,
+  fallback: string = "text-card-foreground",
+): string {
+  if (!c.suitColorKey) return fallback;
+  return SUIT_COLORS[c.suitColorKey as keyof typeof SUIT_COLORS] ?? fallback;
+}
 
 /**
  * Format a Bound as a human-readable range string.
@@ -54,27 +92,29 @@ export function formatBound(bound: Bound, label: string): string | null {
  *
  * Empty array means fully unconstrained (we know nothing).
  */
-export function formatHandDescription(desc: HandDescription): string[] {
-  const parts: string[] = [];
+export function formatHandDescription(desc: HandDescription): ConstraintLine[] {
+  const parts: ConstraintLine[] = [];
 
   // HCP range.
   const hcp = formatBound(desc.hcp, "HCP");
-  if (hcp) parts.push(hcp);
+  if (hcp) parts.push({ text: hcp, suitColorKey: null });
 
   // Total points range (only show if different from HCP).
   const pts = formatBound(desc.total_pts, "points");
-  if (pts && pts !== hcp?.replace("HCP", "points")) parts.push(pts);
+  if (pts && pts !== hcp?.replace("HCP", "points")) {
+    parts.push({ text: pts, suitColorKey: null });
+  }
 
-  // Suit lengths.
+  // Suit lengths (colored by suit).
   for (const [suit, bound] of Object.entries(desc.lengths)) {
     const label = SUIT_LABELS[suit] ?? suit;
     const text = formatBound(bound, label);
-    if (text) parts.push(text);
+    if (text) parts.push({ text, suitColorKey: SUIT_COLOR_KEY[suit] ?? null });
   }
 
   // Balanced / unbalanced.
-  if (desc.balanced === true) parts.push("Balanced");
-  if (desc.balanced === false) parts.push("Unbalanced");
+  if (desc.balanced === true) parts.push({ text: "Balanced", suitColorKey: null });
+  if (desc.balanced === false) parts.push({ text: "Unbalanced", suitColorKey: null });
 
   return parts;
 }

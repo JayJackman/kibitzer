@@ -10,7 +10,7 @@
  * it shows "No matching rules" instead of constraints.
  */
 import type { BidAnalysis } from "@/api/types";
-import { formatHandDescription } from "@/lib/handDescription";
+import { constraintColor, formatHandDescription } from "@/lib/handDescription";
 import { Card, CardContent } from "@/components/ui/card";
 
 interface BidPreviewProps {
@@ -27,9 +27,9 @@ export default function BidPreview({ analysis }: BidPreviewProps) {
         {/* Promise summary: the combined constraints from all matching rules. */}
         {constraints.length > 0 ? (
           <ul className="text-sm space-y-0.5">
-            {constraints.map((text, i) => (
-              <li key={i} className="text-card-foreground">
-                {text}
+            {constraints.map((c, i) => (
+              <li key={i} className={constraintColor(c)}>
+                {c.text}
               </li>
             ))}
           </ul>

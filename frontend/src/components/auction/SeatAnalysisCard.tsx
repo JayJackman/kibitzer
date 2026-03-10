@@ -10,7 +10,7 @@
  * be reused on the practice page if we add hand descriptions there.
  */
 import type { HandDescription, Seat } from "@/api/types";
-import { formatHandDescription, isUnconstrained } from "@/lib/handDescription";
+import { constraintColor, formatHandDescription, isUnconstrained } from "@/lib/handDescription";
 import { SEAT_LABELS } from "@/lib/constants";
 import {
   Card,
@@ -38,9 +38,9 @@ export default function SeatAnalysisCard({ seat, description }: SeatAnalysisCard
           <p className="text-card-muted-foreground text-s">Unknown</p>
         ) : (
           <ul className="space-y-0.5">
-            {constraints.map((text, i) => (
+            {constraints.map((c, i) => (
               <li key={i} className="text-s">
-                - {text}
+                - <span className={constraintColor(c, "")}>{c.text}</span>
               </li>
             ))}
           </ul>
