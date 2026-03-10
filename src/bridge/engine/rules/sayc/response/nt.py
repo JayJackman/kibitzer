@@ -58,7 +58,7 @@ def _partner_opened_2nt(ctx: BiddingContext) -> bool:
     return is_suit_bid(bid) and bid.level == 2 and bid.is_notrump
 
 
-has_5_plus_major = HasMajor(5)
+_has_5_plus_major = HasMajor(5)
 _has_6_plus_major = HasMajor(6)
 _has_6_plus_minor = HasMinor(6)
 _has_4h = SuitLength(Suit.HEARTS, min_len=4)
@@ -70,8 +70,6 @@ _has_4_card_major = HasMajor(4)
 def _not_4333(ctx: BiddingContext) -> bool:
     return ctx.sorted_shape != (4, 3, 3, 3)
 
-
-_balanced_or_semi = All(Balanced(strict=False))
 
 # -- Slam-level responses ---------------------------------------------------
 
@@ -103,7 +101,7 @@ class RespondGerber(Rule):
     def conditions(self) -> Condition:
         return All(
             HcpRange(min_hcp=18),
-            Not(has_5_plus_major),
+            Not(_has_5_plus_major),
             Balanced(strict=False),
         )
 
@@ -279,7 +277,7 @@ class RespondStayman(Rule):
             All(
                 HcpRange(min_hcp=8),
                 _has_4_card_major,
-                Not(has_5_plus_major),
+                Not(_has_5_plus_major),
                 _not_4333,
             ),
         )
@@ -321,7 +319,7 @@ class RespondJacobyTransfer(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return has_5_plus_major
+        return _has_5_plus_major
 
     def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(2, Suit.DIAMONDS), SuitBid(2, Suit.HEARTS)})
@@ -576,7 +574,7 @@ class RespondGerberOver2NT(Rule):
     def conditions(self) -> Condition:
         return All(
             HcpRange(min_hcp=13),
-            Not(has_5_plus_major),
+            Not(_has_5_plus_major),
             Balanced(strict=False),
         )
 
@@ -708,7 +706,7 @@ class RespondStaymanOver2NT(Rule):
         return All(
             HcpRange(min_hcp=4),
             _has_4_card_major,
-            Not(has_5_plus_major),
+            Not(_has_5_plus_major),
             _not_4333,
         )
 
@@ -751,7 +749,7 @@ class RespondTransferOver2NT(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return has_5_plus_major
+        return _has_5_plus_major
 
     def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
         return frozenset({SuitBid(3, Suit.DIAMONDS), SuitBid(3, Suit.HEARTS)})

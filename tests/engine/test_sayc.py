@@ -179,9 +179,8 @@ class TestSAYCResponseIntegration:
 
     def test_single_raise_2d(self):
         """4+ diamonds, 6-10 HCP, no major → 2D."""
-        assert (
-            _response_select("K84.Q73.QJ84.973", "1D") == "response.single_raise_minor"
-        )
+        result = _response_select("K84.Q73.QJ84.973", "1D")
+        assert result == "response.single_raise_diamonds"
 
     def test_2nt_over_1d(self):
         """13-15 balanced, no major → 2NT."""
@@ -205,7 +204,7 @@ class TestSAYCResponseIntegration:
     def test_single_raise_2c(self):
         """5+ clubs, 6-10 HCP → 2C."""
         assert (
-            _response_select("K84.Q73.73.QJ984", "1C") == "response.single_raise_minor"
+            _response_select("K84.Q73.73.QJ984", "1C") == "response.single_raise_clubs"
         )
 
     def test_pass_over_1c(self):

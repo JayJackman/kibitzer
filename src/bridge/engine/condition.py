@@ -281,6 +281,13 @@ class Not(Condition):
         return f"No {self._inner.label}"
 
     def promises(self, ctx: AuctionContext, bid: Bid) -> HandDescription:
+        # De Morgan's: Not(Any(A, B, ...)) = All(Not(A), Not(B), ...)
+        # Negate each branch independently, then intersect.
+        if isinstance(self._inner, Any):
+            result = HandDescription()
+            for path in self._inner._paths:
+                result = result & path.promises(ctx, bid).negated()
+            return result
         return self._inner.promises(ctx, bid).negated()
 
     def check(self, ctx: BiddingContext) -> ConditionResult:

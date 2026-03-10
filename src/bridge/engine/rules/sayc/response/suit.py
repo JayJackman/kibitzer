@@ -87,16 +87,21 @@ def _partner_opened_1_minor(ctx: BiddingContext) -> bool:
     return is_suit_bid(bid) and bid.level == 1 and bid.suit.is_minor
 
 
-has_4_card_major = HasMajor(4)
-
-
-@condition("adequate minor support")
-def adequate_minor_support(ctx: BiddingContext) -> bool:
-    """SAYC: 4+ for diamonds, 5+ for clubs."""
-    if (suit := _opener_suit_safe(ctx)) is None:
+@condition("partner opened 1D")
+def _partner_opened_1d(ctx: BiddingContext) -> bool:
+    if (bid := _opening_bid_safe(ctx)) is None:
         return False
-    length = ctx.hand.suit_length(suit)
-    return length >= 4 if suit == Suit.DIAMONDS else length >= 5
+    return is_suit_bid(bid) and bid.level == 1 and bid.suit == Suit.DIAMONDS
+
+
+@condition("partner opened 1C")
+def _partner_opened_1c(ctx: BiddingContext) -> bool:
+    if (bid := _opening_bid_safe(ctx)) is None:
+        return False
+    return is_suit_bid(bid) and bid.level == 1 and bid.suit == Suit.CLUBS
+
+
+has_4_card_major = HasMajor(4)
 
 
 @condition("has singleton or void in side suit")
@@ -719,16 +724,16 @@ class Respond2NTOverMinor(Rule):
         )
 
 
-class RespondLimitRaiseMinor(Rule):
-    """Limit raise of minor: 10-12 HCP, adequate support.
+class RespondLimitRaiseDiamonds(Rule):
+    """Limit raise of diamonds: 10-12 HCP, 4+ diamonds, no 4-card major.
 
     SAYC: "Adequate trump support, 10-12 points; invitational."
-    Uses HCP only (no support points for minor raises).
+    Diamonds require 4+ support (opener promises only 3+).
     """
 
     @property
     def name(self) -> str:
-        return "response.limit_raise_minor"
+        return "response.limit_raise_diamonds"
 
     @property
     def category(self) -> Category:
@@ -740,39 +745,79 @@ class RespondLimitRaiseMinor(Rule):
 
     @property
     def prerequisites(self) -> Condition:
-        return _partner_opened_1_minor
+        return _partner_opened_1d
 
     @property
     def conditions(self) -> Condition:
         return All(
             HcpRange(10, 12),
-            adequate_minor_support,
+            HasSuitFit(_opener_suit, min_len=4),
             Not(has_4_card_major),
         )
 
     def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
-        return frozenset({SuitBid(3, _opener_suit(ctx))})
+        return frozenset({SuitBid(3, Suit.DIAMONDS)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
-            bid=SuitBid(3, _opener_suit(ctx)),
+            bid=SuitBid(3, Suit.DIAMONDS),
             rule_name=self.name,
-            explanation=(
-                "10-12 HCP, adequate support — SAYC limit raise of minor, invitational"
-            ),
+            explanation=("10-12 HCP, 4+ diamonds — SAYC limit raise, invitational"),
         )
 
 
-class RespondSingleRaiseMinor(Rule):
-    """Single raise of minor: 6-10 HCP, adequate support, no 4-card major.
+class RespondLimitRaiseClubs(Rule):
+    """Limit raise of clubs: 10-12 HCP, 5+ clubs, no 4-card major.
 
-    SAYC: "Adequate trump support, 6-10 points."
-    Uses HCP only (no support points for minor raises).
+    SAYC: "Adequate trump support, 10-12 points; invitational."
+    Clubs require 5+ support (opener may have only 3).
     """
 
     @property
     def name(self) -> str:
-        return "response.single_raise_minor"
+        return "response.limit_raise_clubs"
+
+    @property
+    def category(self) -> Category:
+        return Category.RESPONSE
+
+    @property
+    def priority(self) -> int:
+        return 270
+
+    @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_1c
+
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            HcpRange(10, 12),
+            HasSuitFit(_opener_suit, min_len=5),
+            Not(has_4_card_major),
+        )
+
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(3, Suit.CLUBS)})
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        return RuleResult(
+            bid=SuitBid(3, Suit.CLUBS),
+            rule_name=self.name,
+            explanation=("10-12 HCP, 5+ clubs — SAYC limit raise, invitational"),
+        )
+
+
+class RespondSingleRaiseDiamonds(Rule):
+    """Single raise of diamonds: 6-10 HCP, 4+ diamonds, no 4-card major.
+
+    SAYC: "Adequate trump support, 6-10 points."
+    Diamonds require 4+ support (opener promises only 3+).
+    """
+
+    @property
+    def name(self) -> str:
+        return "response.single_raise_diamonds"
 
     @property
     def category(self) -> Category:
@@ -784,26 +829,69 @@ class RespondSingleRaiseMinor(Rule):
 
     @property
     def prerequisites(self) -> Condition:
-        return _partner_opened_1_minor
+        return _partner_opened_1d
 
     @property
     def conditions(self) -> Condition:
         return All(
             HcpRange(6, 10),
-            adequate_minor_support,
+            HasSuitFit(_opener_suit, min_len=4),
             Not(has_4_card_major),
         )
 
     def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
-        return frozenset({SuitBid(2, _opener_suit(ctx))})
+        return frozenset({SuitBid(2, Suit.DIAMONDS)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
         return RuleResult(
-            bid=SuitBid(2, _opener_suit(ctx)),
+            bid=SuitBid(2, Suit.DIAMONDS),
             rule_name=self.name,
             explanation=(
-                "6-10 HCP, adequate support, no 4-card major"
-                " — SAYC single raise of minor"
+                "6-10 HCP, 4+ diamonds, no 4-card major — SAYC single raise of diamonds"
+            ),
+        )
+
+
+class RespondSingleRaiseClubs(Rule):
+    """Single raise of clubs: 6-10 HCP, 5+ clubs, no 4-card major.
+
+    SAYC: "Adequate trump support, 6-10 points."
+    Clubs require 5+ support (opener may have only 3).
+    """
+
+    @property
+    def name(self) -> str:
+        return "response.single_raise_clubs"
+
+    @property
+    def category(self) -> Category:
+        return Category.RESPONSE
+
+    @property
+    def priority(self) -> int:
+        return 215
+
+    @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_1c
+
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            HcpRange(6, 10),
+            HasSuitFit(_opener_suit, min_len=5),
+            Not(has_4_card_major),
+        )
+
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(2, Suit.CLUBS)})
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        return RuleResult(
+            bid=SuitBid(2, Suit.CLUBS),
+            rule_name=self.name,
+            explanation=(
+                "6-10 HCP, 5+ clubs, no 4-card major — SAYC single raise of clubs"
             ),
         )
 

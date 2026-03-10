@@ -285,8 +285,9 @@ from .response import (
     RespondJacoby2NT,
     RespondJacobyTransfer,
     RespondJumpShift,
+    RespondLimitRaiseClubs,
+    RespondLimitRaiseDiamonds,
     RespondLimitRaiseMajor,
-    RespondLimitRaiseMinor,
     RespondNewSuit1Level,
     RespondNewSuitOver3Level,
     RespondNewSuitOverWeakTwo,
@@ -300,8 +301,9 @@ from .response import (
     RespondRaise3Level,
     RespondRaise4Level,
     RespondRaiseWeakTwo,
+    RespondSingleRaiseClubs,
+    RespondSingleRaiseDiamonds,
     RespondSingleRaiseMajor,
-    RespondSingleRaiseMinor,
     RespondStayman,
     RespondStaymanOver2NT,
     RespondTexasOver2NT,
@@ -332,11 +334,13 @@ def create_sayc_registry() -> RuleRegistry:
     reg.register(Respond3NTOverMinor())
     reg.register(Respond2NTOverMinor())
     reg.register(RespondLimitRaiseMajor())
-    reg.register(RespondLimitRaiseMinor())
+    reg.register(RespondLimitRaiseDiamonds())
+    reg.register(RespondLimitRaiseClubs())
     reg.register(Respond2Over1())
     reg.register(RespondNewSuit1Level())
     reg.register(RespondSingleRaiseMajor())
-    reg.register(RespondSingleRaiseMinor())
+    reg.register(RespondSingleRaiseDiamonds())
+    reg.register(RespondSingleRaiseClubs())
     reg.register(Respond1NTOverMinor())
     reg.register(Respond1NTOverMajor())
     reg.register(RespondPass())

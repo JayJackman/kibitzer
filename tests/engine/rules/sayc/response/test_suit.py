@@ -11,12 +11,14 @@ from bridge.engine.rules.sayc.response.suit import (
     RespondGameRaiseMajor,
     RespondJacoby2NT,
     RespondJumpShift,
+    RespondLimitRaiseClubs,
+    RespondLimitRaiseDiamonds,
     RespondLimitRaiseMajor,
-    RespondLimitRaiseMinor,
     RespondNewSuit1Level,
     RespondPass,
+    RespondSingleRaiseClubs,
+    RespondSingleRaiseDiamonds,
     RespondSingleRaiseMajor,
-    RespondSingleRaiseMinor,
 )
 from bridge.model.auction import AuctionState, Seat
 from bridge.model.bid import PASS, is_pass, parse_bid
@@ -489,11 +491,11 @@ class TestRespond2NTOverMinor:
         assert str(result.bid) == "2NT"
 
 
-# ── RespondLimitRaiseMinor ─────────────────────────────────────────
+# ── RespondLimitRaiseDiamonds ──────────────────────────────────────
 
 
-class TestRespondLimitRaiseMinor:
-    rule = RespondLimitRaiseMinor()
+class TestRespondLimitRaiseDiamonds:
+    rule = RespondLimitRaiseDiamonds()
 
     def test_10_12_hcp_4_diamonds(self):
         """10-12 HCP, 4+ diamonds, no 4-card major → 3D."""
@@ -502,6 +504,25 @@ class TestRespondLimitRaiseMinor:
         assert self.rule.applies(ctx)
         result = self.rule.select(ctx)
         assert str(result.bid) == "3D"
+
+    def test_4_card_major_rejected(self):
+        """Has 4-card major — should bid it first."""
+        # KJ84=4, Q73=2, QJ84=3, A3=4 → 13 HCP, 4-3-4-2
+        ctx = _ctx("KJ84.Q73.QJ84.A3", "1D")
+        assert not self.rule.applies(ctx)
+
+    def test_9_hcp_rejected(self):
+        """9 HCP — below limit raise range."""
+        # K84=3, 973=0, QJ84=3, 973=0 → 6 HCP
+        ctx = _ctx("K84.973.QJ84.973", "1D")
+        assert not self.rule.applies(ctx)
+
+
+# ── RespondLimitRaiseClubs ────────────────────────────────────────
+
+
+class TestRespondLimitRaiseClubs:
+    rule = RespondLimitRaiseClubs()
 
     def test_10_12_hcp_5_clubs(self):
         """10-12 HCP, 5+ clubs → 3C."""
@@ -517,24 +538,12 @@ class TestRespondLimitRaiseMinor:
         ctx = _ctx("K84.Q73.A73.QJ84", "1C")
         assert not self.rule.applies(ctx)
 
-    def test_4_card_major_rejected(self):
-        """Has 4-card major — should bid it first."""
-        # KJ84=4, Q73=2, QJ84=3, A3=4 → 13 HCP, 4-3-4-2
-        ctx = _ctx("KJ84.Q73.QJ84.A3", "1D")
-        assert not self.rule.applies(ctx)
 
-    def test_9_hcp_rejected(self):
-        """9 HCP — below limit raise range."""
-        # K84=3, 973=0, QJ84=3, 973=0 → 6 HCP
-        ctx = _ctx("K84.973.QJ84.973", "1D")
-        assert not self.rule.applies(ctx)
+# ── RespondSingleRaiseDiamonds ─────────────────────────────────────
 
 
-# ── RespondSingleRaiseMinor ───────────────────────────────────────
-
-
-class TestRespondSingleRaiseMinor:
-    rule = RespondSingleRaiseMinor()
+class TestRespondSingleRaiseDiamonds:
+    rule = RespondSingleRaiseDiamonds()
 
     def test_6_10_hcp_4_diamonds(self):
         """6-10 HCP, 4+ diamonds, no major → 2D."""
@@ -543,6 +552,25 @@ class TestRespondSingleRaiseMinor:
         assert self.rule.applies(ctx)
         result = self.rule.select(ctx)
         assert str(result.bid) == "2D"
+
+    def test_4_card_major_rejected(self):
+        """Has 4-card major — should bid it first."""
+        # KJ84=4, 973=0, QJ84=3, 73=0 → 7 HCP, 4-3-4-2 — 4 spades
+        ctx = _ctx("KJ84.973.QJ84.73", "1D")
+        assert not self.rule.applies(ctx)
+
+    def test_5_hcp_rejected(self):
+        """5 HCP — below minimum."""
+        # 984=0, 973=0, QJ84=3, 973=0 → 3 HCP
+        ctx = _ctx("984.973.QJ84.973", "1D")
+        assert not self.rule.applies(ctx)
+
+
+# ── RespondSingleRaiseClubs ───────────────────────────────────────
+
+
+class TestRespondSingleRaiseClubs:
+    rule = RespondSingleRaiseClubs()
 
     def test_6_10_hcp_5_clubs(self):
         """6-10 HCP, 5+ clubs → 2C."""
@@ -556,18 +584,6 @@ class TestRespondSingleRaiseMinor:
         """Only 4 clubs — need 5+ for club raise."""
         # K84=3, Q73=2, 973=0, QJ84=3 → 8 HCP, 3-3-3-4
         ctx = _ctx("K84.Q73.973.QJ84", "1C")
-        assert not self.rule.applies(ctx)
-
-    def test_4_card_major_rejected(self):
-        """Has 4-card major — should bid it first."""
-        # KJ84=4, 973=0, QJ84=3, 73=0 → 7 HCP, 4-3-4-2 — 4 spades
-        ctx = _ctx("KJ84.973.QJ84.73", "1D")
-        assert not self.rule.applies(ctx)
-
-    def test_5_hcp_rejected(self):
-        """5 HCP — below minimum."""
-        # 984=0, 973=0, QJ84=3, 973=0 → 3 HCP
-        ctx = _ctx("984.973.QJ84.973", "1D")
         assert not self.rule.applies(ctx)
 
 

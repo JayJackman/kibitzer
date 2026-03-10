@@ -53,12 +53,14 @@ from .suit import (
     RespondGameRaiseMajor,
     RespondJacoby2NT,
     RespondJumpShift,
+    RespondLimitRaiseClubs,
+    RespondLimitRaiseDiamonds,
     RespondLimitRaiseMajor,
-    RespondLimitRaiseMinor,
     RespondNewSuit1Level,
     RespondPass,
+    RespondSingleRaiseClubs,
+    RespondSingleRaiseDiamonds,
     RespondSingleRaiseMajor,
-    RespondSingleRaiseMinor,
 )
 
 __all__ = [
@@ -72,12 +74,14 @@ __all__ = [
     "RespondGameRaiseMajor",
     "RespondJacoby2NT",
     "RespondJumpShift",
+    "RespondLimitRaiseClubs",
+    "RespondLimitRaiseDiamonds",
     "RespondLimitRaiseMajor",
-    "RespondLimitRaiseMinor",
     "RespondNewSuit1Level",
     "RespondPass",
+    "RespondSingleRaiseClubs",
+    "RespondSingleRaiseDiamonds",
     "RespondSingleRaiseMajor",
-    "RespondSingleRaiseMinor",
     # Responses to 1NT
     "Respond2NTOver1NT",
     "Respond2SPuppet",
