@@ -13,7 +13,9 @@ All rules belong to Category.REBID_OPENER.
 """
 
 from bridge.engine.condition import (
+    AceCount,
     All,
+    Any,
     Condition,
     HasSuitFit,
     HcpRange,
@@ -23,7 +25,7 @@ from bridge.engine.condition import (
 from bridge.engine.context import AuctionContext, BiddingContext
 from bridge.engine.rule import Category, Rule, RuleResult
 from bridge.model.bid import PASS, PassBid, SuitBid, is_suit_bid
-from bridge.model.card import SUITS_SHDC, Rank, Suit
+from bridge.model.card import Suit
 
 # -- Helpers -----------------------------------------------------------------
 
@@ -150,11 +152,6 @@ def _partner_bid_4nt(ctx: BiddingContext) -> bool:
     if (resp := _partner_bid_safe(ctx)) is None:
         return False
     return resp.level == 4 and resp.is_notrump
-
-
-def _ace_count(ctx: BiddingContext) -> int:
-    """Count aces in opener's hand (for Gerber response)."""
-    return sum(ctx.hand.has_card(s, Rank.ACE) for s in SUITS_SHDC)
 
 
 # -- 2NT helpers -------------------------------------------------------------
@@ -464,17 +461,25 @@ class RebidComplete2SPuppet(Rule):
 # -- After Gerber (4C) ------------------------------------------------------
 
 
-class RebidGerberResponse(Rule):
-    """Gerber ace response -- 4D/4H/4S/4NT by ace count.
+# Shared prerequisites: I opened 1NT or 2NT and partner bid Gerber (4C).
+_gerber_prereqs = All(
+    Any(_i_opened_1nt, _i_opened_2nt),
+    _partner_bid_gerber,
+)
 
-    e.g. 1NT->4C->4D (0/4 aces), 1NT->4C->4S (2 aces)
 
-    0/4 aces = 4D, 1 = 4H, 2 = 4S, 3 = 4NT (research/06-slam.md).
+class RebidGerber0or4Aces(Rule):
+    """Gerber ace response -- 4D showing 0 or 4 aces.
+
+    e.g. 1NT->4C->4D, 2NT->4C->4D
+
+    The 0/4 ambiguity is resolved by partner using HCP math.
+    SAYC Gerber step responses (research/06-slam.md).
     """
 
     @property
     def name(self) -> str:
-        return "rebid.gerber_response"
+        return "rebid.gerber_0or4_aces"
 
     @property
     def category(self) -> Category:
@@ -486,38 +491,141 @@ class RebidGerberResponse(Rule):
 
     @property
     def prerequisites(self) -> Condition:
-        return All(_i_opened_1nt, _partner_bid_gerber)
+        return _gerber_prereqs
 
     @property
     def conditions(self) -> Condition:
-        return All()
+        return Any(AceCount(min_aces=0, max_aces=0), AceCount(min_aces=4, max_aces=4))
 
     def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
-        return frozenset(
-            {
-                SuitBid(4, Suit.DIAMONDS),
-                SuitBid(4, Suit.HEARTS),
-                SuitBid(4, Suit.SPADES),
-                SuitBid(4, Suit.NOTRUMP),
-            }
-        )
+        return frozenset({SuitBid(4, Suit.DIAMONDS)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
-        aces = _ace_count(ctx)
-        # 0/4 -> 4D, 1 -> 4H, 2 -> 4S, 3 -> 4NT
-        response_map = {
-            0: (Suit.DIAMONDS, "0 or 4"),
-            1: (Suit.HEARTS, "1"),
-            2: (Suit.SPADES, "2"),
-            3: (Suit.NOTRUMP, "3"),
-            4: (Suit.DIAMONDS, "0 or 4"),
-        }
-        suit, desc = response_map[aces]
         return RuleResult(
-            bid=SuitBid(4, suit),
+            bid=SuitBid(4, Suit.DIAMONDS),
             rule_name=self.name,
-            explanation=f"{desc} aces -- Gerber response over 1NT",
-            alerts=(f"Gerber response -- showing {desc} aces",),
+            explanation="0 or 4 aces -- Gerber response",
+            alerts=("Gerber response -- showing 0 or 4 aces",),
+        )
+
+
+class RebidGerber1Ace(Rule):
+    """Gerber ace response -- 4H showing exactly 1 ace.
+
+    e.g. 1NT->4C->4H, 2NT->4C->4H
+
+    SAYC Gerber step responses (research/06-slam.md).
+    """
+
+    @property
+    def name(self) -> str:
+        return "rebid.gerber_1_ace"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_OPENER
+
+    @property
+    def priority(self) -> int:
+        return 550
+
+    @property
+    def prerequisites(self) -> Condition:
+        return _gerber_prereqs
+
+    @property
+    def conditions(self) -> Condition:
+        return AceCount(min_aces=1, max_aces=1)
+
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(4, Suit.HEARTS)})
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        return RuleResult(
+            bid=SuitBid(4, Suit.HEARTS),
+            rule_name=self.name,
+            explanation="1 ace -- Gerber response",
+            alerts=("Gerber response -- showing 1 ace",),
+        )
+
+
+class RebidGerber2Aces(Rule):
+    """Gerber ace response -- 4S showing exactly 2 aces.
+
+    e.g. 1NT->4C->4S, 2NT->4C->4S
+
+    SAYC Gerber step responses (research/06-slam.md).
+    """
+
+    @property
+    def name(self) -> str:
+        return "rebid.gerber_2_aces"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_OPENER
+
+    @property
+    def priority(self) -> int:
+        return 550
+
+    @property
+    def prerequisites(self) -> Condition:
+        return _gerber_prereqs
+
+    @property
+    def conditions(self) -> Condition:
+        return AceCount(min_aces=2, max_aces=2)
+
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(4, Suit.SPADES)})
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        return RuleResult(
+            bid=SuitBid(4, Suit.SPADES),
+            rule_name=self.name,
+            explanation="2 aces -- Gerber response",
+            alerts=("Gerber response -- showing 2 aces",),
+        )
+
+
+class RebidGerber3Aces(Rule):
+    """Gerber ace response -- 4NT showing exactly 3 aces.
+
+    e.g. 1NT->4C->4NT, 2NT->4C->4NT
+
+    SAYC Gerber step responses (research/06-slam.md).
+    """
+
+    @property
+    def name(self) -> str:
+        return "rebid.gerber_3_aces"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_OPENER
+
+    @property
+    def priority(self) -> int:
+        return 550
+
+    @property
+    def prerequisites(self) -> Condition:
+        return _gerber_prereqs
+
+    @property
+    def conditions(self) -> Condition:
+        return AceCount(min_aces=3, max_aces=3)
+
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(4, Suit.NOTRUMP)})
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        return RuleResult(
+            bid=SuitBid(4, Suit.NOTRUMP),
+            rule_name=self.name,
+            explanation="3 aces -- Gerber response",
+            alerts=("Gerber response -- showing 3 aces",),
         )
 
 
@@ -1148,65 +1256,6 @@ class Rebid2NTComplete3SPuppet(Rule):
             rule_name=self.name,
             explanation="Forced 4C response to 3S puppet over 2NT",
             alerts=("Forced relay -- responder will pass or correct to 4D",),
-        )
-
-
-# -- After Gerber (4C) over 2NT --------------------------------------------
-
-
-class Rebid2NTGerberResponse(Rule):
-    """Gerber ace response over 2NT -- 4D/4H/4S/4NT by ace count.
-
-    e.g. 2NT->4C->4D (0/4 aces), 2NT->4C->4S (2 aces)
-
-    0/4 aces = 4D, 1 = 4H, 2 = 4S, 3 = 4NT (research/06-slam.md).
-    """
-
-    @property
-    def name(self) -> str:
-        return "rebid.gerber_response_2nt"
-
-    @property
-    def category(self) -> Category:
-        return Category.REBID_OPENER
-
-    @property
-    def priority(self) -> int:
-        return 549
-
-    @property
-    def prerequisites(self) -> Condition:
-        return All(_i_opened_2nt, _partner_bid_gerber)
-
-    @property
-    def conditions(self) -> Condition:
-        return All()
-
-    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
-        return frozenset(
-            {
-                SuitBid(4, Suit.DIAMONDS),
-                SuitBid(4, Suit.HEARTS),
-                SuitBid(4, Suit.SPADES),
-                SuitBid(4, Suit.NOTRUMP),
-            }
-        )
-
-    def select(self, ctx: BiddingContext) -> RuleResult:
-        aces = _ace_count(ctx)
-        response_map = {
-            0: (Suit.DIAMONDS, "0 or 4"),
-            1: (Suit.HEARTS, "1"),
-            2: (Suit.SPADES, "2"),
-            3: (Suit.NOTRUMP, "3"),
-            4: (Suit.DIAMONDS, "0 or 4"),
-        }
-        suit, desc = response_map[aces]
-        return RuleResult(
-            bid=SuitBid(4, suit),
-            rule_name=self.name,
-            explanation=f"{desc} aces -- Gerber response over 2NT",
-            alerts=(f"Gerber response -- showing {desc} aces",),
         )
 
 

@@ -1,5 +1,54 @@
 """SAYC responder rebid (reresponse) rules."""
 
+from .nt import (
+    # Puppet
+    CorrectPuppet2NTDiamonds,
+    CorrectPuppetDiamonds,
+    # Stayman
+    Game3NT2NTDenial,
+    Game3NT2NTNoFit,
+    Game3NTAfterDenial,
+    # Transfers
+    Game3NTAfterTransfer,
+    Game3NTStaymanNoFit,
+    Game3NTSuperAccept,
+    Game3NTTransfer2NT,
+    Game4MSuperAccept,
+    Game4MTransfer2NT,
+    GameRaise2NTStaymanFit,
+    GameRaiseStaymanFit,
+    GameRaiseTransfer,
+    GFMajor2NTDenial,
+    GFMajorAfterDenial,
+    GFMajors55,
+    Invite2NTAfterDenial,
+    Invite2NTAfterTransfer,
+    Invite2NTStaymanNoFit,
+    InviteMajorAfterDenial,
+    InviteMajors55,
+    InviteRaiseStaymanFit,
+    InviteRaiseTransfer,
+    # Gerber
+    KingAskAfterGerber,
+    PassAfterGerber,
+    # Signoff
+    PassAfterNTReresponse,
+    PassAfterTexas,
+    PassGarbageStayman,
+    PassGarbageStaymanFit,
+    PassPuppet2NTClubs,
+    PassPuppetClubs,
+    PassSuperAccept,
+    PassTransfer2NTSignoff,
+    PassTransferSignoff,
+    Quant4NT2NTDenial,
+    Quant4NT2NTStaymanFit,
+    Quant4NTSuperAccept,
+    Quant4NTTransfer2NT,
+    SignoffAfterGerber,
+    SlamMinor2NTDenial,
+    SlamMinorAfterDenial,
+)
 from .suit import (
     Accept2NTAfterMinorRaise,
     Accept3yJumpRaise,
@@ -315,4 +364,61 @@ __all__ = [
     "PassAfter2NTMinor3NT",
     # Section K: After 3NT response
     "PassAfter3NTResponse",
+    # ── After NT opening (Stayman) ──
+    # Section L1: After 1NT - 2C - 2D (Stayman denial)
+    "PassGarbageStayman",
+    "InviteMajorAfterDenial",
+    "Invite2NTAfterDenial",
+    "GFMajorAfterDenial",
+    "Game3NTAfterDenial",
+    "SlamMinorAfterDenial",
+    # Section L2: After 1NT - 2C - 2H/2S (Stayman fit)
+    "PassGarbageStaymanFit",
+    "InviteRaiseStaymanFit",
+    "GameRaiseStaymanFit",
+    "Invite2NTStaymanNoFit",
+    "Game3NTStaymanNoFit",
+    # Section L3: After 2NT - 3C - 3D (Stayman denial)
+    "GFMajor2NTDenial",
+    "Game3NT2NTDenial",
+    "SlamMinor2NTDenial",
+    "Quant4NT2NTDenial",
+    # Section L4: After 2NT - 3C - 3H/3S (Stayman fit)
+    "GameRaise2NTStaymanFit",
+    "Game3NT2NTNoFit",
+    "Quant4NT2NTStaymanFit",
+    # ── After NT opening (Transfers) ──
+    # Section M1: After normal transfer completion over 1NT
+    "PassTransferSignoff",
+    "Invite2NTAfterTransfer",
+    "InviteRaiseTransfer",
+    "InviteMajors55",
+    "Game3NTAfterTransfer",
+    "GameRaiseTransfer",
+    "GFMajors55",
+    # Section M2: After super-accept over 1NT
+    "PassSuperAccept",
+    "Game3NTSuperAccept",
+    "Game4MSuperAccept",
+    "Quant4NTSuperAccept",
+    # Section M3: After transfer completion over 2NT
+    "PassTransfer2NTSignoff",
+    "Game3NTTransfer2NT",
+    "Game4MTransfer2NT",
+    "Quant4NTTransfer2NT",
+    # ── After NT opening (Puppet) ──
+    # Section N1: After puppet completion over 1NT
+    "PassPuppetClubs",
+    "CorrectPuppetDiamonds",
+    # Section N2: After puppet completion over 2NT
+    "PassPuppet2NTClubs",
+    "CorrectPuppet2NTDiamonds",
+    # ── After NT opening (Gerber) ──
+    # Section O: After Gerber response over 1NT/2NT
+    "KingAskAfterGerber",
+    "SignoffAfterGerber",
+    "PassAfterGerber",
+    # Section P: Signoff passes for NT auctions
+    "PassAfterTexas",
+    "PassAfterNTReresponse",
 ]

@@ -9,12 +9,12 @@
 import type { Bound, HandDescription } from "../api/types";
 import { SUIT_COLORS } from "./constants";
 
-/** Suit key -> display name with proper capitalization. */
+/** Suit key -> Unicode suit symbol (or "NT" for notrump). */
 const SUIT_LABELS: Record<string, string> = {
-  spades: "Spades",
-  hearts: "Hearts",
-  diamonds: "Diamonds",
-  clubs: "Clubs",
+  spades: "\u2660",
+  hearts: "\u2665",
+  diamonds: "\u2666",
+  clubs: "\u2663",
   notrump: "NT",
 };
 
@@ -111,6 +111,15 @@ export function formatHandDescription(desc: HandDescription): ConstraintLine[] {
     const text = formatBound(bound, label);
     if (text) parts.push({ text, suitColorKey: SUIT_COLOR_KEY[suit] ?? null });
   }
+
+  // Ace and king counts (singular when exactly 1).
+  const aceLabel = desc.aces.min === 1 && desc.aces.max === 1 ? "Ace" : "Aces";
+  const aces = formatBound(desc.aces, aceLabel);
+  if (aces) parts.push({ text: aces, suitColorKey: null });
+
+  const kingLabel = desc.kings.min === 1 && desc.kings.max === 1 ? "King" : "Kings";
+  const kings = formatBound(desc.kings, kingLabel);
+  if (kings) parts.push({ text: kings, suitColorKey: null });
 
   // Balanced / unbalanced.
   if (desc.balanced === true) parts.push({ text: "Balanced", suitColorKey: null });

@@ -338,7 +338,10 @@ class TestSAYC1NTResponseIntegration:
     def test_jacoby_transfer_5_hearts(self):
         """5+ hearts -> Jacoby transfer 2D."""
         # 432.KJ432.43.432 = 4 HCP, 3-5-2-3
-        assert _response_select("432.KJ432.43.432", "1NT") == "response.jacoby_transfer"
+        assert (
+            _response_select("432.KJ432.43.432", "1NT")
+            == "response.jacoby_transfer_hearts"
+        )
 
     def test_texas_transfer_6_hearts(self):
         """6+ hearts, 10-15 HCP -> Texas transfer 4D."""
@@ -410,7 +413,7 @@ class TestSAYC1NTRebidIntegration:
     def test_gerber_response_2_aces(self):
         """2 aces -> 4S after Gerber."""
         # AQ3.KQ4.AJ3.Q432 = 17 HCP, 2 aces
-        assert _rebid_select("AQ3.KQ4.AJ3.Q432", "1NT", "4C") == "rebid.gerber_response"
+        assert _rebid_select("AQ3.KQ4.AJ3.Q432", "1NT", "4C") == "rebid.gerber_2_aces"
 
     def test_pass_after_3nt(self):
         """3NT is to play -> pass."""
@@ -438,7 +441,10 @@ class TestSAYC2NTResponseIntegration:
     def test_transfer_5_hearts(self):
         """5+ hearts -> transfer 3D."""
         # 432.KJ432.43.432 = 4 HCP, 3-5-2-3
-        assert _response_select("432.KJ432.43.432", "2NT") == "response.transfer_2nt"
+        assert (
+            _response_select("432.KJ432.43.432", "2NT")
+            == "response.transfer_hearts_2nt"
+        )
 
     def test_texas_6_hearts(self):
         """6+ hearts, 4-10 HCP -> Texas 4D."""
@@ -501,10 +507,7 @@ class TestSAYC2NTRebidIntegration:
     def test_gerber_response_2_aces(self):
         """2 aces -> 4S after Gerber."""
         # AQ3.AQ4.KQ32.K43 = 21 HCP, 2 aces
-        assert (
-            _rebid_select("AQ3.AQ4.KQ32.K43", "2NT", "4C")
-            == "rebid.gerber_response_2nt"
-        )
+        assert _rebid_select("AQ3.AQ4.KQ32.K43", "2NT", "4C") == "rebid.gerber_2_aces"
 
     def test_complete_texas_4d(self):
         """4D -> 4H (Texas complete)."""

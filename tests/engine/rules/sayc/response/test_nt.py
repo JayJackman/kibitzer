@@ -13,14 +13,16 @@ from bridge.engine.rules.sayc.response.nt import (
     Respond4NTOver2NT,
     RespondGerber,
     RespondGerberOver2NT,
-    RespondJacobyTransfer,
+    RespondJacobyTransferHearts,
+    RespondJacobyTransferSpades,
     RespondPassOver1NT,
     RespondPassOver2NT,
     RespondStayman,
     RespondStaymanOver2NT,
     RespondTexasOver2NT,
     RespondTexasTransfer,
-    RespondTransferOver2NT,
+    RespondTransferHeartsOver2NT,
+    RespondTransferSpadesOver2NT,
 )
 from bridge.model.auction import AuctionState, Seat
 from bridge.model.bid import PASS, is_pass, parse_bid
@@ -213,40 +215,16 @@ class TestRespondStayman:
         assert not self.rule.applies(ctx)
 
 
-# ── RespondJacobyTransfer ──────────────────────────────────────────
+# ── RespondJacobyTransferHearts ────────────────────────────────────
 
 
-class TestRespondJacobyTransfer:
-    rule = RespondJacobyTransfer()
+class TestRespondJacobyTransferHearts:
+    rule = RespondJacobyTransferHearts()
 
     def test_5_hearts_any_hcp(self) -> None:
         """5+ hearts -> 2D Jacoby transfer."""
         # 432.KJ432.43.432 = 4 HCP, 3-5-2-3
         ctx = _ctx("432.KJ432.43.432")
-        assert self.rule.applies(ctx)
-        result = self.rule.select(ctx)
-        assert str(result.bid) == "2D"
-
-    def test_5_spades_any_hcp(self) -> None:
-        """5+ spades -> 2H Jacoby transfer."""
-        # KJ432.432.43.432 = 4 HCP, 5-3-2-3
-        ctx = _ctx("KJ432.432.43.432")
-        assert self.rule.applies(ctx)
-        result = self.rule.select(ctx)
-        assert str(result.bid) == "2H"
-
-    def test_5_5_majors_transfers_to_spades(self) -> None:
-        """5-5 in majors, equal length -> transfer to spades."""
-        # KJ432.QJ432.4.43 = 6 HCP, 5-5-1-2
-        ctx = _ctx("KJ432.QJ432.4.43")
-        assert self.rule.applies(ctx)
-        result = self.rule.select(ctx)
-        assert str(result.bid) == "2H"
-
-    def test_6_hearts_5_spades_transfers_to_hearts(self) -> None:
-        """6 hearts > 5 spades -> transfer to hearts."""
-        # KJ432.QJ5432.4.3 = 7 HCP, 5-6-1-1
-        ctx = _ctx("KJ432.QJ5432.4.3")
         assert self.rule.applies(ctx)
         result = self.rule.select(ctx)
         assert str(result.bid) == "2D"
@@ -259,10 +237,59 @@ class TestRespondJacobyTransfer:
         result = self.rule.select(ctx)
         assert str(result.bid) == "2D"
 
+    def test_6_hearts_5_spades_transfers_to_hearts(self) -> None:
+        """6 hearts > 5 spades -> hearts rule matches."""
+        # KJ432.QJ5432.4.3 = 7 HCP, 5-6-1-1
+        ctx = _ctx("KJ432.QJ5432.4.3")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "2D"
+
     def test_4_hearts_rejected(self) -> None:
-        """Only 4 hearts -> Stayman, not transfer."""
+        """Only 4 hearts -> not enough for transfer."""
         # K432.Q432.43.432 = 4 HCP
         ctx = _ctx("K432.Q432.43.432")
+        assert not self.rule.applies(ctx)
+
+    def test_5_spades_no_hearts_rejected(self) -> None:
+        """5 spades but only 3 hearts -> hearts rule doesn't apply."""
+        # KJ432.432.43.432 = 4 HCP, 5-3-2-3
+        ctx = _ctx("KJ432.432.43.432")
+        assert not self.rule.applies(ctx)
+
+
+# ── RespondJacobyTransferSpades ───────────────────────────────────
+
+
+class TestRespondJacobyTransferSpades:
+    rule = RespondJacobyTransferSpades()
+
+    def test_5_spades_any_hcp(self) -> None:
+        """5+ spades -> 2H Jacoby transfer."""
+        # KJ432.432.43.432 = 4 HCP, 5-3-2-3
+        ctx = _ctx("KJ432.432.43.432")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "2H"
+
+    def test_5_5_majors_both_rules_match(self) -> None:
+        """5-5 in majors -> spades rule matches too."""
+        # KJ432.QJ432.4.43 = 6 HCP, 5-5-1-2
+        ctx = _ctx("KJ432.QJ432.4.43")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "2H"
+
+    def test_4_spades_rejected(self) -> None:
+        """Only 4 spades -> not enough for transfer."""
+        # K432.Q432.43.432 = 4 HCP
+        ctx = _ctx("K432.Q432.43.432")
+        assert not self.rule.applies(ctx)
+
+    def test_5_hearts_no_spades_rejected(self) -> None:
+        """5 hearts but only 3 spades -> spades rule doesn't apply."""
+        # 432.KJ432.43.432 = 4 HCP, 3-5-2-3
+        ctx = _ctx("432.KJ432.43.432")
         assert not self.rule.applies(ctx)
 
 
@@ -435,7 +462,7 @@ class TestPriorityConflicts:
         """5H, 10 HCP -> Transfer (435) wins over 3NT (425)."""
         # K43.AQ432.K43.42 = 12 HCP, 3-5-3-2
         ctx = _ctx("K43.AQ432.K43.42")
-        assert RespondJacobyTransfer().applies(ctx)
+        assert RespondJacobyTransferHearts().applies(ctx)
         assert Respond3NTOver1NT().applies(ctx)
         # Transfer has higher priority
 
@@ -444,7 +471,7 @@ class TestPriorityConflicts:
         # K4.AQJ932.K43.42 = 13 HCP, 2-6-3-2
         ctx = _ctx("K4.AQJ932.K43.42")
         assert RespondTexasTransfer().applies(ctx)
-        assert RespondJacobyTransfer().applies(ctx)
+        assert RespondJacobyTransferHearts().applies(ctx)
 
     def test_4_hearts_10_hcp_stayman_over_3nt(self) -> None:
         """4H non-flat, 10 HCP -> Stayman (445) wins over 3NT (425)."""
@@ -471,7 +498,7 @@ class TestPriorityConflicts:
         """5H, 0 HCP -> Transfer (435) wins over Pass (45)."""
         # 432.98765.43.432 = 0 HCP
         ctx = _ctx("432.98765.43.432")
-        assert RespondJacobyTransfer().applies(ctx)
+        assert RespondJacobyTransferHearts().applies(ctx)
         assert RespondPassOver1NT().applies(ctx)
 
 
@@ -626,11 +653,11 @@ class TestRespondStaymanOver2NT:
         assert not self.rule.applies(ctx)
 
 
-# ── RespondTransferOver2NT ────────────────────────────────────────
+# ── RespondTransferHeartsOver2NT ──────────────────────────────────
 
 
-class TestRespondTransferOver2NT:
-    rule = RespondTransferOver2NT()
+class TestRespondTransferHeartsOver2NT:
+    rule = RespondTransferHeartsOver2NT()
 
     def test_5_hearts_any_hcp(self) -> None:
         """5+ hearts -> 3D transfer."""
@@ -639,14 +666,6 @@ class TestRespondTransferOver2NT:
         assert self.rule.applies(ctx)
         result = self.rule.select(ctx)
         assert str(result.bid) == "3D"
-
-    def test_5_spades_any_hcp(self) -> None:
-        """5+ spades -> 3H transfer."""
-        # KJ432.432.43.432 = 4 HCP, 5-3-2-3
-        ctx = _ctx_2nt("KJ432.432.43.432")
-        assert self.rule.applies(ctx)
-        result = self.rule.select(ctx)
-        assert str(result.bid) == "3H"
 
     def test_0_hcp_signoff(self) -> None:
         """0 HCP with 5 hearts -> still transfers (sign-off at 3H)."""
@@ -657,9 +676,42 @@ class TestRespondTransferOver2NT:
         assert str(result.bid) == "3D"
 
     def test_4_hearts_rejected(self) -> None:
-        """Only 4 hearts -> Stayman, not transfer."""
+        """Only 4 hearts -> not enough for transfer."""
         # K432.Q432.43.432 = 4 HCP
         ctx = _ctx_2nt("K432.Q432.43.432")
+        assert not self.rule.applies(ctx)
+
+    def test_5_spades_no_hearts_rejected(self) -> None:
+        """5 spades but only 3 hearts -> hearts rule doesn't apply."""
+        # KJ432.432.43.432 = 4 HCP, 5-3-2-3
+        ctx = _ctx_2nt("KJ432.432.43.432")
+        assert not self.rule.applies(ctx)
+
+
+# ── RespondTransferSpadesOver2NT ─────────────────────────────────
+
+
+class TestRespondTransferSpadesOver2NT:
+    rule = RespondTransferSpadesOver2NT()
+
+    def test_5_spades_any_hcp(self) -> None:
+        """5+ spades -> 3H transfer."""
+        # KJ432.432.43.432 = 4 HCP, 5-3-2-3
+        ctx = _ctx_2nt("KJ432.432.43.432")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "3H"
+
+    def test_4_spades_rejected(self) -> None:
+        """Only 4 spades -> not enough for transfer."""
+        # K432.Q432.43.432 = 4 HCP
+        ctx = _ctx_2nt("K432.Q432.43.432")
+        assert not self.rule.applies(ctx)
+
+    def test_5_hearts_no_spades_rejected(self) -> None:
+        """5 hearts but only 3 spades -> spades rule doesn't apply."""
+        # 432.KJ432.43.432 = 4 HCP, 3-5-2-3
+        ctx = _ctx_2nt("432.KJ432.43.432")
         assert not self.rule.applies(ctx)
 
 
@@ -754,14 +806,14 @@ class TestPriorityConflicts2NT:
     def test_5_hearts_8_hcp_transfer_over_3nt(self) -> None:
         """5H, 8 HCP -> Transfer (434) wins over 3NT (424)."""
         ctx = _ctx_2nt("432.KJ432.K43.42")
-        assert RespondTransferOver2NT().applies(ctx)
+        assert RespondTransferHeartsOver2NT().applies(ctx)
         assert Respond3NTOver2NT().applies(ctx)
 
     def test_6_hearts_8_hcp_texas_over_transfer(self) -> None:
         """6H, 8 HCP -> Texas (464) wins over Transfer (434)."""
         ctx = _ctx_2nt("43.KQJ932.Q43.42")
         assert RespondTexasOver2NT().applies(ctx)
-        assert RespondTransferOver2NT().applies(ctx)
+        assert RespondTransferHeartsOver2NT().applies(ctx)
 
     def test_4_hearts_5_hcp_stayman_over_3nt(self) -> None:
         """4H non-flat, 5 HCP -> Stayman (444) wins over 3NT (424)."""

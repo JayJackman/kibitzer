@@ -7,7 +7,6 @@ from bridge.engine.rules.sayc.rebid.nt import (
     Rebid2NTCompleteTexas,
     Rebid2NTCompleteTransfer,
     Rebid2NTDecline4NT,
-    Rebid2NTGerberResponse,
     Rebid2NTPassAfter3NT,
     Rebid2NTStayman3D,
     Rebid2NTStayman3H,
@@ -22,7 +21,10 @@ from bridge.engine.rules.sayc.rebid.nt import (
     RebidDecline3MajorOver1NT,
     RebidDecline3MinorOver1NT,
     RebidDecline4NTOver1NT,
-    RebidGerberResponse,
+    RebidGerber0or4Aces,
+    RebidGerber1Ace,
+    RebidGerber2Aces,
+    RebidGerber3Aces,
     RebidPassAfter3NTOver1NT,
     RebidRaise3MajorOver1NT,
     RebidStayman2D,
@@ -205,8 +207,8 @@ class TestRebidComplete2SPuppet:
 # ── After Gerber (4C) ──────────────────────────────────────────────
 
 
-class TestRebidGerberResponse:
-    rule = RebidGerberResponse()
+class TestRebidGerber0or4Aces:
+    rule = RebidGerber0or4Aces()
 
     def test_0_aces(self) -> None:
         """0 aces -> 4D."""
@@ -215,30 +217,6 @@ class TestRebidGerberResponse:
         assert self.rule.applies(ctx)
         result = self.rule.select(ctx)
         assert str(result.bid) == "4D"
-
-    def test_1_ace(self) -> None:
-        """1 ace -> 4H."""
-        # AK3.KQ4.KJ3.Q432 = 17 HCP, 1 ace
-        ctx = _ctx("AK3.KQ4.KJ3.Q432", "4C")
-        assert self.rule.applies(ctx)
-        result = self.rule.select(ctx)
-        assert str(result.bid) == "4H"
-
-    def test_2_aces(self) -> None:
-        """2 aces -> 4S."""
-        # AQ3.KQ4.AJ3.Q432 = 17 HCP, 2 aces
-        ctx = _ctx("AQ3.KQ4.AJ3.Q432", "4C")
-        assert self.rule.applies(ctx)
-        result = self.rule.select(ctx)
-        assert str(result.bid) == "4S"
-
-    def test_3_aces(self) -> None:
-        """3 aces -> 4NT."""
-        # AQ3.AJ4.AJ3.Q432 = 16 HCP, 3 aces
-        ctx = _ctx("AQ3.AJ4.AJ3.Q432", "4C")
-        assert self.rule.applies(ctx)
-        result = self.rule.select(ctx)
-        assert str(result.bid) == "4NT"
 
     def test_4_aces(self) -> None:
         """4 aces -> 4D (same as 0)."""
@@ -252,6 +230,42 @@ class TestRebidGerberResponse:
         """Does not apply after 3C (minor invite)."""
         ctx = _ctx("AK3.KQ4.KJ3.Q432", "3C")
         assert not self.rule.applies(ctx)
+
+
+class TestRebidGerber1Ace:
+    rule = RebidGerber1Ace()
+
+    def test_1_ace(self) -> None:
+        """1 ace -> 4H."""
+        # AK3.KQ4.KJ3.Q432 = 17 HCP, 1 ace
+        ctx = _ctx("AK3.KQ4.KJ3.Q432", "4C")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "4H"
+
+
+class TestRebidGerber2Aces:
+    rule = RebidGerber2Aces()
+
+    def test_2_aces(self) -> None:
+        """2 aces -> 4S."""
+        # AQ3.KQ4.AJ3.Q432 = 17 HCP, 2 aces
+        ctx = _ctx("AQ3.KQ4.AJ3.Q432", "4C")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "4S"
+
+
+class TestRebidGerber3Aces:
+    rule = RebidGerber3Aces()
+
+    def test_3_aces(self) -> None:
+        """3 aces -> 4NT."""
+        # AQ3.AJ4.AJ3.Q432 = 16 HCP, 3 aces
+        ctx = _ctx("AQ3.AJ4.AJ3.Q432", "4C")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "4NT"
 
 
 # ── After Texas Transfer (4D/4H) ──────────────────────────────────
@@ -631,39 +645,39 @@ class TestRebid2NTComplete3SPuppet:
 # ── After Gerber (4C) ────────────────────────────────────────────
 
 
-class TestRebid2NTGerberResponse:
-    rule = Rebid2NTGerberResponse()
+class TestRebidGerberOver2NT:
+    """Gerber rules also apply after 2NT opening (combined via Any prereqs)."""
 
     def test_2_aces(self) -> None:
-        """2 aces -> 4S."""
-        # AQ3.AQ4.AQ32.K43 = 21 HCP, 2 aces (SA, HA)
+        """2 aces -> 4S over 2NT."""
         ctx = _ctx_2nt("AQ3.AQ4.KQ32.K43", "4C")
-        assert self.rule.applies(ctx)
-        result = self.rule.select(ctx)
+        rule = RebidGerber2Aces()
+        assert rule.applies(ctx)
+        result = rule.select(ctx)
         assert str(result.bid) == "4S"
 
     def test_1_ace(self) -> None:
-        """1 ace -> 4H."""
-        # AQ3.KQ4.KQ32.K43 = 21 HCP, 1 ace (SA)
+        """1 ace -> 4H over 2NT."""
         ctx = _ctx_2nt("AQ3.KQ4.KQ32.K43", "4C")
-        assert self.rule.applies(ctx)
-        result = self.rule.select(ctx)
+        rule = RebidGerber1Ace()
+        assert rule.applies(ctx)
+        result = rule.select(ctx)
         assert str(result.bid) == "4H"
 
     def test_0_aces(self) -> None:
-        """0 aces -> 4D."""
-        # KQ3.KQ4.KQ32.KQ3 = 22 HCP but 0 aces (unrealistic for 2NT but tests logic)
+        """0 aces -> 4D over 2NT."""
         ctx = _ctx_2nt("KQ3.KQ4.KQ32.KQ3", "4C")
-        assert self.rule.applies(ctx)
-        result = self.rule.select(ctx)
+        rule = RebidGerber0or4Aces()
+        assert rule.applies(ctx)
+        result = rule.select(ctx)
         assert str(result.bid) == "4D"
 
     def test_3_aces(self) -> None:
-        """3 aces -> 4NT."""
-        # AQ3.A4.AQ32.KQ43 = 20 HCP, 3 aces
+        """3 aces -> 4NT over 2NT."""
         ctx = _ctx_2nt("AQ3.A4.AQ32.KQ43", "4C")
-        assert self.rule.applies(ctx)
-        result = self.rule.select(ctx)
+        rule = RebidGerber3Aces()
+        assert rule.applies(ctx)
+        result = rule.select(ctx)
         assert str(result.bid) == "4NT"
 
 

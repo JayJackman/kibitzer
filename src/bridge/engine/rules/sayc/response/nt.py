@@ -59,6 +59,8 @@ def _partner_opened_2nt(ctx: BiddingContext) -> bool:
 
 
 _has_5_plus_major = HasMajor(5)
+_has_5h = SuitLength(Suit.HEARTS, min_len=5)
+_has_5s = SuitLength(Suit.SPADES, min_len=5)
 _has_6_plus_major = HasMajor(6)
 _has_6_plus_minor = HasMinor(6)
 _has_4h = SuitLength(Suit.HEARTS, min_len=4)
@@ -294,16 +296,16 @@ class RespondStayman(Rule):
         )
 
 
-class RespondJacobyTransfer(Rule):
-    """Jacoby transfer -- 2D (5+ hearts) or 2H (5+ spades).
+class RespondJacobyTransferHearts(Rule):
+    """Jacoby transfer to hearts -- 2D shows 5+ hearts.
 
-    Any strength. Opener completes the transfer (or super-accepts with
-    17 HCP and 4+ support). SAYC (research/05-conventions.md).
+    Any strength. Opener completes the transfer (bids 2H) or
+    super-accepts with 17 HCP and 4+ support. SAYC (research/05-conventions.md).
     """
 
     @property
     def name(self) -> str:
-        return "response.jacoby_transfer"
+        return "response.jacoby_transfer_hearts"
 
     @property
     def category(self) -> Category:
@@ -319,19 +321,56 @@ class RespondJacobyTransfer(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return _has_5_plus_major
+        return _has_5h
 
     def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
-        return frozenset({SuitBid(2, Suit.DIAMONDS), SuitBid(2, Suit.HEARTS)})
+        return frozenset({SuitBid(2, Suit.DIAMONDS)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
-        suit = _longest_major(ctx)
-        transfer_suit = Suit.DIAMONDS if suit == Suit.HEARTS else Suit.HEARTS
         return RuleResult(
-            bid=SuitBid(2, transfer_suit),
+            bid=SuitBid(2, Suit.DIAMONDS),
             rule_name=self.name,
-            explanation=f"5+ {suit.letter} -- Jacoby transfer over 1NT",
-            alerts=(f"Transfer -- showing 5+ {suit.letter}",),
+            explanation="5+ H -- Jacoby transfer over 1NT",
+            alerts=("Transfer -- showing 5+ H",),
+        )
+
+
+class RespondJacobyTransferSpades(Rule):
+    """Jacoby transfer to spades -- 2H shows 5+ spades.
+
+    Any strength. Opener completes the transfer (bids 2S) or
+    super-accepts with 17 HCP and 4+ support. SAYC (research/05-conventions.md).
+    """
+
+    @property
+    def name(self) -> str:
+        return "response.jacoby_transfer_spades"
+
+    @property
+    def category(self) -> Category:
+        return Category.RESPONSE
+
+    @property
+    def priority(self) -> int:
+        return 445
+
+    @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_1nt
+
+    @property
+    def conditions(self) -> Condition:
+        return _has_5s
+
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(2, Suit.HEARTS)})
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        return RuleResult(
+            bid=SuitBid(2, Suit.HEARTS),
+            rule_name=self.name,
+            explanation="5+ S -- Jacoby transfer over 1NT",
+            alerts=("Transfer -- showing 5+ S",),
         )
 
 
@@ -722,10 +761,10 @@ class RespondStaymanOver2NT(Rule):
         )
 
 
-class RespondTransferOver2NT(Rule):
-    """Jacoby transfer -- 3D (5+ hearts) or 3H (5+ spades) over 2NT.
+class RespondTransferHeartsOver2NT(Rule):
+    """Jacoby transfer to hearts -- 3D shows 5+ hearts over 2NT.
 
-    e.g. 2NT->3D (transfer to 3H), 2NT->3H (transfer to 3S)
+    e.g. 2NT->3D (transfer to 3H)
 
     Any strength. Opener completes the transfer.
     SAYC (research/05-conventions.md).
@@ -733,7 +772,7 @@ class RespondTransferOver2NT(Rule):
 
     @property
     def name(self) -> str:
-        return "response.transfer_2nt"
+        return "response.transfer_hearts_2nt"
 
     @property
     def category(self) -> Category:
@@ -749,19 +788,58 @@ class RespondTransferOver2NT(Rule):
 
     @property
     def conditions(self) -> Condition:
-        return _has_5_plus_major
+        return _has_5h
 
     def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
-        return frozenset({SuitBid(3, Suit.DIAMONDS), SuitBid(3, Suit.HEARTS)})
+        return frozenset({SuitBid(3, Suit.DIAMONDS)})
 
     def select(self, ctx: BiddingContext) -> RuleResult:
-        suit = _longest_major(ctx)
-        transfer_suit = Suit.DIAMONDS if suit == Suit.HEARTS else Suit.HEARTS
         return RuleResult(
-            bid=SuitBid(3, transfer_suit),
+            bid=SuitBid(3, Suit.DIAMONDS),
             rule_name=self.name,
-            explanation=f"5+ {suit.letter} -- transfer over 2NT",
-            alerts=(f"Transfer -- showing 5+ {suit.letter}",),
+            explanation="5+ H -- transfer over 2NT",
+            alerts=("Transfer -- showing 5+ H",),
+        )
+
+
+class RespondTransferSpadesOver2NT(Rule):
+    """Jacoby transfer to spades -- 3H shows 5+ spades over 2NT.
+
+    e.g. 2NT->3H (transfer to 3S)
+
+    Any strength. Opener completes the transfer.
+    SAYC (research/05-conventions.md).
+    """
+
+    @property
+    def name(self) -> str:
+        return "response.transfer_spades_2nt"
+
+    @property
+    def category(self) -> Category:
+        return Category.RESPONSE
+
+    @property
+    def priority(self) -> int:
+        return 434
+
+    @property
+    def prerequisites(self) -> Condition:
+        return _partner_opened_2nt
+
+    @property
+    def conditions(self) -> Condition:
+        return _has_5s
+
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(3, Suit.HEARTS)})
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        return RuleResult(
+            bid=SuitBid(3, Suit.HEARTS),
+            rule_name=self.name,
+            explanation="5+ S -- transfer over 2NT",
+            alerts=("Transfer -- showing 5+ S",),
         )
 
 

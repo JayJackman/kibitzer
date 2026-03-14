@@ -180,13 +180,17 @@ export interface Bound {
   max: number | null;
 }
 
-/** What we know about a hand from the auction (HCP, suit lengths, shape). */
+/** What we know about a hand from the auction (HCP, suit lengths, shape, aces/kings). */
 export interface HandDescription {
   hcp: Bound;
   total_pts: Bound;
   /** Suit lengths keyed by lowercase suit name ("spades", "hearts", etc.). */
   lengths: Record<string, Bound>;
   balanced: boolean | null;
+  /** Ace count range (0-4). */
+  aces: Bound;
+  /** King count range (0-4). */
+  kings: Bound;
 }
 
 /** A single rule that matched a bid, with what it promises about the hand. */

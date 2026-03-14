@@ -30,7 +30,7 @@ from typing import TYPE_CHECKING
 
 from bridge import evaluate
 from bridge.engine.hand_description import HandDescription
-from bridge.model.card import Suit
+from bridge.model.card import SUITS_SHDC, Rank, Suit
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -878,6 +878,100 @@ class SuitLength(Condition):
             detail = f"{length} {suit_name} ({self.label})"
         else:
             detail = f"{length} {suit_name} (need {self.label})"
+        return ConditionResult(passed=passed, label=self.label, detail=detail)
+
+
+class AceCount(Condition):
+    """Test whether the hand's ace count falls within a range.
+
+    Examples::
+
+        AceCount(min_aces=2)       # 2+ aces
+        AceCount(max_aces=1)       # 0-1 aces
+        AceCount(min_aces=3, max_aces=3)  # exactly 3 aces
+    """
+
+    def __init__(
+        self,
+        min_aces: int | None = None,
+        max_aces: int | None = None,
+    ) -> None:
+        self._min = min_aces
+        self._max = max_aces
+
+    @property
+    def label(self) -> str:
+        if self._min is not None and self._max is not None:
+            if self._min == self._max:
+                return f"exactly {self._min} ace"
+            return f"{self._min}-{self._max} aces"
+        if self._min is not None:
+            return f"{self._min}+ aces"
+        if self._max is not None:
+            return f"0-{self._max} aces"
+        return "any aces"
+
+    def promises(self, ctx: AuctionContext, bid: Bid) -> HandDescription:
+        return HandDescription(aces=(self._min, self._max))
+
+    def check(self, ctx: BiddingContext) -> ConditionResult:
+        count = sum(ctx.hand.has_card(s, Rank.ACE) for s in SUITS_SHDC)
+        passed = True
+        if self._min is not None and count < self._min:
+            passed = False
+        if self._max is not None and count > self._max:
+            passed = False
+        if passed:
+            detail = f"{count} aces ({self.label})"
+        else:
+            detail = f"{count} aces (need {self.label})"
+        return ConditionResult(passed=passed, label=self.label, detail=detail)
+
+
+class KingCount(Condition):
+    """Test whether the hand's king count falls within a range.
+
+    Examples::
+
+        KingCount(min_kings=2)       # 2+ kings
+        KingCount(max_kings=1)       # 0-1 kings
+        KingCount(min_kings=3, max_kings=3)  # exactly 3 kings
+    """
+
+    def __init__(
+        self,
+        min_kings: int | None = None,
+        max_kings: int | None = None,
+    ) -> None:
+        self._min = min_kings
+        self._max = max_kings
+
+    @property
+    def label(self) -> str:
+        if self._min is not None and self._max is not None:
+            if self._min == self._max:
+                return f"exactly {self._min} king"
+            return f"{self._min}-{self._max} kings"
+        if self._min is not None:
+            return f"{self._min}+ kings"
+        if self._max is not None:
+            return f"0-{self._max} kings"
+        return "any kings"
+
+    def promises(self, ctx: AuctionContext, bid: Bid) -> HandDescription:
+        return HandDescription(kings=(self._min, self._max))
+
+    def check(self, ctx: BiddingContext) -> ConditionResult:
+        count = sum(ctx.hand.has_card(s, Rank.KING) for s in SUITS_SHDC)
+        passed = True
+        if self._min is not None and count < self._min:
+            passed = False
+        if self._max is not None and count > self._max:
+            passed = False
+        if passed:
+            detail = f"{count} kings ({self.label})"
+        else:
+            detail = f"{count} kings (need {self.label})"
         return ConditionResult(passed=passed, label=self.label, detail=detail)
 
 

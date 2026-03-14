@@ -42,6 +42,8 @@ class HandDescription:
     total_pts: Bound = UNBOUNDED
     lengths: SuitLengths = field(default_factory=dict)
     balanced: bool | None = None
+    aces: Bound = UNBOUNDED
+    kings: Bound = UNBOUNDED
 
     def intersect(self, other: HandDescription) -> HandDescription:
         """Tighten: combine two descriptions where both must hold."""
@@ -50,6 +52,8 @@ class HandDescription:
             total_pts=_intersect_bounds(self.total_pts, other.total_pts),
             lengths=_intersect_lengths(self.lengths, other.lengths),
             balanced=_intersect_balanced(self.balanced, other.balanced),
+            aces=_intersect_bounds(self.aces, other.aces),
+            kings=_intersect_bounds(self.kings, other.kings),
         )
 
     def union(self, other: HandDescription) -> HandDescription:
@@ -59,6 +63,8 @@ class HandDescription:
             total_pts=_union_bounds(self.total_pts, other.total_pts),
             lengths=_union_lengths(self.lengths, other.lengths),
             balanced=_union_balanced(self.balanced, other.balanced),
+            aces=_union_bounds(self.aces, other.aces),
+            kings=_union_bounds(self.kings, other.kings),
         )
 
     def negated(self) -> HandDescription:
@@ -85,6 +91,8 @@ class HandDescription:
             total_pts=_negate_bound(self.total_pts),
             lengths=new_lengths,
             balanced=neg_balanced,
+            aces=_negate_bound(self.aces),
+            kings=_negate_bound(self.kings),
         )
 
     def __and__(self, other: HandDescription) -> HandDescription:

@@ -78,12 +78,14 @@ class BoundResponse(BaseModel):
 
 
 class HandDescriptionResponse(BaseModel):
-    """What we know about a hand: HCP, total points, suit lengths, shape."""
+    """What we know about a hand: HCP, total points, suit lengths, shape, aces/kings."""
 
     hcp: BoundResponse
     total_pts: BoundResponse
     lengths: dict[str, BoundResponse]
     balanced: bool | None
+    aces: BoundResponse
+    kings: BoundResponse
 
 
 class RuleMatchResponse(BaseModel):
@@ -134,6 +136,8 @@ def serialize_hand_description(desc: HandDescription) -> HandDescriptionResponse
             for suit, bound in desc.lengths.items()
         },
         balanced=desc.balanced,
+        aces=_serialize_bound(desc.aces),
+        kings=_serialize_bound(desc.kings),
     )
 
 

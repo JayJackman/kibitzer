@@ -24,7 +24,6 @@ from .rebid import (
     Rebid2NTCompleteTexas,
     Rebid2NTCompleteTransfer,
     Rebid2NTDecline4NT,
-    Rebid2NTGerberResponse,
     Rebid2NTOver1NT,
     Rebid2NTPassAfter3NT,
     Rebid2NTStayman3D,
@@ -54,7 +53,10 @@ from .rebid import (
     RebidGameAfterRaiseMajor,
     RebidGameAfterSingleRaiseMinor,
     RebidGameOver1NT,
-    RebidGerberResponse,
+    RebidGerber0or4Aces,
+    RebidGerber1Ace,
+    RebidGerber2Aces,
+    RebidGerber3Aces,
     RebidHelpSuitGameTry,
     RebidInviteAfterRaiseMajor,
     RebidInviteAfterRaiseMinor,
@@ -111,6 +113,7 @@ from .rebid import (
     RebidSuperAccept,
 )
 from .reresponse import (
+    # Suit opening
     Accept2NTAfterMinorRaise,
     Accept3yJumpRaise,
     Accept3yJumpRaise3NT,
@@ -129,6 +132,9 @@ from .reresponse import (
     Blackwood4NTAfterShortness,
     Blackwood4NTAfterSource,
     BlackwoodResponseAfterLimitRaise,
+    # NT opening (Puppet)
+    CorrectPuppet2NTDiamonds,
+    CorrectPuppetDiamonds,
     Decline2NTAfterMinorRaise,
     Decline3yJumpRaise,
     DeclineGameTry,
@@ -149,14 +155,40 @@ from .reresponse import (
     FourthSuitAfter2Over1NS,
     FourthSuitAfterOwnSuit,
     FourthSuitForcing,
+    # NT opening (Stayman)
+    Game3NT2NTDenial,
+    Game3NT2NTNoFit,
+    Game3NTAfterDenial,
+    # NT opening (Transfers)
+    Game3NTAfterTransfer,
+    Game3NTStaymanNoFit,
+    Game3NTSuperAccept,
+    Game3NTTransfer2NT,
+    Game4MSuperAccept,
+    Game4MTransfer2NT,
     GameInMinorAfterRaise,
+    GameRaise2NTStaymanFit,
+    GameRaiseStaymanFit,
+    GameRaiseTransfer,
     GFAfterReverse,
+    GFMajor2NTDenial,
+    GFMajorAfterDenial,
+    GFMajors55,
     GFRaiseReverseSuit,
+    Invite2NTAfterDenial,
+    Invite2NTAfterTransfer,
+    Invite2NTStaymanNoFit,
+    InviteMajorAfterDenial,
+    InviteMajors55,
+    InviteRaiseStaymanFit,
+    InviteRaiseTransfer,
     JumpInOwnSuitAfterReverse,
     JumpOwnMajorAfter1NT,
     JumpRebidAfter1NT,
     JumpRebidOwnSuitAfterNewSuit,
     JumpRebidOwnSuitAfterOwnSuit,
+    # NT opening (Gerber)
+    KingAskAfterGerber,
     NewSuitAfter1NTForcing,
     NewSuitAfter2Over1OwnSuit,
     NewSuitAt1Level,
@@ -178,6 +210,7 @@ from .reresponse import (
     PassAfterDoubleJumpRebid,
     PassAfterGame,
     PassAfterGameJumpOver1NT,
+    PassAfterGerber,
     PassAfterJacoby4M,
     PassAfterJumpRebid,
     PassAfterJumpRebidOver1NT,
@@ -186,8 +219,18 @@ from .reresponse import (
     PassAfterMinorRaise2Over1,
     PassAfterNewSuit,
     PassAfterNewSuit1NT,
+    # NT opening (Signoff)
+    PassAfterNTReresponse,
     PassAfterRaise,
     PassAfterSuitRebid1NT,
+    PassAfterTexas,
+    PassGarbageStayman,
+    PassGarbageStaymanFit,
+    PassPuppet2NTClubs,
+    PassPuppetClubs,
+    PassSuperAccept,
+    PassTransfer2NTSignoff,
+    PassTransferSignoff,
     PreferenceAfter2Over1NS,
     PreferenceAfterOwnSuit,
     PreferenceAfterReverse,
@@ -195,6 +238,10 @@ from .reresponse import (
     PreferenceAfterReverseOver1NT,
     PreferenceTo1stSuit1NT,
     PreferenceToOpenerFirst,
+    Quant4NT2NTDenial,
+    Quant4NT2NTStaymanFit,
+    Quant4NTSuperAccept,
+    Quant4NTTransfer2NT,
     Raise2ndSuitAfterMinorRaise,
     RaiseJumpShiftSuit,
     RaiseNewSuit1NTResponse,
@@ -215,6 +262,9 @@ from .reresponse import (
     ReturnToMinor,
     ReturnToOpenerSuitAfterJS1NT,
     ShowSecondSuitAfterJS,
+    SignoffAfterGerber,
+    SlamMinor2NTDenial,
+    SlamMinorAfterDenial,
     SlamTryMinorAfterRaise,
     SupportJumpShiftOver1NT,
     SupportOpenerFirstAfterJS,
@@ -283,7 +333,8 @@ from .response import (
     RespondGerber,
     RespondGerberOver2NT,
     RespondJacoby2NT,
-    RespondJacobyTransfer,
+    RespondJacobyTransferHearts,
+    RespondJacobyTransferSpades,
     RespondJumpShift,
     RespondLimitRaiseClubs,
     RespondLimitRaiseDiamonds,
@@ -308,7 +359,8 @@ from .response import (
     RespondStaymanOver2NT,
     RespondTexasOver2NT,
     RespondTexasTransfer,
-    RespondTransferOver2NT,
+    RespondTransferHeartsOver2NT,
+    RespondTransferSpadesOver2NT,
 )
 
 
@@ -351,7 +403,8 @@ def create_sayc_registry() -> RuleRegistry:
     reg.register(Respond3MajorOver1NT())
     reg.register(RespondTexasTransfer())
     reg.register(RespondStayman())
-    reg.register(RespondJacobyTransfer())
+    reg.register(RespondJacobyTransferHearts())
+    reg.register(RespondJacobyTransferSpades())
     reg.register(Respond3NTOver1NT())
     reg.register(Respond3MinorOver1NT())
     reg.register(Respond2NTOver1NT())
@@ -438,7 +491,10 @@ def create_sayc_registry() -> RuleRegistry:
     reg.register(RebidComplete2SPuppet())
 
     # ── Opener rebids after 1NT opening (conventions) ────────────
-    reg.register(RebidGerberResponse())
+    reg.register(RebidGerber0or4Aces())
+    reg.register(RebidGerber1Ace())
+    reg.register(RebidGerber2Aces())
+    reg.register(RebidGerber3Aces())
     reg.register(RebidCompleteTexas())
 
     # ── Opener rebids after 1NT opening (raises/declines) ────────
@@ -473,7 +529,8 @@ def create_sayc_registry() -> RuleRegistry:
     reg.register(Respond4NTOver2NT())
     reg.register(RespondTexasOver2NT())
     reg.register(RespondStaymanOver2NT())
-    reg.register(RespondTransferOver2NT())
+    reg.register(RespondTransferHeartsOver2NT())
+    reg.register(RespondTransferSpadesOver2NT())
     reg.register(Respond3NTOver2NT())
     reg.register(Respond3SPuppetOver2NT())
     reg.register(RespondPassOver2NT())
@@ -488,7 +545,7 @@ def create_sayc_registry() -> RuleRegistry:
     reg.register(Rebid2NTComplete3SPuppet())
 
     # ── Opener rebids after 2NT opening (conventions) ──────────────
-    reg.register(Rebid2NTGerberResponse())
+    # Gerber over 2NT now combined into RebidGerber* rules above
     reg.register(Rebid2NTCompleteTexas())
 
     # ── Opener rebids after 2NT opening (raises/declines) ──────────
@@ -732,5 +789,73 @@ def create_sayc_registry() -> RuleRegistry:
 
     # After 3NT response
     reg.register(PassAfter3NTResponse())
+
+    # ── Responder rebids after NT opening (reresponse) ──────────────
+
+    # After Stayman denial over 1NT (1NT->2C->2D->?)
+    reg.register(PassGarbageStayman())
+    reg.register(InviteMajorAfterDenial())
+    reg.register(Invite2NTAfterDenial())
+    reg.register(GFMajorAfterDenial())
+    reg.register(Game3NTAfterDenial())
+    reg.register(SlamMinorAfterDenial())
+
+    # After Stayman fit over 1NT (1NT->2C->2H/2S->?)
+    reg.register(PassGarbageStaymanFit())
+    reg.register(InviteRaiseStaymanFit())
+    reg.register(GameRaiseStaymanFit())
+    reg.register(Invite2NTStaymanNoFit())
+    reg.register(Game3NTStaymanNoFit())
+
+    # After Stayman denial over 2NT (2NT->3C->3D->?)
+    reg.register(GFMajor2NTDenial())
+    reg.register(Game3NT2NTDenial())
+    reg.register(SlamMinor2NTDenial())
+    reg.register(Quant4NT2NTDenial())
+
+    # After Stayman fit over 2NT (2NT->3C->3H/3S->?)
+    reg.register(GameRaise2NTStaymanFit())
+    reg.register(Game3NT2NTNoFit())
+    reg.register(Quant4NT2NTStaymanFit())
+
+    # After normal transfer completion over 1NT (1NT->2D->2H->? or 1NT->2H->2S->?)
+    reg.register(PassTransferSignoff())
+    reg.register(Invite2NTAfterTransfer())
+    reg.register(InviteRaiseTransfer())
+    reg.register(InviteMajors55())
+    reg.register(Game3NTAfterTransfer())
+    reg.register(GameRaiseTransfer())
+    reg.register(GFMajors55())
+
+    # After super-accept over 1NT (1NT->2D->3H->? or 1NT->2H->3S->?)
+    reg.register(PassSuperAccept())
+    reg.register(Game3NTSuperAccept())
+    reg.register(Game4MSuperAccept())
+    reg.register(Quant4NTSuperAccept())
+
+    # After transfer completion over 2NT (2NT->3D->3H->? or 2NT->3H->3S->?)
+    reg.register(PassTransfer2NTSignoff())
+    reg.register(Game3NTTransfer2NT())
+    reg.register(Game4MTransfer2NT())
+    reg.register(Quant4NTTransfer2NT())
+
+    # After puppet completion over 1NT (1NT->2S->3C->?)
+    reg.register(PassPuppetClubs())
+    reg.register(CorrectPuppetDiamonds())
+
+    # After puppet completion over 2NT (2NT->3S->4C->?)
+    reg.register(PassPuppet2NTClubs())
+    reg.register(CorrectPuppet2NTDiamonds())
+
+    # After Gerber response over 1NT/2NT (xNT->4C->response->?)
+    reg.register(KingAskAfterGerber())
+    reg.register(SignoffAfterGerber())
+    reg.register(PassAfterGerber())
+
+    # After Texas transfer completion (xNT->4D/4H->4H/4S->Pass)
+    reg.register(PassAfterTexas())
+
+    # Catch-all pass for NT auctions
+    reg.register(PassAfterNTReresponse())
 
     return reg
