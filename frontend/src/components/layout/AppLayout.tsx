@@ -15,6 +15,7 @@
  */
 import { Link, Outlet, useFetcher, useRouteLoaderData } from "react-router";
 import type { User } from "@/api/types";
+import Glossary from "@/components/glossary/Glossary";
 import { Button } from "@/components/ui/button";
 
 export default function AppLayout() {
@@ -38,8 +39,9 @@ export default function AppLayout() {
             Kibitzer
           </Link>
 
-          {/* Right side: username + logout */}
+          {/* Right side: glossary + username + logout */}
           <div className="flex items-center gap-4">
+            <Glossary />
             <span className="text-sm text-card-muted-foreground">
               {user.username}
             </span>

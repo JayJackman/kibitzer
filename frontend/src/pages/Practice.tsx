@@ -147,8 +147,9 @@ function PracticeView({ state }: { state: PracticeState }) {
     setBidAnalyses(null);
     setHoveredBid(null);
 
-    // Only fetch when it's the player's turn and bids are available.
-    if (!is_my_turn || legal_bids.length === 0) return;
+    // Only fetch when the player can bid (own turn or proxy-bidding
+    // in helper mode) and bids are available.
+    if (!canBid || legal_bids.length === 0) return;
 
     // The effect callback itself can't be async (React ignores the
     // returned promise), so we define an inner async function and
