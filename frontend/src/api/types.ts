@@ -220,6 +220,8 @@ export interface AuctionAnalysis {
   players: Record<string, HandDescription>;
   /** Per-bid analyses in auction order (non-pass bids only). */
   bid_analyses: BidAnalysis[];
+  /** Cumulative per-seat hand descriptions at each bid point (parallel to bid_analyses). */
+  bid_cumulative: HandDescription[];
   /** Legal bids at the current position (empty if auction is complete). */
   legal_bids: string[];
   /** Whose turn it is (null if auction is complete). */

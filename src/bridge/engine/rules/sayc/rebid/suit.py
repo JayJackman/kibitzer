@@ -244,12 +244,7 @@ def _partner_jump_shifted(ctx: BiddingContext) -> bool:
 # ── Suit-finding helpers ────────────────────────────────────────────
 
 
-@condition("6+ card opening suit")
-def _has_rebiddable_suit(ctx: BiddingContext) -> bool:
-    """Whether opener has 6+ cards in their opening suit."""
-    if (suit := _my_opening_suit_safe(ctx)) is None:
-        return False
-    return ctx.hand.suit_length(suit) >= 6
+_has_rebiddable_suit = HasSuitFit(_my_opening_suit, min_len=6)
 
 
 def _find_lower_new_suit(ctx: BiddingContext) -> Suit | None:

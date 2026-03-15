@@ -112,11 +112,14 @@ class AuctionAnalysis:
     ``players`` maps each seat to a ``HandDescription`` built by
     intersecting the promises of all non-pass bids that player made.
     ``bid_analyses`` contains the per-bid breakdown (non-pass bids only,
-    in auction order).
+    in auction order).  ``bid_cumulative`` is parallel to ``bid_analyses``
+    and contains the running per-seat intersection at each step -- what
+    we know about the bidder after all their bids up to that point.
     """
 
     players: dict[Seat, HandDescription]
     bid_analyses: tuple[BidAnalysis, ...]
+    bid_cumulative: tuple[HandDescription, ...]
 
 
 def analyze_auction(
@@ -146,15 +149,18 @@ def analyze_auction(
         vulnerability=auction.vulnerability,
     )
     analyses: list[BidAnalysis] = []
+    cumulative: list[HandDescription] = []
 
     for seat, bid in auction.bids:
         if not is_pass(bid):
             analysis = analyze_bid(partial, bid, registry)
             descriptions[seat] = descriptions[seat] & analysis.promise
             analyses.append(analysis)
+            cumulative.append(descriptions[seat])
         partial.add_bid(bid)
 
     return AuctionAnalysis(
         players=descriptions,
         bid_analyses=tuple(analyses),
+        bid_cumulative=tuple(cumulative),
     )

@@ -39,8 +39,8 @@ import {
   useSubmit,
 } from "react-router";
 
-import type { AllBidsAnalysis, Advice, PracticeState, SessionInfo } from "@/api/types";
-import { analyzeAllBids } from "@/api/endpoints";
+import type { AllBidsAnalysis, Advice, AuctionAnalysis, PracticeState, SessionInfo } from "@/api/types";
+import { analyzeAllBids, analyzeAuction } from "@/api/endpoints";
 import { useBidKeyboard } from "@/hooks/useBidKeyboard";
 import { SEAT_LABELS } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
@@ -181,6 +181,35 @@ function PracticeView({ state }: { state: PracticeState }) {
   const hoveredAnalysis =
     hoveredBid && bidAnalyses ? bidAnalyses.analyses[hoveredBid] ?? null : null;
 
+  // --- Auction analysis (helper mode) ---
+  // In helper mode, fetch per-bid hand descriptions so users can see
+  // what each bid communicated (HCP range, suit lengths, etc.) in the
+  // bid history. Not needed in practice mode where the engine already
+  // provides explanations from the matched rule.
+  const [auctionAnalysis, setAuctionAnalysis] = useState<AuctionAnalysis | null>(null);
+
+  useEffect(() => {
+    if (!isHelper) return;
+
+    setAuctionAnalysis(null);
+    const bidStrings = auction.bids.map((b) => b.bid);
+    if (bidStrings.length === 0) return;
+
+    let cancelled = false;
+    async function fetchAnalysis() {
+      try {
+        const result = await analyzeAuction(
+          auction.dealer, auction.vulnerability, bidStrings,
+        );
+        if (!cancelled) setAuctionAnalysis(result);
+      } catch {
+        // Non-critical -- degrade gracefully if the analysis fails.
+      }
+    }
+    fetchAnalysis();
+    return () => { cancelled = true; };
+  }, [isHelper, auction.dealer, auction.vulnerability, auctionBidsKey]);
+
   // --- Advice visibility ---
   const [showAdvice, setShowAdvice] = useState(false);
   useEffect(() => {
@@ -273,6 +302,7 @@ function PracticeView({ state }: { state: PracticeState }) {
             <AuctionHistory
               bids={auction.bids}
               yourSeat={state.your_seat}
+              bidDescriptions={auctionAnalysis?.bid_cumulative}
             />
           )}
         </div>

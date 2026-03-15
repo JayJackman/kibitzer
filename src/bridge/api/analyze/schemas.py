@@ -115,6 +115,7 @@ class AuctionAnalysisResponse(BaseModel):
 
     players: dict[str, HandDescriptionResponse]
     bid_analyses: list[BidAnalysisResponse]
+    bid_cumulative: list[HandDescriptionResponse]
     legal_bids: list[str]
     current_seat: str | None
 
@@ -174,6 +175,9 @@ def serialize_auction_analysis(
             for seat, desc in analysis.players.items()
         },
         bid_analyses=[serialize_bid_analysis(ba) for ba in analysis.bid_analyses],
+        bid_cumulative=[
+            serialize_hand_description(desc) for desc in analysis.bid_cumulative
+        ],
         legal_bids=compute_legal_bids(auction) if not auction.is_complete else [],
         current_seat=str(auction.current_seat) if not auction.is_complete else None,
     )
