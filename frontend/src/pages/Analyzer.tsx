@@ -17,11 +17,12 @@
 import { useCallback, useEffect, useState } from "react";
 
 import type {
+  AllBidsAnalysis,
   AuctionAnalysis,
   AuctionBid,
   Seat,
 } from "@/api/types";
-import { analyzeAuction } from "@/api/endpoints";
+import { analyzeAllBids, analyzeAuction } from "@/api/endpoints";
 import { SEAT_LABELS } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import {
@@ -64,6 +65,7 @@ export default function AnalyzerPage() {
   const [bids, setBids] = useState<string[]>([]);
   const [analysis, setAnalysis] = useState<AuctionAnalysis | null>(null);
   const [hoveredBid, setHoveredBid] = useState<string | null>(null);
+  const [bidAnalyses, setBidAnalyses] = useState<AllBidsAnalysis | null>(null);
 
   // Derive the legal bids and current seat from analysis (if available),
   // otherwise every bid is legal in a fresh auction.
@@ -91,6 +93,35 @@ export default function AnalyzerPage() {
       cancelled = true;
     };
   }, [dealer, vuln, bids]);
+
+  // --- Trial bids (hover preview) ---
+  // Batch-fetch analyses for all legal bids so hovering is instant.
+  // Re-fetches whenever the auction changes (new bids alter which
+  // bids are legal and what each would mean in the current position).
+  const legalBidsKey = legalBids.join(",");
+
+  useEffect(() => {
+    setBidAnalyses(null);
+    setHoveredBid(null);
+
+    if (isComplete || legalBids.length === 0) return;
+
+    let cancelled = false;
+    async function fetchAnalyses() {
+      try {
+        const result = await analyzeAllBids(dealer, vuln, bids);
+        if (!cancelled) setBidAnalyses(result);
+      } catch {
+        // Trial bids are a nice-to-have, not critical.
+      }
+    }
+    fetchAnalyses();
+    return () => { cancelled = true; };
+  }, [dealer, vuln, legalBidsKey, isComplete]);
+
+  // Look up the hovered bid's analysis from the cached batch response.
+  const hoveredAnalysis =
+    hoveredBid && bidAnalyses ? bidAnalyses.analyses[hoveredBid] ?? null : null;
 
   // --- Bid handlers ---
   const handleBidClick = useCallback(
@@ -215,14 +246,8 @@ export default function AnalyzerPage() {
             </Card>
           )}
 
-          {/* Hover preview (when hovering a bid in the grid) */}
-          {hoveredBid && analysis && (() => {
-            // Find if this bid is in the per-bid breakdowns
-            const bidAnalysis = analysis.bid_analyses.find(
-              (ba) => ba.bid === hoveredBid,
-            );
-            return bidAnalysis ? <BidPreview analysis={bidAnalysis} /> : null;
-          })()}
+          {/* Hover preview: shows what the hovered bid would communicate. */}
+          {hoveredAnalysis && <BidPreview analysis={hoveredAnalysis} />}
 
           {/* Undo / Reset buttons */}
           {bids.length > 0 && (
