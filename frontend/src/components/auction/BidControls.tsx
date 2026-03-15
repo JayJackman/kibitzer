@@ -14,6 +14,7 @@
  *
  * Bid strings match the backend format: "1C", "2H", "3NT", "Pass", "X", "XX".
  */
+import { useRef, useState } from "react";
 import { Form, useNavigation } from "react-router";
 
 import type { Seat } from "@/api/types";
@@ -236,6 +237,51 @@ function BidButton({
   /** Called on click in analyzer mode (replaces form submit). */
   onClick?: (bid: string) => void;
 }) {
+  // --- Long-press for touch devices ---
+  // On touch, a short tap places the bid normally. A long-press (500ms+)
+  // shows the hover preview instead; lifting after a long-press dismisses
+  // the preview without placing the bid. Mouse users are unaffected --
+  // onTouchStart/onTouchEnd only fire on touch input.
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const didLongPress = useRef(false);
+  // Track whether the user is actively touching the button so we can
+  // apply a "pressed" visual style for the duration of the touch.
+  const [isTouching, setIsTouching] = useState(false);
+
+  function clearLongPress() {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }
+
+  function handleTouchStart() {
+    setIsTouching(true);
+    didLongPress.current = false;
+    longPressTimer.current = setTimeout(() => {
+      didLongPress.current = true;
+      onHover?.(bid);
+    }, 250);
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    setIsTouching(false);
+    clearLongPress();
+    if (didLongPress.current) {
+      // Prevent the synthesized click so the bid isn't placed.
+      e.preventDefault();
+      onHover?.(null);
+      didLongPress.current = false;
+    }
+  }
+
+  function handleTouchCancel() {
+    setIsTouching(false);
+    clearLongPress();
+    didLongPress.current = false;
+    onHover?.(null);
+  }
+
   return (
     <Button
       // In click mode (onClick), use type="button" so the button doesn't
@@ -247,18 +293,23 @@ function BidButton({
       size="sm"
       disabled={!legal || submitting}
       className={cn(
-        "font-semibold",
+        "select-none font-semibold",
         legal
           ? [
               className,
               anyHighlighted && !highlighted && "opacity-50",
               highlighted && "ring-2 ring-primary",
+              isTouching && "scale-95 brightness-90",
             ]
           : "opacity-30",
       )}
       // Hover handlers for trial-bid preview (only fire for legal bids).
       onMouseEnter={onHover && legal ? () => onHover(bid) : undefined}
       onMouseLeave={onHover && legal ? () => onHover(null) : undefined}
+      // Long-press handlers for touch devices (preview without placing bid).
+      onTouchStart={onHover && legal ? handleTouchStart : undefined}
+      onTouchEnd={onHover && legal ? handleTouchEnd : undefined}
+      onTouchCancel={onHover && legal ? handleTouchCancel : undefined}
       // Click handler for analyzer mode.
       onClick={onClick && legal ? () => onClick(bid) : undefined}
     >
