@@ -123,6 +123,8 @@ export interface PracticeState {
   can_proxy_bid: boolean;
   /** The unoccupied seat to proxy-bid for (set when can_proxy_bid is true). */
   proxy_seat: Seat | null;
+  /** Whether there are bids that can be undone. */
+  can_undo: boolean;
 }
 
 /** Lightweight session info for the join UI and session lookup. */

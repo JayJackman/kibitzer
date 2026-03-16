@@ -1,12 +1,14 @@
 """Practice session API endpoints.
 
-Ten endpoints for the practice workflow:
+Twelve endpoints for the practice workflow:
 - POST   /api/practice              Create a new session
 - GET    /api/practice/join/{code}  Look up session by join code
 - GET    /api/practice/{id}         Get current session state
 - POST   /api/practice/{id}/bid     Place a bid
 - GET    /api/practice/{id}/advise  Get engine advice
 - POST   /api/practice/{id}/redeal  Deal new hands / reset (helper mode)
+- POST   /api/practice/{id}/undo    Undo last round of bids
+- POST   /api/practice/{id}/reset   Reset auction to initial state
 - POST   /api/practice/{id}/hand    Set hand for a seat (helper mode only)
 - GET    /api/practice/{id}/info    Lightweight session info (for join UI)
 - POST   /api/practice/{id}/join    Join a session at a specific seat
@@ -42,6 +44,7 @@ from .session import (
     DuplicateCardError,
     HandNotSetError,
     HelperModeOnlyError,
+    NoBidsToUndoError,
     NotYourTurnError,
     PlayerNotFoundError,
     PracticeSession,
@@ -64,6 +67,30 @@ def _resolve_session(session_id: str) -> PracticeSession:
     session = get_session(session_id)
     if session is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Session not found")
+    return session
+
+
+def _require_seated(
+    session: PracticeSession = Depends(_resolve_session),
+    user: User = Depends(get_current_user),
+) -> PracticeSession:
+    """Like ``_resolve_session``, but also verifies the user is seated.
+
+    Raises 403 if the user is not seated at this session. Use this
+    instead of ``_resolve_session`` for endpoints that require a
+    seated player (bid, advise, redeal, undo, reset, etc.).
+
+    FastAPI caches dependency results per request, so ``_resolve_session``
+    and ``get_current_user`` are not called twice when an endpoint also
+    depends on them directly.
+    """
+    try:
+        session.seat_for(user.id)
+    except PlayerNotFoundError:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "You are not seated at this session",
+        ) from None
     return session
 
 
@@ -124,7 +151,7 @@ def lookup_by_code(
     response_model=PracticeStateResponse,
 )
 def get_state(
-    session: PracticeSession = Depends(_resolve_session),
+    session: PracticeSession = Depends(_require_seated),
     user: User = Depends(get_current_user),
 ) -> PracticeStateResponse:
     """Get the current session state (hand, auction, legal bids, etc.).
@@ -132,14 +159,7 @@ def get_state(
     Only shows the requesting user's hand. All hands are revealed
     once the auction is complete.
     """
-    try:
-        state = session.get_state(user.id)
-    except PlayerNotFoundError:
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN,
-            "You are not seated at this session",
-        ) from None
-    return serialize_practice_state(state)
+    return serialize_practice_state(session.get_state(user.id))
 
 
 @router.post(
@@ -148,7 +168,7 @@ def get_state(
 )
 def place_bid(
     body: PlaceBidRequest,
-    session: PracticeSession = Depends(_resolve_session),
+    session: PracticeSession = Depends(_require_seated),
     user: User = Depends(get_current_user),
 ) -> BidFeedbackResponse:
     """Place a bid and get feedback (matched engine or not).
@@ -161,11 +181,6 @@ def place_bid(
     """
     try:
         result = session.place_bid(user.id, body.bid, for_seat=body.for_seat)
-    except PlayerNotFoundError:
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN,
-            "You are not seated at this session",
-        ) from None
     except NotYourTurnError:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
@@ -194,7 +209,7 @@ def place_bid(
     response_model=AdviceResponse,
 )
 def advise(
-    session: PracticeSession = Depends(_resolve_session),
+    session: PracticeSession = Depends(_require_seated),
     user: User = Depends(get_current_user),
 ) -> AdviceResponse:
     """Get the engine's bid recommendation for the current position.
@@ -205,11 +220,6 @@ def advise(
     """
     try:
         advice = session.get_advice(user.id)
-    except PlayerNotFoundError:
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN,
-            "You are not seated at this session",
-        ) from None
     except HandNotSetError as e:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
@@ -224,8 +234,7 @@ def advise(
 )
 def redeal(
     body: RedealRequest | None = None,
-    session: PracticeSession = Depends(_resolve_session),
-    user: User = Depends(get_current_user),
+    session: PracticeSession = Depends(_require_seated),
 ) -> dict[str, bool]:
     """Start a new hand.
 
@@ -234,18 +243,51 @@ def redeal(
     resets auction. Optionally specify ``dealer`` and ``vulnerability``
     in the request body (helper mode only; ignored in practice mode).
     """
-    # Verify the user is seated (only seated players can redeal).
-    try:
-        session.seat_for(user.id)
-    except PlayerNotFoundError:
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN,
-            "You are not seated at this session",
-        ) from None
     dealer = body.dealer if body else None
     vuln_str = body.vulnerability if body else None
     vuln = Vulnerability.from_str(vuln_str) if vuln_str else None
     session.redeal(dealer=dealer, vulnerability=vuln)
+    return {"ok": True}
+
+
+@router.post(
+    "/{session_id}/undo",
+    status_code=200,
+)
+def undo_bid(
+    session: PracticeSession = Depends(_require_seated),
+    user: User = Depends(get_current_user),
+) -> dict[str, bool | int]:
+    """Undo the last round of bids.
+
+    Practice mode: removes the last human bid and all computer bids
+    that followed it, restoring the auction to before the last bid.
+    Helper mode: removes exactly one bid.
+    """
+    try:
+        removed = session.undo_bid(user.id)
+    except NoBidsToUndoError:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "No bids to undo",
+        ) from None
+    return {"ok": True, "removed": removed}
+
+
+@router.post(
+    "/{session_id}/reset",
+    status_code=200,
+)
+def reset_auction(
+    session: PracticeSession = Depends(_require_seated),
+    user: User = Depends(get_current_user),
+) -> dict[str, bool]:
+    """Reset the auction to its initial state.
+
+    Removes all human-placed bids (and their computer follow-ups).
+    Keeps hands, dealer, vulnerability, and initial computer bids intact.
+    """
+    session.reset_auction(user.id)
     return {"ok": True}
 
 
@@ -255,7 +297,7 @@ def redeal(
 )
 def set_hand(
     body: SetHandRequest,
-    session: PracticeSession = Depends(_resolve_session),
+    session: PracticeSession = Depends(_require_seated),
     user: User = Depends(get_current_user),
 ) -> dict[str, bool]:
     """Set the hand for a seat (helper mode only).
@@ -274,11 +316,6 @@ def set_hand(
         ) from None
     try:
         session.set_hand(user.id, body.seat, hand)
-    except PlayerNotFoundError:
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN,
-            "You are not seated at this session",
-        ) from None
     except HelperModeOnlyError as e:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
@@ -341,15 +378,9 @@ def join_session(
     status_code=200,
 )
 def leave_session(
-    session: PracticeSession = Depends(_resolve_session),
+    session: PracticeSession = Depends(_require_seated),
     user: User = Depends(get_current_user),
 ) -> dict[str, bool]:
     """Leave a session (seat reverts to computer control)."""
-    try:
-        session.leave(user.id)
-    except PlayerNotFoundError:
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN,
-            "You are not seated at this session",
-        ) from None
+    session.leave(user.id)
     return {"ok": True}

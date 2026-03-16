@@ -241,6 +241,24 @@ function PracticeView({ state }: { state: PracticeState }) {
                 New Hand
               </Button>
             </Form>
+            {/* Undo removes the last human bid (+ computer follow-ups in practice mode).
+                Reset clears all bids back to the initial state (same hand/dealer/vuln). */}
+            {state.can_undo && (
+              <>
+                <Form method="post">
+                  <input type="hidden" name="intent" value="undo" />
+                  <Button type="submit" variant="outline" size="sm" disabled={isSubmitting}>
+                    Undo
+                  </Button>
+                </Form>
+                <Form method="post">
+                  <input type="hidden" name="intent" value="reset_auction" />
+                  <Button type="submit" variant="outline" size="sm" disabled={isSubmitting}>
+                    Reset
+                  </Button>
+                </Form>
+              </>
+            )}
           </div>
           {/* Right: join code + copy + leave */}
           <SessionControls variant="background" state={state} isSubmitting={isSubmitting} />

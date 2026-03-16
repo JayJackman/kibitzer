@@ -145,6 +145,33 @@ export async function redeal(
 }
 
 /**
+ * Undo the last round of bids.
+ * Practice mode: removes the last human bid + computer follow-ups.
+ * Helper mode: removes exactly one bid.
+ */
+export async function undoBid(
+  sessionId: string,
+): Promise<{ ok: boolean }> {
+  const response = await api.post<{ ok: boolean }>(
+    `/practice/${sessionId}/undo`,
+  );
+  return response.data;
+}
+
+/**
+ * Reset the auction to its initial state (before any human bids).
+ * Keeps hands, dealer, and vulnerability intact.
+ */
+export async function resetAuction(
+  sessionId: string,
+): Promise<{ ok: boolean }> {
+  const response = await api.post<{ ok: boolean }>(
+    `/practice/${sessionId}/reset`,
+  );
+  return response.data;
+}
+
+/**
  * Set the hand for a seat (helper mode only).
  * Accepts PBN format: "AKJ52.KQ3.84.A73" (Spades.Hearts.Diamonds.Clubs).
  * Any seated player can set any seat's hand.

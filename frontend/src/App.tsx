@@ -216,6 +216,16 @@ async function practiceAction({ request, params }: ActionFunctionArgs) {
     return redirect(`/practice/${params.id}`);
   }
 
+  if (intent === "undo") {
+    await api.undoBid(params.id!);
+    return redirect(`/practice/${params.id}`);
+  }
+
+  if (intent === "reset_auction") {
+    await api.resetAuction(params.id!);
+    return redirect(`/practice/${params.id}`);
+  }
+
   if (intent === "join") {
     await api.joinSession(params.id!, formData.get("seat") as Seat);
     // Redirect to trigger a fresh loader run -- now the user is seated,

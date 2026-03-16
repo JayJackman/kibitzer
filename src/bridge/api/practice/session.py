@@ -89,6 +89,7 @@ class PracticeState:
     waiting_for: Seat | None
     can_proxy_bid: bool
     proxy_seat: Seat | None
+    can_undo: bool
 
 
 _ALL_VULNERABILITIES = [
@@ -129,6 +130,10 @@ class HandNotSetError(Exception):
 
 class DuplicateCardError(Exception):
     """Raised when a hand contains cards that already appear in another seat's hand."""
+
+
+class NoBidsToUndoError(Exception):
+    """Raised when undo is requested but there are no human bids to undo."""
 
 
 def compute_legal_bids(auction: AuctionState) -> list[str]:
@@ -228,6 +233,11 @@ class PracticeSession:
         # Helper mode skips this entirely (no computer auto-bidding).
         self._last_computer_bids: list[ComputerBidRecord] = self._run_computer_bids()
         self._last_feedback: BidResult | None = None
+
+        # Track how many bids were placed before the first human turn.
+        # Undo/reset never go past this point -- these initial computer
+        # bids are the "starting position" of the hand.
+        self._initial_bid_count: int = self.auction.bid_count
 
         logger.info(
             "Session %s created (mode=%s, join_code=%s)",
@@ -366,6 +376,7 @@ class PracticeSession:
             waiting_for=self._waiting_for(),
             can_proxy_bid=can_proxy,
             proxy_seat=proxy_seat,
+            can_undo=self.can_undo,
         )
 
     def place_bid(
@@ -417,7 +428,7 @@ class PracticeSession:
 
         # Record the engine's explanation and match status for this bid
         # position before adding it (so len(bids) gives us the correct index).
-        bid_index = len(self.auction.bids)
+        bid_index = self.auction.bid_count
         if engine_explanation:
             self._bid_explanations[bid_index] = engine_explanation
         if hand is not None:
@@ -488,7 +499,69 @@ class PracticeSession:
         self._bid_matched = {}
         self._last_computer_bids = self._run_computer_bids()
         self._last_feedback = None
+        self._initial_bid_count = self.auction.bid_count
         logger.info("Session %s redeal (hand #%d)", self.id, self.hand_number)
+
+    @property
+    def can_undo(self) -> bool:
+        """Whether there are bids that can be undone."""
+        return self.auction.bid_count > self._initial_bid_count
+
+    def undo_bid(self, user_id: int) -> int:
+        """Undo the last round of bids.
+
+        Practice mode: removes the last human bid and all computer bids
+        that followed it, restoring the auction to the state before the
+        last ``place_bid()`` call.
+        Helper mode: removes exactly one bid.
+
+        Returns the number of bids removed.
+        """
+        self.seat_for(user_id)  # verify caller is seated
+
+        if not self.can_undo:
+            raise NoBidsToUndoError("No bids to undo")
+
+        removed = 0
+        while self.auction.bid_count > self._initial_bid_count:
+            seat, _ = self.auction.remove_last_bid()
+            # After removal, bid_count equals the index of the removed bid.
+            self._bid_explanations.pop(self.auction.bid_count, None)
+            self._bid_matched.pop(self.auction.bid_count, None)
+            removed += 1
+
+            if self.mode == SessionMode.HELPER:
+                break  # One bid at a time in helper mode
+
+            # Practice mode: keep popping computer bids until we've
+            # removed the human bid that triggered them.
+            if self.players[seat] is not None:
+                break
+
+        self._last_feedback = None
+        self._last_computer_bids = []
+        logger.info("Session %s undo (%d bids removed)", self.id, removed)
+        return removed
+
+    def reset_auction(self, user_id: int) -> int:
+        """Remove all bids back to the initial state.
+
+        Keeps hands, dealer, vulnerability, and initial computer bids
+        intact. Returns the number of bids removed.
+        """
+        self.seat_for(user_id)  # verify caller is seated
+
+        removed = self.auction.bid_count - self._initial_bid_count
+        self.auction.truncate(self._initial_bid_count)
+        # Drop metadata for all removed bid indices.
+        for idx in range(self._initial_bid_count, self._initial_bid_count + removed):
+            self._bid_explanations.pop(idx, None)
+            self._bid_matched.pop(idx, None)
+
+        self._last_feedback = None
+        self._last_computer_bids = []
+        logger.info("Session %s reset (%d bids removed)", self.id, removed)
+        return removed
 
     # ── Internals ────────────────────────────────────────────────
 
@@ -535,7 +608,7 @@ class PracticeSession:
             hand = self.hands[current]
             assert hand is not None  # Practice mode always has dealt hands.
             advice = self.advisor.advise(hand, self.auction)
-            self._bid_explanations[len(self.auction.bids)] = (
+            self._bid_explanations[self.auction.bid_count] = (
                 advice.recommended.explanation
             )
             self.auction.add_bid(advice.recommended.bid)

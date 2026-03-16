@@ -307,6 +307,7 @@ class PracticeStateResponse(BaseModel):
     waiting_for: str | None = None
     can_proxy_bid: bool = False
     proxy_seat: str | None = None
+    can_undo: bool = False
 
 
 # ── Serialization helpers ─────────────────────────────────────────
@@ -411,6 +412,7 @@ def serialize_practice_state(
         waiting_for=str(state.waiting_for) if state.waiting_for is not None else None,
         can_proxy_bid=state.can_proxy_bid,
         proxy_seat=str(state.proxy_seat) if state.proxy_seat is not None else None,
+        can_undo=state.can_undo,
     )
 
 

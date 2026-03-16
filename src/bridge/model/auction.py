@@ -134,6 +134,11 @@ class AuctionState:
     _bids: list[Bid] = field(default_factory=list)
 
     @property
+    def bid_count(self) -> int:
+        """Number of bids placed so far."""
+        return len(self._bids)
+
+    @property
     def bids(self) -> list[tuple[Seat, Bid]]:
         """Full bid history as (seat, bid) pairs."""
         return [
@@ -231,6 +236,20 @@ class AuctionState:
             raise IllegalBidError("Cannot redouble in this position")
 
         self._bids.append(bid)
+
+    def remove_last_bid(self) -> tuple[Seat, Bid]:
+        """Remove and return the last (seat, bid) pair.
+
+        Raises IllegalBidError if there are no bids to remove.
+        """
+        if not self._bids:
+            raise IllegalBidError("No bids to remove")
+        seat = Seat((self.dealer.value + len(self._bids) - 1) % 4)
+        return seat, self._bids.pop()
+
+    def truncate(self, count: int) -> None:
+        """Keep only the first ``count`` bids, discarding the rest."""
+        del self._bids[count:]
 
     @property
     def contract(self) -> Contract | None:
