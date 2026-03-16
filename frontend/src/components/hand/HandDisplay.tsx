@@ -44,11 +44,11 @@ export default function HandDisplay({
       )}
 
       <CardContent className="flex flex-col gap-1 px-3">
-        {/* Four suit rows in standard display order: S, H, D, C */}
-        <CardRow suit="S" ranks={hand.spades} />
-        <CardRow suit="H" ranks={hand.hearts} />
-        <CardRow suit="D" ranks={hand.diamonds} />
+        {/* Four suit rows: C, D, H, S (low to high) */}
         <CardRow suit="C" ranks={hand.clubs} />
+        <CardRow suit="D" ranks={hand.diamonds} />
+        <CardRow suit="H" ranks={hand.hearts} />
+        <CardRow suit="S" ranks={hand.spades} />
 
         {/* Optional evaluation summary below the cards */}
         {evaluation && (

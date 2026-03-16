@@ -52,6 +52,7 @@ format = "ruff format src/ tests/"
 typecheck = "mypy src/"
 check = {composite = ["lint", "typecheck", "test"]}
 serve = "uvicorn bridge.api.main:app --reload --port 8000"
+db = "sqlite3 bridge.db"
 
 [tool.ruff]
 target-version = "py312"

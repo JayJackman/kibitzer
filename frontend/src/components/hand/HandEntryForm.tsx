@@ -16,12 +16,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-/** Suit field config for the four input rows. */
+/** Suit field config for the four input rows (clubs at top, spades at bottom). */
 const SUIT_FIELDS = [
-  { key: "S", symbol: SUIT_SYMBOLS.S, color: SUIT_COLORS.S, placeholder: "--" },
-  { key: "H", symbol: SUIT_SYMBOLS.H, color: SUIT_COLORS.H, placeholder: "--" },
-  { key: "D", symbol: SUIT_SYMBOLS.D, color: SUIT_COLORS.D, placeholder: "--" },
   { key: "C", symbol: SUIT_SYMBOLS.C, color: SUIT_COLORS.C, placeholder: "--" },
+  { key: "D", symbol: SUIT_SYMBOLS.D, color: SUIT_COLORS.D, placeholder: "--" },
+  { key: "H", symbol: SUIT_SYMBOLS.H, color: SUIT_COLORS.H, placeholder: "--" },
+  { key: "S", symbol: SUIT_SYMBOLS.S, color: SUIT_COLORS.S, placeholder: "--" },
 ] as const;
 
 /** Valid rank characters (case-insensitive). */
@@ -45,7 +45,7 @@ function parseRanks(raw: string): string[] {
 /**
  * Filter raw rank input: uppercase, strip invalid or duplicate characters,
  * clamp to `maxCards` so the total hand never exceeds 13, and sort
- * high-to-low (A K Q J T 9 ... 2).
+ * low-to-high (2 3 4 ... A) for a natural left-to-right entry feel.
  */
 function filterRankInput(raw: string, maxCards: number): string {
   const seen = new Set<string>();
@@ -58,7 +58,7 @@ function filterRankInput(raw: string, maxCards: number): string {
       return true;
     })
     .slice(0, maxCards)
-    .sort((a, b) => RANK_ORDER[a] - RANK_ORDER[b])
+    .sort((a, b) => RANK_ORDER[b] - RANK_ORDER[a])
     .join("");
 }
 
@@ -93,11 +93,12 @@ export default function HandEntryForm({ sessionSeat }: { sessionSeat: Seat }) {
   const [suits, setSuits] = useState({ S: "", H: "", D: "", C: "" });
   const [error, setError] = useState<string | null>(null);
 
-  // Assemble PBN: "AKJ52.KQ3.84.A73" (empty suits become "" which is valid).
+  // Assemble PBN in the required S.H.D.C order (independent of the
+  // display order in SUIT_FIELDS, which is C-D-H-S for entry).
   // Normalise "10" to "T" for the backend PBN parser.
-  const pbn = SUIT_FIELDS.map(({ key }) =>
-    parseRanks(suits[key]).join(""),
-  ).join(".");
+  const pbn = (["S", "H", "D", "C"] as const)
+    .map((key) => parseRanks(suits[key]).join(""))
+    .join(".");
 
   // Total card count for the live counter.
   const cardCount = SUIT_FIELDS.reduce(
