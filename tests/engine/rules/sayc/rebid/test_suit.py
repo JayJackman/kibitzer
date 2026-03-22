@@ -40,6 +40,7 @@ from bridge.engine.rules.sayc.rebid.suit import (
     RebidNTAfter2NTMinor,
     RebidNTAfterJumpShift,
     RebidOwnSuit,
+    RebidOwnSuit5Card,
     RebidOwnSuitAfterJumpShift,
     RebidPassAfter3NT,
     RebidPassAfterGameRaise,
@@ -52,6 +53,7 @@ from bridge.engine.rules.sayc.rebid.suit import (
     RebidShowMajorAfter2NTMinor,
     RebidSuitAfter2Over1,
     RebidSuitOver1NT,
+    RebidSuitOver1NT5Card,
 )
 from bridge.engine.sayc import create_sayc_registry
 from bridge.engine.selector import BidSelector
@@ -466,6 +468,24 @@ class TestRebidSuitOver1NT:
         assert str(result.bid) == "2S"
 
 
+class TestRebidSuitOver1NT5Card:
+    rule = RebidSuitOver1NT5Card()
+
+    def test_5_card_over_1nt(self) -> None:
+        # T92.A.QJ65.AKJ98 — 15 HCP + 1 length = 16 total, 5 clubs
+        # After 1C-1NT: can't bid new lower suit (clubs is lowest),
+        # not balanced, too many points for pass-is-fine.
+        ctx = _ctx("T92.A.QJ65.AKJ98", "1C", "1NT")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "2C"
+
+    def test_6_card_rejected(self) -> None:
+        # KJ8532.KQ3.8.A73 — 6 spades, should use RebidSuitOver1NT
+        ctx = _ctx("KJ8532.KQ3.8.A73", "1S", "1NT")
+        assert not self.rule.applies(ctx)
+
+
 class TestPassOver1NT:
     rule = RebidPassOver1NT()
 
@@ -599,6 +619,29 @@ class TestRebidOwnSuit:
         assert self.rule.applies(ctx)
         result = self.rule.select(ctx)
         assert str(result.bid) == "2H"
+
+
+class TestRebidOwnSuit5Card:
+    rule = RebidOwnSuit5Card()
+
+    def test_5_card_minimum_no_other_bid(self) -> None:
+        # T92.A.QJ65.AKJ98 — 15 HCP + 1 length = 16 total, 5 clubs
+        # After 1C-1H: can't raise (1 heart), can't bid new suit
+        # non-reverse (diamonds is a reverse), not balanced for 1NT.
+        ctx = _ctx("T92.A.QJ65.AKJ98", "1C", "1H")
+        assert self.rule.applies(ctx)
+        result = self.rule.select(ctx)
+        assert str(result.bid) == "2C"
+
+    def test_6_card_suit_rejected(self) -> None:
+        # K4.KJ8532.Q7.A73 — 6 hearts, should use RebidOwnSuit instead
+        ctx = _ctx("K4.KJ8532.Q7.A73", "1H", "1S")
+        assert not self.rule.applies(ctx)
+
+    def test_17_pts_rejected(self) -> None:
+        # AT2.A.KJ65.AKJ98 — 17 HCP + 1 length = 18 total, too strong
+        ctx = _ctx("AT2.A.KJ65.AKJ98", "1C", "1H")
+        assert not self.rule.applies(ctx)
 
 
 class TestRebid1NT:
@@ -1127,3 +1170,20 @@ class TestSuitRulesSkipAfterNTOpening:
         selector = BidSelector(create_sayc_registry())
         # think() evaluates ALL rules — would crash without _i_opened_1_suit guard
         selector.think(ctx)
+
+
+# ── Integration: 5-card rebid fallback chosen by full engine ───────
+
+
+class TestFiveCardRebidIntegration:
+    """Full engine selects 5-card rebid when no other rule matches."""
+
+    def test_engine_selects_2c_for_5_card_club(self) -> None:
+        # T92.A.QJ65.AKJ98 after 1C-P-1H-P — the original failing hand.
+        # No other rebid rule matches; engine should pick 2C via the
+        # 5-card fallback instead of falling back to pass.
+        ctx = _ctx("T92.A.QJ65.AKJ98", "1C", "1H")
+        selector = BidSelector(create_sayc_registry())
+        result = selector.select(ctx)
+        assert str(result.bid) == "2C"
+        assert result.rule_name == "rebid.rebid_own_suit_5card"

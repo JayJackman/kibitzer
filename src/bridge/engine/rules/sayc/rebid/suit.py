@@ -245,6 +245,7 @@ def _partner_jump_shifted(ctx: BiddingContext) -> bool:
 
 
 _has_rebiddable_suit = HasSuitFit(_my_opening_suit, min_len=6)
+_has_5_card_opening_suit = HasSuitFit(_my_opening_suit, min_len=5, max_len=5)
 
 
 def _find_lower_new_suit(ctx: BiddingContext) -> Suit | None:
@@ -1374,6 +1375,57 @@ class RebidSuitOver1NT(Rule):
         )
 
 
+class RebidSuitOver1NT5Card(Rule):
+    """Rebid 2 of own suit over 1NT with exactly 5 cards — fallback.
+
+    e.g. 1C->1NT->2C with only 5 clubs
+
+    Same rationale as RebidOwnSuit5Card: when no other minimum rebid
+    fits, rebidding a 5-card opening suit is standard practice.
+
+    Balanced hands are excluded: they should pass over 1NT rather than
+    rebid a 5-card suit when the hand is suitable for notrump.
+    """
+
+    @property
+    def name(self) -> str:
+        return "rebid.rebid_suit_over_1nt_5card"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_OPENER
+
+    @property
+    def priority(self) -> int:
+        return 110
+
+    @property
+    def prerequisites(self) -> Condition:
+        return All(_i_opened_1_suit, _partner_bid_1nt)
+
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            _has_5_card_opening_suit,
+            TotalPtsRange(max_pts=16),
+            Not(Balanced(strict=True)),
+        )
+
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
+        return frozenset({SuitBid(2, _my_opening_suit(ctx))})
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        suit = _my_opening_suit(ctx)
+        return RuleResult(
+            bid=SuitBid(2, suit),
+            rule_name=self.name,
+            explanation=(
+                f"5-card {suit.letter}, minimum, no better rebid"
+                " -- common SAYC practice, 2{suit.letter} over 1NT"
+            ),
+        )
+
+
 class RebidPassOver1NT(Rule):
     """Pass over 1NT — balanced minimum.
 
@@ -1805,6 +1857,71 @@ class RebidOwnSuit(Rule):
             bid=bid,
             rule_name=self.name,
             explanation=f"6+ card {suit.letter}, minimum — SAYC {bid}",
+        )
+
+
+class RebidOwnSuit5Card(Rule):
+    """Rebid own suit with exactly 5 cards — unbalanced minimum, fallback.
+
+    e.g. 1C->1H->2C with only 5 clubs
+
+    When no other minimum rebid fits (can't raise, can't bid a new suit
+    without reversing, not balanced for 1NT), rebidding a 5-card opening
+    suit is standard practice.  The SAYC booklet says "6+ cards" but
+    this is universally understood as a guideline — every experienced
+    player rebids a 5-card suit when nothing else is available.
+
+    Balanced hands are excluded: they should bid 1NT (12-14) or use
+    another balanced rebid instead.
+    """
+
+    @property
+    def name(self) -> str:
+        return "rebid.rebid_own_suit_5card"
+
+    @property
+    def category(self) -> Category:
+        return Category.REBID_OPENER
+
+    @property
+    def priority(self) -> int:
+        return 110
+
+    @property
+    def prerequisites(self) -> Condition:
+        return All(
+            _i_opened_1_suit,
+            Any(_partner_bid_new_suit_1_level, _partner_bid_2_over_1),
+        )
+
+    @property
+    def conditions(self) -> Condition:
+        return All(
+            _has_5_card_opening_suit,
+            TotalPtsRange(max_pts=16),
+            Not(Balanced(strict=True)),
+        )
+
+    def possible_bids(self, ctx: AuctionContext) -> frozenset[SuitBid]:
+        suit = _my_opening_suit(ctx)
+        resp = _partner_response(ctx)
+        bid = cheapest_bid_in_suit(suit, resp)
+        if bid is None:
+            return frozenset()
+        return frozenset({bid})
+
+    def select(self, ctx: BiddingContext) -> RuleResult:
+        suit = _my_opening_suit(ctx)
+        resp = _partner_response(ctx)
+        bid = cheapest_bid_in_suit(suit, resp)
+        assert bid is not None
+        return RuleResult(
+            bid=bid,
+            rule_name=self.name,
+            explanation=(
+                f"5-card {suit.letter}, minimum, no better rebid"
+                " -- common SAYC practice"
+            ),
         )
 
 

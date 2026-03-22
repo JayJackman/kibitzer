@@ -92,6 +92,7 @@ from .suit import (
     RebidNTAfter2NTMinor,
     RebidNTAfterJumpShift,
     RebidOwnSuit,
+    RebidOwnSuit5Card,
     RebidOwnSuitAfterJumpShift,
     RebidPassAfter3NT,
     RebidPassAfterGameRaise,
@@ -104,6 +105,7 @@ from .suit import (
     RebidShowMajorAfter2NTMinor,
     RebidSuitAfter2Over1,
     RebidSuitOver1NT,
+    RebidSuitOver1NT5Card,
 )
 
 __all__ = [
@@ -147,6 +149,7 @@ __all__ = [
     "RebidNTAfter2NTMinor",
     "RebidNTAfterJumpShift",
     "RebidOwnSuit",
+    "RebidOwnSuit5Card",
     "RebidOwnSuitAfterJumpShift",
     "RebidPassAfter3NT",
     "RebidPassAfterGameRaise",
@@ -159,6 +162,7 @@ __all__ = [
     "RebidShowMajorAfter2NTMinor",
     "RebidSuitAfter2Over1",
     "RebidSuitOver1NT",
+    "RebidSuitOver1NT5Card",
     # Rebids after 1NT opening
     "RebidAccept2NTOver1NT",
     "RebidAccept3MinorOver1NT",

@@ -81,6 +81,7 @@ from .rebid import (
     RebidNTAfterJumpShift,
     RebidNTAfterPositive2C,
     RebidOwnSuit,
+    RebidOwnSuit5Card,
     RebidOwnSuitAfterFeatureAsk,
     RebidOwnSuitAfterJumpShift,
     RebidOwnSuitAfterNewSuit3Level,
@@ -110,6 +111,7 @@ from .rebid import (
     RebidSuitAfter2Over1,
     RebidSuitAfterPositive2C,
     RebidSuitOver1NT,
+    RebidSuitOver1NT5Card,
     RebidSuperAccept,
 )
 from .reresponse import (
@@ -458,6 +460,7 @@ def create_sayc_registry() -> RuleRegistry:
     reg.register(RebidJumpRebidOver1NT())
     reg.register(RebidNewLowerSuitOver1NT())
     reg.register(RebidSuitOver1NT())
+    reg.register(RebidSuitOver1NT5Card())
     reg.register(RebidPassOver1NT())
 
     # ── Opener rebids after new suit at 1-level ───────────────────
@@ -471,6 +474,7 @@ def create_sayc_registry() -> RuleRegistry:
     reg.register(RebidRaiseResponder())
     reg.register(RebidNewSuitNonreverse())
     reg.register(RebidOwnSuit())  # also applies after 2-over-1
+    reg.register(RebidOwnSuit5Card())  # 5-card fallback, also after 2-over-1
     reg.register(Rebid1NT())
 
     # ── Opener rebids after 2-over-1 ──────────────────────────────
