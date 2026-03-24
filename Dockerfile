@@ -24,7 +24,7 @@
 # ---------------------------------------------------------------------------
 # Stage 1: Build the React frontend
 # ---------------------------------------------------------------------------
-# We use node:22-slim (Debian-based, small) to install npm dependencies
+# We use node:22-slim (Debian-based, small) to install pnpm dependencies
 # and run the Vite build. The output is a set of static files (HTML, JS, CSS)
 # in /app/frontend/dist/.
 
@@ -34,29 +34,33 @@ FROM node:22-slim AS frontend
 # (COPY, RUN, etc.) are relative to this path.
 WORKDIR /app/frontend
 
-# Copy package.json and package-lock.json FIRST, before copying source code.
-# Why? Docker caches each layer. If package.json hasn't changed, Docker
-# reuses the cached `npm install` layer -- saving minutes on rebuilds.
+# Enable corepack (Node's built-in package manager manager) and activate
+# pnpm. This avoids installing pnpm globally via npm and ensures we use
+# a consistent version.
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Copy package.json and pnpm-lock.yaml FIRST, before copying source code.
+# Why? Docker caches each layer. If these files haven't changed, Docker
+# reuses the cached `pnpm install` layer -- saving minutes on rebuilds.
 # This is called "layer caching" and is one of the most important Docker
 # optimizations.
-COPY frontend/package.json frontend/package-lock.json ./
+COPY frontend/package.json frontend/pnpm-lock.yaml ./
 
-# Install dependencies. `npm ci` is the "clean install" command -- it
-# installs exactly what's in package-lock.json (deterministic, fast,
-# no surprises). Use `npm ci` in CI/CD and Docker; use `npm install`
-# only during local development when you're changing dependencies.
-RUN npm ci
+# Install dependencies. --frozen-lockfile ensures pnpm installs exactly
+# what's in pnpm-lock.yaml (deterministic, fast, no surprises). This is
+# the equivalent of npm ci -- use it in CI/CD and Docker builds.
+RUN pnpm install --frozen-lockfile
 
 # NOW copy the rest of the frontend source code. Changes to source files
-# invalidate this layer and everything after it, but the npm install layer
-# above is still cached (since package.json didn't change).
+# invalidate this layer and everything after it, but the pnpm install
+# layer above is still cached (since package.json didn't change).
 COPY frontend/ ./
 
 # Build the production bundle. This runs TypeScript compilation + Vite
 # bundling, outputting optimized, minified, content-hashed files into dist/.
 # Content hashing means filenames include a hash of their contents
 # (e.g. index-B5gpXRns.js), enabling aggressive browser caching.
-RUN npm run build
+RUN pnpm run build
 
 
 # ---------------------------------------------------------------------------

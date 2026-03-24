@@ -2,18 +2,19 @@
 # Docker Compose configuration
 # =============================================================================
 #
-# Docker Compose lets you define and run multi-container applications with
-# a single command. Even though we only have one service (the app), Compose
-# is still valuable because it:
-#   1. Saves you from typing long `docker run` commands with all the flags
-#   2. Manages volumes (persistent storage) declaratively
-#   3. Makes environment variables easy to configure
-#   4. Scales to multiple services later (e.g. adding PostgreSQL, Redis)
+# Two services:
+#   1. app      -- the FastAPI backend serving the React frontend
+#   2. tunnel   -- Cloudflare Tunnel (cloudflared) connecting the app to the
+#                  internet via kibitzer.club, handling HTTPS automatically
+#
+# Before starting, create a .env file with your secrets:
+#   TUNNEL_TOKEN=<from Cloudflare dashboard>
+#   SECRET_KEY=<generate with: openssl rand -hex 32>
 #
 # Usage:
-#   docker compose up --build       Build the image and start the container
+#   docker compose up --build       Build the image and start both services
 #   docker compose up -d            Start in the background (detached mode)
-#   docker compose down             Stop and remove the container
+#   docker compose down             Stop and remove containers
 #   docker compose logs -f          Follow the logs (like tail -f)
 #   docker compose ps               List running containers
 #
@@ -27,22 +28,21 @@ services:
     build: .
 
     # Map port 8000 on the host to port 8000 in the container.
-    # Format is HOST:CONTAINER. After this, you can visit
-    # http://localhost:8000 in your browser.
+    # This is optional in production (the tunnel handles external access),
+    # but useful for local testing: http://localhost:8000
     ports:
       - "8000:8000"
 
     # Environment variables passed into the container at runtime.
     # These override the defaults in bridge/api/config.py.
     #
-    # IMPORTANT: For real deployments, don't put secrets directly in this
-    # file. Instead, use a .env file (see env_file below) or your
-    # platform's secret management (e.g. Docker secrets, AWS SSM).
+    # Secrets (SECRET_KEY) are loaded from the .env file -- don't put
+    # them directly in this file since it's committed to git.
     environment:
       # REQUIRED in production. Used to sign JWT authentication tokens.
-      # Generate a strong random key:  openssl rand -hex 32
-      # If this stays as the default, anyone can forge auth tokens.
-      - SECRET_KEY=change-me-to-a-real-secret
+      # Generate with: openssl rand -hex 32
+      # Loaded from .env file (see env_file below).
+      - SECRET_KEY=${SECRET_KEY}
 
       # Point the database at a file inside the mounted volume (see below).
       # The ./data/ directory is mounted from the host, so the database
@@ -56,8 +56,6 @@ services:
       # CORS origins -- leave empty for production (single-origin serving).
       # The frontend is served from the same origin as the API, so no
       # cross-origin requests occur and CORS middleware is not needed.
-      # For development with a separate Vite dev server, set to:
-      #   CORS_ORIGINS=["http://localhost:5173"]
       - CORS_ORIGINS=[]
 
     # Mount a host directory as a volume inside the container.
@@ -75,5 +73,30 @@ services:
     #   - Restart automatically if the process crashes
     #   - Restart on system reboot (if Docker daemon starts)
     #   - Don't restart if you explicitly stop it with `docker compose down`
-    # Other options: "no" (never restart), "always", "on-failure"
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Cloudflare Tunnel -- connects the app to the internet via kibitzer.club
+  # ---------------------------------------------------------------------------
+  # cloudflared creates an outbound-only tunnel to Cloudflare's network.
+  # No ports need to be open on your router -- the tunnel connects outward.
+  # Cloudflare handles HTTPS, DDoS protection, and routes kibitzer.club
+  # traffic through the tunnel to the app container.
+  #
+  # Setup:
+  #   1. Go to Cloudflare dashboard -> Zero Trust -> Networks -> Tunnels
+  #   2. Create a tunnel (e.g. "kibitzer")
+  #   3. Copy the tunnel token into your .env file as TUNNEL_TOKEN
+  #   4. Add a public hostname in the tunnel config:
+  #        Domain: kibitzer.club
+  #        Service: http://app:8000
+  #      (use "app" as the hostname because that's the Docker service name --
+  #       Docker's internal DNS resolves it to the app container's IP)
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    depends_on:
+      - app
     restart: unless-stopped
