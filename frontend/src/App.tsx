@@ -359,7 +359,12 @@ export const router = createBrowserRouter([
       },
 
       // Advice loader: used by useFetcher() in PracticePage (no element).
-      { path: "/practice/:id/advise", loader: adviceLoader },
+      // Never auto-revalidate -- advice is fetched on-demand when the
+      // user clicks "Show Advice". Without this, React Router would
+      // re-fire the loader after every action (redeal, bid, etc.),
+      // which fails with 409 when hands are cleared in helper mode
+      // and kicks the user to the error boundary.
+      { path: "/practice/:id/advise", loader: adviceLoader, shouldRevalidate: () => false },
 
       // Auction Analyzer: standalone page, no loader or action needed
       // (all state is local, API calls happen in the component).
