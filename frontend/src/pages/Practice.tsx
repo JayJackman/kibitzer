@@ -53,6 +53,7 @@ import AuctionComplete from "@/components/auction/AuctionComplete";
 import BidControls from "@/components/auction/BidControls";
 import BidPreview from "@/components/auction/BidPreview";
 import AdvicePanel from "@/components/advice/AdvicePanel";
+import ScoringSheet from "@/components/scoring/ScoringSheet";
 import JoinPanel from "@/components/session/JoinPanel";
 import SessionControls from "@/components/session/SessionControls";
 
@@ -260,8 +261,11 @@ function PracticeView({ state }: { state: PracticeState }) {
               </>
             )}
           </div>
-          {/* Right: join code + copy + leave */}
-          <SessionControls variant="background" state={state} isSubmitting={isSubmitting} />
+          {/* Right: scoring (helper mode) + join code + copy + leave */}
+          <div className="flex items-center gap-2">
+            {isHelper && <ScoringSheet state={state} />}
+            <SessionControls variant="background" state={state} isSubmitting={isSubmitting} />
+          </div>
         </div>
         <p className="text-muted-foreground text-sm">
           Hand #{state.hand_number} &middot; Seat:{" "}

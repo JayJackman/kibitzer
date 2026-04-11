@@ -10,7 +10,7 @@ Usage in a route:
         return user
 """
 
-from fastapi import Cookie, Depends, HTTPException, status
+from fastapi import Cookie, Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 
 from .auth.jwt import decode_token
@@ -23,22 +23,33 @@ from .db import get_db
 def get_current_user(
     db: Session = Depends(get_db),
     access_token: str | None = Cookie(default=None, alias=ACCESS_TOKEN_COOKIE),
+    authorization: str | None = Header(default=None),
 ) -> User:
-    """Extract the current user from the access_token cookie.
+    """Extract the current user from a Bearer token or cookie.
+
+    Checks the Authorization header first (for iOS/mobile clients),
+    then falls back to the access_token cookie (for the web app).
 
     FastAPI calls this automatically for any route that declares
     `user: User = Depends(get_current_user)`.
 
-    Raises 401 if the cookie is missing, expired, or the user doesn't exist.
+    Raises 401 if no valid token is found or the user doesn't exist.
     """
-    if access_token is None:
+    # Try Bearer token first (iOS), then cookie (web)
+    token: str | None = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization[7:]
+    elif access_token:
+        token = access_token
+
+    if token is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
         )
 
     # Decode the JWT and extract the username
-    username = decode_token(access_token, expected_type="access")
+    username = decode_token(token, expected_type="access")
     if username is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

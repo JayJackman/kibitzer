@@ -1,8 +1,12 @@
 """Auth API endpoints: register, login, logout, refresh, me.
 
-All auth state is managed via httpOnly cookies (not Authorization headers).
-This is more secure for browser-based apps because JavaScript can't read
-httpOnly cookies, preventing XSS attacks from stealing tokens.
+Auth supports two transports:
+- **Cookies** (web app): httpOnly cookies set automatically, more secure
+  against XSS since JavaScript can't read them.
+- **Bearer tokens** (iOS app): tokens returned in the response body,
+  stored in Keychain, sent via Authorization header on each request.
+
+Both transports use the same JWT tokens with the same signing key.
 """
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
@@ -18,14 +22,26 @@ from bridge.api.deps import get_current_user
 
 from .jwt import create_access_token, create_refresh_token, decode_token
 from .models import User
-from .schemas import LoginRequest, MessageResponse, RegisterRequest, UserResponse
+from .schemas import (
+    AuthResponse,
+    LoginRequest,
+    MessageResponse,
+    RefreshRequest,
+    RefreshResponse,
+    RegisterRequest,
+    UserResponse,
+)
 from .service import authenticate_user, create_user, get_user_by_username
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
-def _set_auth_cookies(response: Response, username: str) -> None:
+def _set_auth_cookies(response: Response, username: str) -> tuple[str, str]:
     """Set both access and refresh token cookies on the response.
+
+    Also returns the raw token strings so they can be included in the
+    response body for mobile clients (which use Bearer tokens instead
+    of cookies).
 
     httpOnly=True  -> JavaScript can't read the cookie (XSS protection)
     samesite="lax" -> Cookie sent on same-site requests and top-level
@@ -53,14 +69,20 @@ def _set_auth_cookies(response: Response, username: str) -> None:
         path=REFRESH_TOKEN_PATH,  # Only sent to the refresh endpoint
     )
 
+    return access_token, refresh_token
 
-@router.post("/register", response_model=UserResponse, status_code=201)
+
+@router.post("/register", response_model=AuthResponse, status_code=201)
 def register(
     body: RegisterRequest,
     response: Response,
     db: Session = Depends(get_db),
-) -> User:
-    """Create a new user account and log them in immediately."""
+) -> AuthResponse:
+    """Create a new user account and log them in immediately.
+
+    Returns user info + JWT tokens in the response body (for mobile
+    clients) and also sets httpOnly cookies (for web clients).
+    """
     # Check if username is already taken
     if get_user_by_username(db, body.username) is not None:
         raise HTTPException(
@@ -69,20 +91,27 @@ def register(
         )
 
     user = create_user(db, body.username, body.password)
+    access_token, refresh_token = _set_auth_cookies(response, user.username)
 
-    # Auto-login: set cookies so the user doesn't have to log in separately
-    _set_auth_cookies(response, user.username)
+    return AuthResponse(
+        id=user.id,
+        username=user.username,
+        access_token=access_token,
+        refresh_token=refresh_token,
+    )
 
-    return user
 
-
-@router.post("/login", response_model=UserResponse)
+@router.post("/login", response_model=AuthResponse)
 def login(
     body: LoginRequest,
     response: Response,
     db: Session = Depends(get_db),
-) -> User:
-    """Authenticate with username/password and receive auth cookies."""
+) -> AuthResponse:
+    """Authenticate with username/password and receive auth tokens.
+
+    Returns user info + JWT tokens in the response body (for mobile
+    clients) and also sets httpOnly cookies (for web clients).
+    """
     user = authenticate_user(db, body.username, body.password)
     if user is None:
         raise HTTPException(
@@ -90,8 +119,14 @@ def login(
             detail="Invalid username or password",
         )
 
-    _set_auth_cookies(response, user.username)
-    return user
+    access_token, refresh_token = _set_auth_cookies(response, user.username)
+
+    return AuthResponse(
+        id=user.id,
+        username=user.username,
+        access_token=access_token,
+        refresh_token=refresh_token,
+    )
 
 
 @router.post("/logout", response_model=MessageResponse)
@@ -106,23 +141,33 @@ def logout(response: Response) -> MessageResponse:
     return MessageResponse(message="Logged out")
 
 
-@router.post("/refresh", response_model=MessageResponse)
+@router.post("/refresh", response_model=RefreshResponse)
 def refresh(
     response: Response,
-    refresh_token: str | None = Cookie(default=None, alias=REFRESH_TOKEN_COOKIE),
-) -> MessageResponse:
+    body: RefreshRequest | None = None,
+    refresh_token_cookie: str | None = Cookie(default=None, alias=REFRESH_TOKEN_COOKIE),
+) -> RefreshResponse:
     """Exchange a valid refresh token for a new access token.
 
-    The frontend calls this automatically when it gets a 401. The user
-    never sees this happen -- their session just continues seamlessly.
+    Accepts the refresh token from either:
+    - The request body (mobile clients): {"refresh_token": "..."}
+    - A cookie (web clients): automatically sent by the browser
+
+    Returns the new access token in the response body (for mobile) and
+    also sets it as a cookie (for web).
     """
-    if refresh_token is None:
+    # Try request body first (mobile), then cookie (web)
+    token = (
+        body.refresh_token if body and body.refresh_token else None
+    ) or refresh_token_cookie
+
+    if token is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="No refresh token",
         )
 
-    username = decode_token(refresh_token, expected_type="refresh")
+    username = decode_token(token, expected_type="refresh")
     if username is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -140,7 +185,7 @@ def refresh(
         path="/",
     )
 
-    return MessageResponse(message="Token refreshed")
+    return RefreshResponse(message="Token refreshed", access_token=new_access)
 
 
 @router.get("/me", response_model=UserResponse)

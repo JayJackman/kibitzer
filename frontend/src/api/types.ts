@@ -125,6 +125,8 @@ export interface PracticeState {
   proxy_seat: Seat | null;
   /** Whether there are bids that can be undone. */
   can_undo: boolean;
+  /** Rubber bridge scoring state (null until scoring is activated, helper mode only). */
+  scoring: RubberState | null;
 }
 
 /** Lightweight session info for the join UI and session lookup. */
@@ -228,4 +230,54 @@ export interface AuctionAnalysis {
   legal_bids: string[];
   /** Whose turn it is (null if auction is complete). */
   current_seat: Seat | null;
+}
+
+// --- Scoring types (rubber bridge) ---
+
+/** A single deal result in the rubber scoresheet. */
+export interface ScoringEntry {
+  id: number;
+  contract_level: number;
+  contract_suit: string;
+  declarer: Seat;
+  doubled: boolean;
+  redoubled: boolean;
+  /** Tricks taken by declarer (null = pending, awaiting input). */
+  tricks_taken: number | null;
+  /** Computed score fields (null when tricks_taken is pending). */
+  contract_points: number | null;
+  overtrick_points: number | null;
+  undertrick_points: number | null;
+  slam_bonus: number | null;
+  insult_bonus: number | null;
+  made: boolean | null;
+  /** "NS" or "EW" */
+  declarer_side: string;
+}
+
+/** One completed game within the rubber. */
+export interface GameState {
+  ns_below: number;
+  ew_below: number;
+  entry_ids: number[];
+}
+
+/** Full rubber bridge scoring state. */
+export interface RubberState {
+  entries: ScoringEntry[];
+  ns_games_won: number;
+  ew_games_won: number;
+  ns_above: number;
+  ew_above: number;
+  ns_below_current: number;
+  ew_below_current: number;
+  ns_vulnerable: boolean;
+  ew_vulnerable: boolean;
+  is_complete: boolean;
+  rubber_bonus: number;
+  ns_total: number;
+  ew_total: number;
+  games: GameState[];
+  /** ID of the first entry still awaiting tricks_taken input. */
+  pending_entry_id: number | null;
 }

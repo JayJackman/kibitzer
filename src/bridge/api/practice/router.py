@@ -1,6 +1,6 @@
 """Practice session API endpoints.
 
-Twelve endpoints for the practice workflow:
+Fifteen endpoints for the practice workflow:
 - POST   /api/practice              Create a new session
 - GET    /api/practice/join/{code}  Look up session by join code
 - GET    /api/practice/{id}         Get current session state
@@ -13,6 +13,9 @@ Twelve endpoints for the practice workflow:
 - GET    /api/practice/{id}/info    Lightweight session info (for join UI)
 - POST   /api/practice/{id}/join    Join a session at a specific seat
 - POST   /api/practice/{id}/leave   Leave a session
+- POST   /api/practice/{id}/scoring/entry       Add/update/insert a scoring entry
+- DELETE /api/practice/{id}/scoring/entry/{eid}  Remove a scoring entry
+- POST   /api/practice/{id}/scoring/new-rubber   Start a new rubber
 """
 
 from __future__ import annotations
@@ -22,7 +25,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from bridge.api.auth.models import User
 from bridge.api.deps import get_current_user
 from bridge.model.auction import IllegalBidError, Vulnerability
+from bridge.model.card import Suit
 from bridge.model.hand import Hand
+from bridge.scoring.rubber import RubberTracker
 
 from .schemas import (
     AdviceResponse,
@@ -33,9 +38,12 @@ from .schemas import (
     PlaceBidRequest,
     PracticeStateResponse,
     RedealRequest,
+    RubberStateResponse,
+    ScoringEntryRequest,
     SessionInfoResponse,
     SetHandRequest,
     serialize_practice_state,
+    serialize_rubber_state,
     serialize_session_info,
 )
 from .session import (
@@ -49,6 +57,7 @@ from .session import (
     PlayerNotFoundError,
     PracticeSession,
     SeatOccupiedError,
+    SessionMode,
 )
 from .state import create_session, get_session, get_session_by_code
 
@@ -384,3 +393,100 @@ def leave_session(
     """Leave a session (seat reverts to computer control)."""
     session.leave(user.id)
     return {"ok": True}
+
+
+# ── Scoring endpoints (helper mode only) ──────────────────────────
+
+
+def _ensure_rubber(session: PracticeSession) -> RubberTracker:
+    """Lazy-initialize the rubber tracker on first scoring use."""
+    if session.rubber is None:
+        if session.mode != SessionMode.HELPER:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "Scoring is only available in helper mode",
+            )
+        session.rubber = RubberTracker()
+    return session.rubber
+
+
+@router.post(
+    "/{session_id}/scoring/entry",
+    response_model=RubberStateResponse,
+)
+def scoring_entry(
+    body: ScoringEntryRequest,
+    session: PracticeSession = Depends(_require_seated),
+) -> RubberStateResponse:
+    """Add, update, or insert a scoring entry.
+
+    - If ``entry_id`` is set, updates that entry.
+    - If ``position`` is set (without ``entry_id``), inserts at that index.
+    - Otherwise, appends a new manual entry at the end.
+    """
+    rubber = _ensure_rubber(session)
+    suit = Suit.from_letter(body.suit) if body.suit != "NT" else Suit.NOTRUMP
+
+    if body.entry_id is not None:
+        # Update existing entry.
+        try:
+            rubber.update_entry(
+                body.entry_id,
+                contract_level=body.level,
+                contract_suit=suit,
+                declarer=body.declarer,
+                doubled=body.doubled,
+                redoubled=body.redoubled,
+                tricks_taken=body.tricks_taken,
+            )
+        except KeyError:
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND,
+                f"No scoring entry with id {body.entry_id}",
+            ) from None
+    else:
+        # Add new entry (at position or appended).
+        rubber.add_entry(
+            contract_level=body.level,
+            contract_suit=suit,
+            declarer=body.declarer,
+            doubled=body.doubled,
+            redoubled=body.redoubled,
+            tricks_taken=body.tricks_taken,
+            position=body.position,
+        )
+
+    return serialize_rubber_state(rubber.get_state())
+
+
+@router.delete(
+    "/{session_id}/scoring/entry/{entry_id}",
+    response_model=RubberStateResponse,
+)
+def scoring_delete_entry(
+    entry_id: int,
+    session: PracticeSession = Depends(_require_seated),
+) -> RubberStateResponse:
+    """Remove a scoring entry by id."""
+    rubber = _ensure_rubber(session)
+    try:
+        rubber.remove_entry(entry_id)
+    except KeyError:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            f"No scoring entry with id {entry_id}",
+        ) from None
+    return serialize_rubber_state(rubber.get_state())
+
+
+@router.post(
+    "/{session_id}/scoring/new-rubber",
+    response_model=RubberStateResponse,
+)
+def scoring_new_rubber(
+    session: PracticeSession = Depends(_require_seated),
+) -> RubberStateResponse:
+    """Start a new rubber (resets all scoring state)."""
+    rubber = _ensure_rubber(session)
+    rubber.new_rubber()
+    return serialize_rubber_state(rubber.get_state())

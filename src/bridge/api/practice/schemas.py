@@ -9,12 +9,13 @@ needed for leaf-level models.
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, BeforeValidator, Field
 
 from bridge.model.auction import AuctionState, Seat
 from bridge.model.hand import Hand
+from bridge.scoring.rubber import RubberState, ScoredEntry
 
 from .session import PracticeSession, PracticeState, SessionMode
 
@@ -308,6 +309,76 @@ class PracticeStateResponse(BaseModel):
     can_proxy_bid: bool = False
     proxy_seat: str | None = None
     can_undo: bool = False
+    scoring: RubberStateResponse | None = None
+
+
+# ── Scoring schemas ───────────────────────────────────────────────
+
+
+class ScoringEntryRequest(BaseModel):
+    """POST /api/practice/{id}/scoring/entry request body.
+
+    If ``entry_id`` is set, updates that existing entry.
+    If ``position`` is set (without ``entry_id``), inserts at that index.
+    Otherwise, appends a new manual entry.
+    """
+
+    entry_id: int | None = None
+    position: int | None = None
+    level: int = Field(ge=1, le=7)
+    suit: Literal["C", "D", "H", "S", "NT"]
+    declarer: SeatInput
+    doubled: bool = False
+    redoubled: bool = False
+    tricks_taken: int | None = Field(default=None, ge=0, le=13)
+
+
+class ScoringEntryResponse(BaseModel):
+    """A single deal result in the scoresheet."""
+
+    id: int
+    contract_level: int
+    contract_suit: str
+    declarer: str
+    doubled: bool
+    redoubled: bool
+    tricks_taken: int | None
+    # Computed score breakdown (null if tricks_taken is pending).
+    contract_points: int | None = None
+    overtrick_points: int | None = None
+    undertrick_points: int | None = None
+    slam_bonus: int | None = None
+    insult_bonus: int | None = None
+    made: bool | None = None
+    declarer_side: str
+
+
+class GameStateResponse(BaseModel):
+    """One completed game within the rubber."""
+
+    ns_below: int
+    ew_below: int
+    entry_ids: list[int]
+
+
+class RubberStateResponse(BaseModel):
+    """Full rubber state for the scoring sheet."""
+
+    entries: list[ScoringEntryResponse]
+    ns_games_won: int
+    ew_games_won: int
+    ns_above: int
+    ew_above: int
+    ns_below_current: int
+    ew_below_current: int
+    ns_vulnerable: bool
+    ew_vulnerable: bool
+    is_complete: bool
+    rubber_bonus: int
+    ns_total: int
+    ew_total: int
+    games: list[GameStateResponse]
+    pending_entry_id: int | None
 
 
 # ── Serialization helpers ─────────────────────────────────────────
@@ -413,6 +484,59 @@ def serialize_practice_state(
         can_proxy_bid=state.can_proxy_bid,
         proxy_seat=str(state.proxy_seat) if state.proxy_seat is not None else None,
         can_undo=state.can_undo,
+        scoring=(
+            serialize_rubber_state(state.scoring) if state.scoring is not None else None
+        ),
+    )
+
+
+def _serialize_scored_entry(se: ScoredEntry) -> ScoringEntryResponse:
+    """Convert a ScoredEntry (entry + computed DealScore) to API shape."""
+    e = se.entry
+    s = se.score
+    return ScoringEntryResponse(
+        id=e.id,
+        contract_level=e.contract_level,
+        contract_suit=e.contract_suit.letter,
+        declarer=str(e.declarer),
+        doubled=e.doubled,
+        redoubled=e.redoubled,
+        tricks_taken=e.tricks_taken,
+        contract_points=s.contract_points if s else None,
+        overtrick_points=s.overtrick_points if s else None,
+        undertrick_points=s.undertrick_points if s else None,
+        slam_bonus=s.slam_bonus if s else None,
+        insult_bonus=s.insult_bonus if s else None,
+        made=s.made if s else None,
+        declarer_side=str(se.declarer_side),
+    )
+
+
+def serialize_rubber_state(state: RubberState) -> RubberStateResponse:
+    """Convert a RubberState to the API response shape."""
+    return RubberStateResponse(
+        entries=[_serialize_scored_entry(se) for se in state.entries],
+        ns_games_won=state.ns_games_won,
+        ew_games_won=state.ew_games_won,
+        ns_above=state.ns_above,
+        ew_above=state.ew_above,
+        ns_below_current=state.ns_below_current,
+        ew_below_current=state.ew_below_current,
+        ns_vulnerable=state.ns_vulnerable,
+        ew_vulnerable=state.ew_vulnerable,
+        is_complete=state.is_complete,
+        rubber_bonus=state.rubber_bonus,
+        ns_total=state.ns_total,
+        ew_total=state.ew_total,
+        games=[
+            GameStateResponse(
+                ns_below=g.ns_below,
+                ew_below=g.ew_below,
+                entry_ids=g.entry_ids,
+            )
+            for g in state.games
+        ],
+        pending_entry_id=state.pending_entry_id,
     )
 
 

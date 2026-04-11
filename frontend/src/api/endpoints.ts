@@ -16,6 +16,7 @@ import type {
   BidAnalysis,
   BidFeedback,
   PracticeState,
+  RubberState,
   Seat,
   SessionInfo,
   SessionMode,
@@ -293,5 +294,57 @@ export async function analyzeAuction(
     vulnerability,
     bids,
   });
+  return response.data;
+}
+
+// --- Scoring endpoints (rubber bridge) ---
+
+/**
+ * Add, update, or insert a scoring entry.
+ * If entry_id is set, updates that entry. If position is set, inserts there.
+ * Otherwise appends a new manual entry.
+ */
+export async function submitScoringEntry(
+  sessionId: string,
+  entry: {
+    entry_id?: number;
+    position?: number;
+    level: number;
+    suit: string;
+    declarer: Seat;
+    doubled: boolean;
+    redoubled: boolean;
+    tricks_taken?: number | null;
+  },
+): Promise<RubberState> {
+  const response = await api.post<RubberState>(
+    `/practice/${sessionId}/scoring/entry`,
+    entry,
+  );
+  return response.data;
+}
+
+/**
+ * Remove a scoring entry by id.
+ */
+export async function deleteScoringEntry(
+  sessionId: string,
+  entryId: number,
+): Promise<RubberState> {
+  const response = await api.delete<RubberState>(
+    `/practice/${sessionId}/scoring/entry/${entryId}`,
+  );
+  return response.data;
+}
+
+/**
+ * Start a new rubber (resets all scoring state).
+ */
+export async function startNewRubber(
+  sessionId: string,
+): Promise<RubberState> {
+  const response = await api.post<RubberState>(
+    `/practice/${sessionId}/scoring/new-rubber`,
+  );
   return response.data;
 }

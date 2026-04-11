@@ -42,6 +42,13 @@ class Seat(IntEnum):
     def __str__(self) -> str:
         return self.name[0]
 
+    @property
+    def side(self) -> Side:
+        """The partnership this seat belongs to."""
+        if self in (Seat.NORTH, Seat.SOUTH):
+            return Side.NS
+        return Side.EW
+
     @classmethod
     def from_str(cls, text: str) -> Seat:
         """Parse a seat name: 'N', 'North', 'north', etc."""
@@ -50,6 +57,17 @@ class Seat(IntEnum):
             if text == seat.name or text == seat.name[0]:
                 return seat
         raise ValueError(f"Invalid seat: {text!r}")
+
+
+@unique
+class Side(IntEnum):
+    """The two partnerships at a bridge table."""
+
+    NS = 0
+    EW = 1
+
+    def __str__(self) -> str:
+        return self.name
 
 
 @dataclass(frozen=True)

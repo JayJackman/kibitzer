@@ -31,6 +31,7 @@ from bridge.model.auction import (
 from bridge.model.bid import Bid, SuitBid, parse_bid
 from bridge.model.card import Card, Suit
 from bridge.model.hand import Hand
+from bridge.scoring.rubber import RubberState, RubberTracker
 from bridge.service.advisor import BiddingAdvisor
 from bridge.service.deal import deal
 from bridge.service.models import BiddingAdvice, HandEvaluation
@@ -90,6 +91,7 @@ class PracticeState:
     can_proxy_bid: bool
     proxy_seat: Seat | None
     can_undo: bool
+    scoring: RubberState | None
 
 
 _ALL_VULNERABILITIES = [
@@ -234,6 +236,9 @@ class PracticeSession:
         self._last_computer_bids: list[ComputerBidRecord] = self._run_computer_bids()
         self._last_feedback: BidResult | None = None
 
+        # Rubber bridge scoring (helper mode only, lazy-initialized).
+        self.rubber: RubberTracker | None = None
+
         # Track how many bids were placed before the first human turn.
         # Undo/reset never go past this point -- these initial computer
         # bids are the "starting position" of the hand.
@@ -377,6 +382,7 @@ class PracticeSession:
             can_proxy_bid=can_proxy,
             proxy_seat=proxy_seat,
             can_undo=self.can_undo,
+            scoring=self.rubber.get_state() if self.rubber else None,
         )
 
     def place_bid(
@@ -442,6 +448,15 @@ class PracticeSession:
         computer_bids = self._run_computer_bids()
         self._last_computer_bids = computer_bids
 
+        # Auto-populate scoring entry when auction completes in helper mode.
+        if (
+            self.rubber is not None
+            and self.auction.is_complete
+            and self.auction.contract is not None
+            and not self.auction.contract.passed_out
+        ):
+            self.rubber.auto_populate_contract(self.auction.contract)
+
         result = BidResult(
             matched_engine=matched,
             engine_bid=str(engine_bid) if engine_bid is not None else "",
@@ -479,13 +494,16 @@ class PracticeSession:
 
         if self.mode == SessionMode.HELPER:
             self.hands = {s: None for s in Seat}
+            # Determine vulnerability: explicit override > rubber state > previous.
+            if vulnerability is not None:
+                vuln = vulnerability
+            elif self.rubber is not None:
+                vuln = self.rubber.current_vulnerability()
+            else:
+                vuln = self.auction.vulnerability
             self.auction = AuctionState(
                 dealer=dealer if dealer is not None else next_dealer,
-                vulnerability=(
-                    vulnerability
-                    if vulnerability is not None
-                    else self.auction.vulnerability
-                ),
+                vulnerability=vuln,
             )
         else:
             self.hands = dict[Seat, Hand | None](deal(rng=self._rng))
